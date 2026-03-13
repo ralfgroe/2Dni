@@ -59,20 +59,73 @@ export function geoToPaperPath(geo) {
         );
       }
       const x = geo.x || 0, y = geo.y || 0, w = geo.width, h = geo.height;
+      const k = 0.5522847498;
       const path = new paper.Path();
-      path.add(new paper.Point(x + tl, y));
-      path.lineTo(new paper.Point(x + w - tr, y));
-      if (tr > 0) path.arcTo(new paper.Point(x + w, y + tr), false);
-      else path.lineTo(new paper.Point(x + w, y));
-      path.lineTo(new paper.Point(x + w, y + h - br));
-      if (br > 0) path.arcTo(new paper.Point(x + w - br, y + h), false);
-      else path.lineTo(new paper.Point(x + w, y + h));
-      path.lineTo(new paper.Point(x + bl, y + h));
-      if (bl > 0) path.arcTo(new paper.Point(x, y + h - bl), false);
-      else path.lineTo(new paper.Point(x, y + h));
-      path.lineTo(new paper.Point(x, y + tl));
-      if (tl > 0) path.arcTo(new paper.Point(x + tl, y), false);
-      else path.lineTo(new paper.Point(x, y));
+
+      // Top-left corner
+      if (tl > 0) {
+        path.add(new paper.Segment(
+          new paper.Point(x, y + tl),
+          null,
+          new paper.Point(0, -tl * k)
+        ));
+        path.add(new paper.Segment(
+          new paper.Point(x + tl, y),
+          new paper.Point(-tl * k, 0),
+          null
+        ));
+      } else {
+        path.add(new paper.Point(x, y));
+      }
+
+      // Top-right corner
+      if (tr > 0) {
+        path.add(new paper.Segment(
+          new paper.Point(x + w - tr, y),
+          null,
+          new paper.Point(tr * k, 0)
+        ));
+        path.add(new paper.Segment(
+          new paper.Point(x + w, y + tr),
+          new paper.Point(0, -tr * k),
+          null
+        ));
+      } else {
+        path.add(new paper.Point(x + w, y));
+      }
+
+      // Bottom-right corner
+      if (br > 0) {
+        path.add(new paper.Segment(
+          new paper.Point(x + w, y + h - br),
+          null,
+          new paper.Point(0, br * k)
+        ));
+        path.add(new paper.Segment(
+          new paper.Point(x + w - br, y + h),
+          new paper.Point(br * k, 0),
+          null
+        ));
+      } else {
+        path.add(new paper.Point(x + w, y + h));
+      }
+
+      // Bottom-left corner
+      if (bl > 0) {
+        path.add(new paper.Segment(
+          new paper.Point(x + bl, y + h),
+          null,
+          new paper.Point(-bl * k, 0)
+        ));
+        path.add(new paper.Segment(
+          new paper.Point(x, y + h - bl),
+          new paper.Point(0, bl * k),
+          null
+        ));
+      } else {
+        path.add(new paper.Point(x, y + h));
+      }
+
       path.closePath();
       return path;
     }
