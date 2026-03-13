@@ -1,0 +1,21 @@
+{
+  "id": "polygon",
+  "label": "Polygon",
+  "category": "Geometry",
+  "description": "Creates a regular polygon with a configurable number of sides.",
+  "inputs": [],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "sides", "label": "Sides", "type": "number", "default": 6, "min": 3, "max": 16 },
+    { "id": "size", "label": "Size", "type": "number", "default": 100, "min": 1, "max": 500 },
+    { "id": "rotation", "label": "Rotation", "type": "number", "default": 0, "min": -360, "max": 360 },
+    { "id": "x", "label": "X", "type": "number", "default": 0, "min": -500, "max": 500 },
+    { "id": "y", "label": "Y", "type": "number", "default": 0, "min": -500, "max": 500 },
+    { "id": "fill_color", "label": "Fill Color", "type": "color", "default": "#ffffff" },
+    { "id": "stroke_color", "label": "Stroke Color", "type": "color", "default": "#000000" },
+    { "id": "stroke_width", "label": "Stroke Width", "type": "number", "default": 1, "min": 0, "max": 20 }
+  ],
+  "runtime": "polygon"
+}

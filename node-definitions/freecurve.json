@@ -1,0 +1,17 @@
+{
+  "id": "freecurve",
+  "label": "Free Curve",
+  "category": "Geometry",
+  "description": "Draw a chain of lines interactively in the viewport by clicking to place points. Hold Shift to constrain to horizontal or vertical.",
+  "inputs": [],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "points_data", "label": "Points", "type": "text", "default": "[]" },
+    { "id": "closed", "label": "Close Path", "type": "boolean", "default": false },
+    { "id": "stroke_color", "label": "Stroke Color", "type": "color", "default": "#000000" },
+    { "id": "stroke_width", "label": "Stroke Width", "type": "number", "default": 2, "min": 0.5, "max": 20 }
+  ],
+  "runtime": "freecurve"
+}

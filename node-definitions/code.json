@@ -1,0 +1,16 @@
+{
+  "id": "code",
+  "label": "Code (Wrangle)",
+  "category": "Utility",
+  "description": "Manipulate geometry via JavaScript code with access to the geometry API.",
+  "inputs": [
+    { "id": "geometry_in", "label": "Geometry In", "type": "any", "required": false }
+  ],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "any" }
+  ],
+  "parameters": [
+    { "id": "code", "label": "Code", "type": "code", "default": "// Access input geometry via `input`\n// Return modified geometry\nreturn input;" }
+  ],
+  "runtime": "code"
+}

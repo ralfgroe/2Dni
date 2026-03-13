@@ -1,0 +1,16 @@
+{
+  "id": "offset",
+  "label": "Offset",
+  "category": "Geometry",
+  "description": "Offsets incoming lines and curves by a specified distance, creating parallel geometry.",
+  "inputs": [
+    { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }
+  ],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "distance", "label": "Distance", "type": "number", "default": 10, "min": -200, "max": 200 }
+  ],
+  "runtime": "offset"
+}

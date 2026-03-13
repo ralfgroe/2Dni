@@ -1,0 +1,15 @@
+{
+  "id": "merge",
+  "label": "Merge",
+  "category": "Geometry",
+  "description": "Combines two geometry inputs into a single group for display, without joining or modifying them.",
+  "inputs": [
+    { "id": "geometry_a", "label": "Geometry A", "type": "geometry" },
+    { "id": "geometry_b", "label": "Geometry B", "type": "geometry" }
+  ],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [],
+  "runtime": "merge"
+}

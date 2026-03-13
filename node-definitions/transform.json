@@ -1,0 +1,23 @@
+{
+  "id": "transform",
+  "label": "Transform",
+  "category": "Transform",
+  "description": "Applies translate, rotate, and scale transformations to incoming geometry.",
+  "inputs": [
+    { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }
+  ],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "translate_x", "label": "Translate X", "type": "number", "default": 0, "min": -500, "max": 500 },
+    { "id": "translate_y", "label": "Translate Y", "type": "number", "default": 0, "min": -500, "max": 500 },
+    { "id": "rotate", "label": "Rotate", "type": "number", "default": 0, "min": -360, "max": 360 },
+    { "id": "scale", "label": "Scale", "type": "number", "default": 1, "min": 0.01, "max": 10 },
+    { "id": "scale_x", "label": "Scale X", "type": "number", "default": 1, "min": 0.01, "max": 10 },
+    { "id": "scale_y", "label": "Scale Y", "type": "number", "default": 1, "min": 0.01, "max": 10 },
+    { "id": "pivot_x", "label": "Pivot X", "type": "number", "default": 0, "min": -500, "max": 500 },
+    { "id": "pivot_y", "label": "Pivot Y", "type": "number", "default": 0, "min": -500, "max": 500 }
+  ],
+  "runtime": "transform"
+}

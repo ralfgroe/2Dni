@@ -1,0 +1,18 @@
+{
+  "id": "color",
+  "label": "Color",
+  "category": "Appearance",
+  "description": "Sets the fill color, stroke color, and stroke width of incoming geometry.",
+  "inputs": [
+    { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }
+  ],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "fill_color", "label": "Fill Color", "type": "color", "default": "#ffffff" },
+    { "id": "stroke_color", "label": "Stroke Color", "type": "color", "default": "#000000" },
+    { "id": "stroke_width", "label": "Stroke Width", "type": "number", "default": 1, "min": 0, "max": 50 }
+  ],
+  "runtime": "color"
+}

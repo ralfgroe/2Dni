@@ -1,0 +1,17 @@
+{
+  "id": "boolean",
+  "label": "Boolean",
+  "category": "Geometry",
+  "description": "Combines or subtracts two geometry inputs using boolean path operations.",
+  "inputs": [
+    { "id": "geometry_a", "label": "Geometry A", "type": "geometry", "required": true },
+    { "id": "geometry_b", "label": "Geometry B", "type": "geometry", "required": true }
+  ],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "operation", "label": "Operation", "type": "select", "default": "union", "options": ["union", "subtract", "intersect", "exclude"] }
+  ],
+  "runtime": "boolean"
+}

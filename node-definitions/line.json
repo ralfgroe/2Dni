@@ -1,0 +1,17 @@
+{
+  "id": "line",
+  "label": "Line",
+  "category": "Geometry",
+  "description": "Creates a straight line with configurable length, angle, weight, and color.",
+  "inputs": [],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "length", "label": "Length", "type": "number", "default": 200, "min": 1, "max": 4000 },
+    { "id": "angle", "label": "Angle", "type": "number", "default": 0, "min": 0, "max": 360 },
+    { "id": "stroke_color", "label": "Color", "type": "color", "default": "#000000" },
+    { "id": "stroke_width", "label": "Line Weight", "type": "number", "default": 2, "min": 0.5, "max": 100 }
+  ],
+  "runtime": "line"
+}

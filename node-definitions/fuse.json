@@ -1,0 +1,16 @@
+{
+  "id": "fuse",
+  "label": "Fuse",
+  "category": "Geometry",
+  "description": "Snaps nearby endpoints together and joins separate paths into continuous geometry. Useful for preparing geometry for the Radius node.",
+  "inputs": [
+    { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }
+  ],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "distance", "label": "Snap Distance", "type": "number", "default": 5, "min": 0, "max": 200 }
+  ],
+  "runtime": "fuse"
+}

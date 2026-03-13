@@ -1,0 +1,203 @@
+/* react-resizable-panels overrides */
+[data-panel-group-direction="horizontal"] > [data-panel-resize-handle-id] {
+  transition: background-color 150ms;
+}
+[data-panel-group-direction="vertical"] > [data-panel-resize-handle-id] {
+  transition: background-color 150ms;
+}
+
+/* React Flow theme overrides */
+.nodegraph-flow .react-flow__pane {
+  cursor: default;
+}
+
+/* ========================================
+   Houdini-Style Node
+   ======================================== */
+
+.graph-node-houdini {
+  position: relative;
+  border-radius: 16px;
+  border: 3px solid #1a1a2e;
+  background: #ffffff;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+  transition: border-color 150ms, box-shadow 150ms;
+  overflow: visible;
+}
+
+.graph-node-houdini.selected {
+  border-color: #339af0;
+  box-shadow: 0 0 0 4px rgba(51, 154, 240, 0.25), 0 2px 12px rgba(0, 0, 0, 0.15);
+}
+
+.graph-node-houdini.bypassed {
+  opacity: 0.5;
+}
+
+.graph-node-body-houdini {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0;
+  height: 44px;
+  overflow: hidden;
+  border-radius: 13px;
+}
+
+/* Node title — center area */
+.graph-node-title {
+  flex: 1;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a2e;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 10px;
+  user-select: none;
+  letter-spacing: 0.01em;
+}
+
+/* ========================================
+   Flags (Bypass, Template & Display)
+   ======================================== */
+
+.graph-flag {
+  width: 22px;
+  height: 100%;
+  border: none;
+  cursor: pointer;
+  transition: background-color 150ms;
+  flex-shrink: 0;
+}
+
+.graph-flag:hover {
+  filter: brightness(1.15);
+}
+
+/* Bypass flag — left side */
+.bypass-flag {
+  background-color: #e9ecef;
+  border-radius: 13px 0 0 13px;
+}
+
+.bypass-flag.active {
+  background-color: #fab005;
+}
+
+/* Template flag — next to bypass */
+.template-flag {
+  background-color: #e9ecef;
+  border-radius: 0;
+}
+
+.template-flag.active {
+  background-color: #e599f7;
+}
+
+/* Display flag — right side */
+.display-flag {
+  background-color: #e9ecef;
+  border-radius: 0 13px 13px 0;
+}
+
+.display-flag.active {
+  background-color: #22b8cf;
+}
+
+/* ========================================
+   Ports — top (inputs) and bottom (outputs)
+   ======================================== */
+
+.graph-port-top {
+  width: 16px !important;
+  height: 16px !important;
+  border: 3px solid #1a1a2e !important;
+  top: -8px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  background: #339af0 !important;
+}
+
+.graph-port-top-extra {
+  width: 12px !important;
+  height: 12px !important;
+  border: 2.5px solid #1a1a2e !important;
+  top: -6px !important;
+  transform: translateX(-50%) !important;
+  background: #ffffff !important;
+}
+
+.graph-port-bottom {
+  width: 16px !important;
+  height: 16px !important;
+  border: 3px solid #1a1a2e !important;
+  bottom: -8px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  background: #339af0 !important;
+}
+
+/* ========================================
+   React Flow Controls & Minimap
+   ======================================== */
+
+.nodegraph-controls {
+  background: var(--bg-panel) !important;
+  border: 1px solid var(--border-primary) !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+
+.nodegraph-controls button {
+  background: var(--bg-panel) !important;
+  border-color: var(--border-primary) !important;
+  color: var(--text-secondary) !important;
+  fill: var(--text-secondary) !important;
+}
+
+.nodegraph-controls button:hover {
+  background: var(--bg-tertiary) !important;
+}
+
+.nodegraph-controls button svg {
+  fill: var(--text-secondary) !important;
+}
+
+.nodegraph-minimap {
+  background-color: var(--bg-secondary) !important;
+  border: 1px solid var(--border-primary) !important;
+  border-radius: 8px !important;
+}
+
+/* ========================================
+   Edges & Selection
+   ======================================== */
+
+.react-flow__edge-path {
+  stroke: #339af0 !important;
+  stroke-width: 3px;
+  cursor: pointer;
+}
+
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: #4263eb !important;
+  stroke-width: 3px;
+  filter: drop-shadow(0 0 4px rgba(66, 99, 235, 0.7)) drop-shadow(0 0 8px rgba(66, 99, 235, 0.4));
+}
+
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke-width: 3px;
+  filter: drop-shadow(0 0 3px rgba(66, 99, 235, 0.5));
+}
+
+.react-flow__connection-line {
+  stroke: #339af0 !important;
+  stroke-width: 3px !important;
+}
+
+.react-flow__selection {
+  border: 1px solid var(--accent) !important;
+  background: rgba(76, 110, 245, 0.1) !important;
+}

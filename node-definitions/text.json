@@ -1,0 +1,49 @@
+{
+  "id": "text",
+  "label": "Text",
+  "category": "Geometry",
+  "description": "Creates vector text using system fonts with configurable style properties.",
+  "inputs": [],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "content", "label": "Text", "type": "text", "default": "Hello" },
+    { "id": "font_family", "label": "Font", "type": "select", "default": "Arial", "options": [
+      "Arial",
+      "Helvetica",
+      "Times New Roman",
+      "Georgia",
+      "Garamond",
+      "Courier New",
+      "Verdana",
+      "Tahoma",
+      "Trebuchet MS",
+      "Impact",
+      "Comic Sans MS",
+      "Palatino Linotype",
+      "Lucida Console",
+      "Lucida Sans Unicode",
+      "Gill Sans",
+      "Century Gothic",
+      "Segoe UI",
+      "Calibri",
+      "Cambria",
+      "Consolas",
+      "Franklin Gothic Medium",
+      "Futura",
+      "Rockwell",
+      "Candara"
+    ]},
+    { "id": "font_size", "label": "Font Size", "type": "number", "default": 48, "min": 1, "max": 500 },
+    { "id": "font_weight", "label": "Weight", "type": "select", "default": "400", "options": ["100", "200", "300", "400", "500", "600", "700", "800", "900"] },
+    { "id": "font_style", "label": "Style", "type": "select", "default": "normal", "options": ["normal", "italic"] },
+    { "id": "letter_spacing", "label": "Letter Spacing", "type": "number", "default": 0, "min": -20, "max": 50 },
+    { "id": "text_align", "label": "Align", "type": "select", "default": "left", "options": ["left", "center", "right"] },
+    { "id": "fill_color", "label": "Fill Color", "type": "color", "default": "#000000" },
+    { "id": "stroke_color", "label": "Stroke Color", "type": "color", "default": "#000000" },
+    { "id": "stroke_width", "label": "Stroke Width", "type": "number", "default": 0, "min": 0, "max": 20 },
+    { "id": "to_outlines", "label": "Convert to Outlines", "type": "boolean", "default": false }
+  ],
+  "runtime": "text"
+}

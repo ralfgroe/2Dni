@@ -1,0 +1,17 @@
+{
+  "id": "radius",
+  "label": "Radius",
+  "category": "Geometry",
+  "description": "Rounds selected points or corners of incoming geometry by a given radius.",
+  "inputs": [
+    { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }
+  ],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "radius", "label": "Radius", "type": "number", "default": 10, "min": 0, "max": 1000 },
+    { "id": "point_selection", "label": "Point Selection", "type": "text", "default": "" }
+  ],
+  "runtime": "radius"
+}

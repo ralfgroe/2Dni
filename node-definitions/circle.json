@@ -1,0 +1,24 @@
+{
+  "id": "circle",
+  "label": "Circle",
+  "category": "Geometry",
+  "description": "Creates a circle, ellipse, or arc with configurable dimensions and sweep angle.",
+  "inputs": [],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "diameter", "label": "Diameter", "type": "number", "default": 100, "min": 1, "max": 400 },
+    { "id": "separate_xy", "label": "Separate X/Y", "type": "boolean", "default": false },
+    { "id": "diameter_x", "label": "Diameter X", "type": "number", "default": 100, "min": 1, "max": 400 },
+    { "id": "diameter_y", "label": "Diameter Y", "type": "number", "default": 100, "min": 1, "max": 400 },
+    { "id": "arc_start", "label": "Arc Start", "type": "number", "default": 0, "min": 0, "max": 360 },
+    { "id": "arc_end", "label": "Arc End", "type": "number", "default": 360, "min": 0, "max": 360 },
+    { "id": "x", "label": "X Position", "type": "number", "default": 0, "min": -500, "max": 500 },
+    { "id": "y", "label": "Y Position", "type": "number", "default": 0, "min": -500, "max": 500 },
+    { "id": "fill_color", "label": "Fill Color", "type": "color", "default": "#ffffff" },
+    { "id": "stroke_color", "label": "Stroke Color", "type": "color", "default": "#000000" },
+    { "id": "stroke_width", "label": "Stroke Width", "type": "number", "default": 1, "min": 0, "max": 100 }
+  ],
+  "runtime": "circle"
+}

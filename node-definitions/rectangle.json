@@ -1,0 +1,22 @@
+{
+  "id": "rectangle",
+  "label": "Rectangle",
+  "category": "Geometry",
+  "description": "Creates a 2D rectangle with configurable size, fill, and stroke.",
+  "inputs": [
+    { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": false }
+  ],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "width", "label": "Width", "type": "number", "default": 200, "min": 1, "max": 4000 },
+    { "id": "height", "label": "Height", "type": "number", "default": 100, "min": 1, "max": 4000 },
+    { "id": "x", "label": "X Position", "type": "number", "default": 0, "min": -500, "max": 500 },
+    { "id": "y", "label": "Y Position", "type": "number", "default": 0, "min": -500, "max": 500 },
+    { "id": "fill_color", "label": "Fill Color", "type": "color", "default": "#ffffff" },
+    { "id": "stroke_color", "label": "Stroke Color", "type": "color", "default": "#000000" },
+    { "id": "stroke_width", "label": "Stroke Width", "type": "number", "default": 1, "min": 0, "max": 100 }
+  ],
+  "runtime": "rectangle"
+}
