@@ -14,6 +14,8 @@ import { fuseRuntime } from '../nodes/fuse';
 import { offsetRuntime } from '../nodes/offset';
 import { freecurveRuntime } from '../nodes/freecurve';
 import { bezierRuntime } from '../nodes/bezier';
+import { copymoveRuntime } from '../nodes/copymove';
+import { copyrotateRuntime } from '../nodes/copyrotate';
 
 const runtimeMap = {
   line: lineRuntime,
@@ -32,6 +34,8 @@ const runtimeMap = {
   offset: offsetRuntime,
   freecurve: freecurveRuntime,
   bezier: bezierRuntime,
+  copymove: copymoveRuntime,
+  copyrotate: copyrotateRuntime,
 };
 
 export function getRuntime(runtimeId) {

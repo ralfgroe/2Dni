@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
-import { useThemeStore } from './store/themeStore';
 import { useNodeRegistryStore } from './store/nodeRegistryStore';
 import Toolbar from './components/ui/Toolbar';
 import Viewport from './components/viewport/Viewport';
@@ -29,13 +28,8 @@ function ResizeHandle({ direction = 'horizontal' }) {
 }
 
 export default function App() {
-  const theme = useThemeStore((s) => s.theme);
   const loadDefinitions = useNodeRegistryStore((s) => s.loadDefinitions);
   const loaded = useNodeRegistryStore((s) => s.loaded);
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-  }, [theme]);
 
   useEffect(() => {
     if (!loaded) loadDefinitions();

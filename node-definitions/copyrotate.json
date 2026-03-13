@@ -1,0 +1,18 @@
+{
+  "id": "copyrotate",
+  "label": "Copy Rotate",
+  "category": "Transform",
+  "description": "Creates rotated copies of the input geometry evenly distributed around a pivot point.",
+  "inputs": [
+    { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }
+  ],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "copies", "label": "Copies", "type": "number", "default": 3, "min": 1, "max": 50 },
+    { "id": "pivot_x", "label": "Pivot X", "type": "number", "default": 0, "min": -500, "max": 500 },
+    { "id": "pivot_y", "label": "Pivot Y", "type": "number", "default": 0, "min": -500, "max": 500 }
+  ],
+  "runtime": "copyrotate"
+}

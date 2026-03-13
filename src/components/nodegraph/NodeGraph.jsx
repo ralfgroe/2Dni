@@ -11,7 +11,6 @@ import 'reactflow/dist/style.css';
 
 import { useGraphStore } from '../../store/graphStore';
 import { useNodeRegistryStore } from '../../store/nodeRegistryStore';
-import { useThemeStore } from '../../store/themeStore';
 import GraphNode from './GraphNode';
 import NodeSearchPalette from './NodeSearchPalette';
 import { getPortColor } from '../../utils/portColors';
@@ -24,8 +23,6 @@ export default function NodeGraph() {
   const [palette, setPalette] = useState(null);
   const mousePos = useRef({ x: 0, y: 0 });
   const pendingConnection = useRef(null);
-
-  const theme = useThemeStore((s) => s.theme);
 
   const nodes = useGraphStore((s) => s.nodes);
   const edges = useGraphStore((s) => s.edges);
@@ -358,7 +355,7 @@ export default function NodeGraph() {
         proOptions={{ hideAttribution: true }}
       >
         <Background
-          color={theme === 'dark' ? '#373a40' : '#dee2e6'}
+          color={'#dee2e6'}
           gap={20}
           size={1}
         />
@@ -375,7 +372,7 @@ export default function NodeGraph() {
             const firstOutput = def.outputs[0];
             return firstOutput ? getPortColor(firstOutput.type) : '#868e96';
           }}
-          maskColor={theme === 'dark' ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.6)'}
+          maskColor={'rgba(255,255,255,0.6)'}
         />
       </ReactFlow>
 
