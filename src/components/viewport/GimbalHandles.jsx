@@ -141,18 +141,6 @@ function renderRectHandles(geo, startDrag) {
   const { x, y, width, height } = geo;
   return (
     <g>
-      {/* Selection outline */}
-      <rect
-        x={x - 1}
-        y={y - 1}
-        width={width + 2}
-        height={height + 2}
-        fill="none"
-        stroke={HANDLE_COLOR}
-        strokeWidth={1}
-        strokeDasharray="4 2"
-        pointerEvents="none"
-      />
       {/* Move handle (top-left) */}
       <Handle x={x} y={y} cursor="move" onMouseDown={(e) => startDrag('move', e)} />
       {/* Right edge */}
@@ -180,20 +168,9 @@ function renderTransformHandles(geo, node, startDrag) {
 
 function renderBoundsHandles(geo, startDrag) {
   if (!geo.bounds) return null;
-  const { x, y, width, height } = geo.bounds;
+  const { x, y } = geo.bounds;
   return (
     <g>
-      <rect
-        x={x - 1}
-        y={y - 1}
-        width={width + 2}
-        height={height + 2}
-        fill="none"
-        stroke={HANDLE_COLOR}
-        strokeWidth={1}
-        strokeDasharray="4 2"
-        pointerEvents="none"
-      />
       <Handle x={x} y={y} cursor="move" onMouseDown={(e) => startDrag('move', e)} />
     </g>
   );

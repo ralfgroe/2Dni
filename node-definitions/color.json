@@ -10,9 +10,12 @@
     { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
   ],
   "parameters": [
+    { "id": "show_fill", "label": "Show Fill", "type": "boolean", "default": true },
     { "id": "fill_color", "label": "Fill Color", "type": "color", "default": "#ffffff" },
+    { "id": "show_stroke", "label": "Show Stroke", "type": "boolean", "default": true },
     { "id": "stroke_color", "label": "Stroke Color", "type": "color", "default": "#000000" },
-    { "id": "stroke_width", "label": "Stroke Width", "type": "number", "default": 1, "min": 0, "max": 50 }
+    { "id": "stroke_width", "label": "Stroke Width", "type": "number", "default": 1, "min": 0, "max": 50 },
+    { "id": "opacity", "label": "Transparency", "type": "number", "default": 100, "min": 0, "max": 100 }
   ],
   "runtime": "color"
 }

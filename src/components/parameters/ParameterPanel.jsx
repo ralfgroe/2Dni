@@ -27,22 +27,6 @@ export default function ParameterPanel() {
   if (!selectedNode || !definition) {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center bg-bg-primary px-4" style={{ position: 'relative' }}>
-        {nodes.length === 0 && (
-          <div
-            style={{
-              position: 'absolute', inset: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              pointerEvents: 'none',
-            }}
-          >
-            <img
-              src="/welcome-parameters.png"
-              alt=""
-              style={{ width: '367px', height: '367px', objectFit: 'contain' }}
-              draggable={false}
-            />
-          </div>
-        )}
         {nodes.length > 0 && (
           <>
             <span className="text-sm text-text-muted">No node selected</span>

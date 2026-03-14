@@ -152,4 +152,52 @@ export const useGraphStore = create((set, get) => ({
 
     return id;
   },
+
+  duplicateNodes: (nodeIds, offset = { x: 40, y: 40 }) => {
+    const { nodes, edges } = get();
+    const idMap = {};
+    const newNodes = [];
+
+    for (const oldId of nodeIds) {
+      const source = nodes.find((n) => n.id === oldId);
+      if (!source) continue;
+      const newId = `node_${nextNodeId++}`;
+      idMap[oldId] = newId;
+      newNodes.push({
+        id: newId,
+        type: source.type,
+        position: {
+          x: source.position.x + offset.x,
+          y: source.position.y + offset.y,
+        },
+        selected: true,
+        data: {
+          ...source.data,
+          params: { ...source.data.params },
+          bypassed: false,
+          templated: false,
+        },
+      });
+    }
+
+    const newEdges = [];
+    for (const edge of edges) {
+      if (idMap[edge.source] && idMap[edge.target]) {
+        newEdges.push({
+          ...edge,
+          id: `e_${idMap[edge.source]}_${edge.sourceHandle}_${idMap[edge.target]}_${edge.targetHandle}`,
+          source: idMap[edge.source],
+          target: idMap[edge.target],
+        });
+      }
+    }
+
+    const deselectedNodes = nodes.map(n => ({ ...n, selected: false }));
+
+    set((state) => ({
+      nodes: [...deselectedNodes, ...newNodes],
+      edges: [...state.edges, ...newEdges],
+      selectedNodeId: newNodes.length > 0 ? newNodes[newNodes.length - 1].id : state.selectedNodeId,
+    }));
+  },
 }));

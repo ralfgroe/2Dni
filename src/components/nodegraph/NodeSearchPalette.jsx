@@ -51,7 +51,7 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
         className="absolute z-50 w-56 rounded-lg border border-border-primary bg-bg-panel shadow-xl"
         style={{ left: position.x, top: position.y }}
       >
-        <div className="p-2">
+        <div style={{ padding: '8px 8px 8px 12px' }}>
           <input
             ref={inputRef}
             type="text"
@@ -62,7 +62,7 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
           />
         </div>
 
-        <div className="max-h-64 overflow-y-auto px-1 pb-1.5">
+        <div className="max-h-64 overflow-y-auto pb-1.5" style={{ paddingLeft: '12px', paddingRight: '4px' }}>
           {Object.keys(groupedFiltered).length === 0 && (
             <div className="px-2 py-3 text-center text-xs text-text-muted">
               No matching nodes
@@ -71,14 +71,14 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
 
           {Object.entries(groupedFiltered).map(([cat, defs]) => (
             <div key={cat}>
-              <div className="px-2 pt-2 pb-1 text-[10px] font-medium uppercase tracking-wider text-text-muted">
+              <div className="px-4 pt-2 pb-1 text-[10px] font-medium uppercase tracking-wider text-text-muted">
                 {cat}
               </div>
               {defs.map((def) => (
                 <button
                   key={def.id}
                   onClick={() => onSelect(def)}
-                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-text-secondary transition-colors hover:bg-accent hover:text-white"
+                  className="flex w-full items-center gap-2 rounded px-4 py-1.5 text-left text-xs text-text-secondary transition-colors hover:bg-accent hover:text-white"
                 >
                   <span className="font-medium">{def.label}</span>
                 </button>

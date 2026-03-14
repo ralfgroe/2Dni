@@ -264,23 +264,6 @@ export default function Viewport() {
           />
         )}
       </svg>
-
-      {nodes.length === 0 && (
-        <div
-          style={{
-            position: 'absolute', inset: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            pointerEvents: 'none',
-          }}
-        >
-          <img
-            src="/welcome-stage.png"
-            alt=""
-            style={{ width: '346px', height: '346px', objectFit: 'contain' }}
-            draggable={false}
-          />
-        </div>
-      )}
     </div>
   );
 }

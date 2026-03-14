@@ -7,10 +7,12 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
     onSelect(nodeId);
   };
 
+  const geoOpacity = geo.opacity != null ? geo.opacity : undefined;
+
   switch (geo.type) {
     case 'line':
       return (
-        <g key={nodeId} onClick={handleClick} className="cursor-pointer">
+        <g key={nodeId} onClick={handleClick} className="cursor-pointer" opacity={geoOpacity}>
           {isSelected && (
             <line
               x1={geo.x1}
@@ -47,6 +49,7 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
           fill={geo.fill}
           stroke={geo.stroke}
           strokeWidth={geo.strokeWidth}
+          opacity={geoOpacity}
           onClick={handleClick}
           className="cursor-pointer"
           filter={isSelected ? 'url(#selection-glow)' : undefined}
@@ -64,6 +67,7 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
           fill={geo.fill}
           stroke={geo.stroke}
           strokeWidth={geo.strokeWidth}
+          opacity={geoOpacity}
           onClick={handleClick}
           className="cursor-pointer"
           filter={isSelected ? 'url(#selection-glow)' : undefined}
@@ -78,6 +82,7 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
           fill={geo.fill}
           stroke={geo.stroke}
           strokeWidth={geo.strokeWidth}
+          opacity={geoOpacity}
           onClick={handleClick}
           className="cursor-pointer"
           filter={isSelected ? 'url(#selection-glow)' : undefined}
@@ -93,6 +98,7 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
           fill={geo.fill}
           stroke={geo.stroke}
           strokeWidth={geo.strokeWidth}
+          opacity={geoOpacity}
           onClick={handleClick}
           className="cursor-pointer"
           filter={isSelected ? 'url(#selection-glow)' : undefined}
@@ -175,6 +181,7 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
           fill={geo.fill}
           stroke={geo.stroke}
           strokeWidth={geo.strokeWidth}
+          opacity={geoOpacity}
           onClick={handleClick}
           className="cursor-pointer"
           filter={isSelected ? 'url(#selection-glow)' : undefined}

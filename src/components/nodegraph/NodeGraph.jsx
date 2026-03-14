@@ -3,6 +3,7 @@ import ReactFlow, {
   Background,
   Controls,
   MiniMap,
+  SelectionMode,
   addEdge as rfAddEdge,
   applyNodeChanges,
   applyEdgeChanges,
@@ -21,6 +22,7 @@ export default function NodeGraph() {
   const reactFlowWrapper = useRef(null);
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
   const [palette, setPalette] = useState(null);
+  const [showStartup, setShowStartup] = useState(true);
   const mousePos = useRef({ x: 0, y: 0 });
   const pendingConnection = useRef(null);
 
@@ -31,7 +33,7 @@ export default function NodeGraph() {
   const setEdges = useGraphStore((s) => s.setEdges);
   const selectNode = useGraphStore((s) => s.selectNode);
   const addNode = useGraphStore((s) => s.addNode);
-  const duplicateNode = useGraphStore((s) => s.duplicateNode);
+  const duplicateNodes = useGraphStore((s) => s.duplicateNodes);
 
   const getDefinition = useNodeRegistryStore((s) => s.getDefinition);
 
@@ -42,19 +44,18 @@ export default function NodeGraph() {
       nodes.map((n) => ({
         ...n,
         type: '_custom',
-        selected: n.id === selectedNodeId,
       })),
-    [nodes, selectedNodeId]
+    [nodes]
   );
 
   const onNodesChange = useCallback(
     (changes) => {
-      setNodes(applyNodeChanges(changes, nodes));
+      const updated = applyNodeChanges(changes, nodes);
+      setNodes(updated);
 
-      for (const change of changes) {
-        if (change.type === 'select' && change.selected) {
-          selectNode(change.id);
-        }
+      const selectChanges = changes.filter(c => c.type === 'select' && c.selected);
+      if (selectChanges.length > 0) {
+        selectNode(selectChanges[selectChanges.length - 1].id);
       }
     },
     [nodes, setNodes, selectNode]
@@ -175,6 +176,7 @@ export default function NodeGraph() {
           y: event.clientY,
         }) || { x: 0, y: 0 },
       });
+      setShowStartup(false);
     },
     [reactFlowInstance]
   );
@@ -184,15 +186,18 @@ export default function NodeGraph() {
       const isCtrlOrCmd = event.ctrlKey || event.metaKey;
 
       if (isCtrlOrCmd && event.key === 'c') {
-        if (selectedNodeId) {
-          clipboardRef.current = selectedNodeId;
+        const selectedIds = nodes.filter(n => n.selected).map(n => n.id);
+        if (selectedIds.length > 0) {
+          clipboardRef.current = selectedIds;
+        } else if (selectedNodeId) {
+          clipboardRef.current = [selectedNodeId];
         }
         return;
       }
 
       if (isCtrlOrCmd && event.key === 'v') {
-        if (clipboardRef.current) {
-          duplicateNode(clipboardRef.current);
+        if (clipboardRef.current && clipboardRef.current.length > 0) {
+          duplicateNodes(clipboardRef.current);
         }
         return;
       }
@@ -218,9 +223,10 @@ export default function NodeGraph() {
         }) || { x: 0, y: 0 };
 
         setPalette({ screen: screenPos, flow: flowPos, pendingConnection: pendingConnection.current || null });
+        setShowStartup(false);
       }
     },
-    [reactFlowInstance, selectedNodeId, duplicateNode]
+    [reactFlowInstance, selectedNodeId, nodes, duplicateNodes]
   );
 
   const isValidConnection = useCallback(
@@ -330,6 +336,7 @@ export default function NodeGraph() {
       className="relative h-full w-full"
       onKeyDown={handleKeyDown}
       onMouseMove={handleMouseMove}
+      onContextMenu={(e) => e.preventDefault()}
       tabIndex={0}
     >
       <ReactFlow
@@ -350,7 +357,10 @@ export default function NodeGraph() {
         defaultEdgeOptions={defaultEdgeOptions}
         edgesFocusable
         fitView={false}
-        deleteKeyCode="Delete"
+        deleteKeyCode={["Delete", "Backspace"]}
+        selectionOnDrag
+        panOnDrag={[1, 2]}
+        selectionMode={SelectionMode.Partial}
         className="nodegraph-flow"
         proOptions={{ hideAttribution: true }}
       >
@@ -384,7 +394,7 @@ export default function NodeGraph() {
         />
       )}
 
-      {nodes.length === 0 && (
+      {showStartup && nodes.length === 0 && (
         <div
           style={{
             position: 'absolute', inset: 0,
@@ -393,9 +403,9 @@ export default function NodeGraph() {
           }}
         >
           <img
-            src="/welcome-nodegraph.png"
-            alt=""
-            style={{ width: '389px', height: '389px', objectFit: 'contain' }}
+            src="/rightclick.svg"
+            alt="Right-click or press Tab to start"
+            style={{ width: '360px', objectFit: 'contain' }}
             draggable={false}
           />
         </div>
