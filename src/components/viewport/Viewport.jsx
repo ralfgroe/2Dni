@@ -8,6 +8,7 @@ import GimbalHandles from './GimbalHandles';
 import CornerPickOverlay from './CornerPickOverlay';
 import FreeCurveOverlay from './FreeCurveOverlay';
 import BezierOverlay from './BezierOverlay';
+import PointTransformOverlay from './PointTransformOverlay';
 
 export default function Viewport() {
   const svgRef = useRef(null);
@@ -139,7 +140,7 @@ export default function Viewport() {
     };
   }, [handleMouseDown, handleMouseMove, handleMouseUp]);
 
-  const handlePaneClick = useCallback(() => {
+  const handlePaneClick = useCallback((e) => {
     selectNode(null);
   }, [selectNode]);
 
@@ -282,6 +283,16 @@ export default function Viewport() {
           <BezierOverlay
             nodeId={selectedNode.id}
             screenToSvg={screenToSvg}
+            results={results}
+          />
+        )}
+
+        {/* Point Transform overlay */}
+        {selectedNode && selectedDef && selectedDef.id === 'pointtransform' && (
+          <PointTransformOverlay
+            nodeId={selectedNode.id}
+            screenToSvg={screenToSvg}
+            edges={edges}
             results={results}
           />
         )}

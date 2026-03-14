@@ -16,6 +16,7 @@ import { freecurveRuntime } from '../nodes/freecurve';
 import { bezierRuntime } from '../nodes/bezier';
 import { copymoveRuntime } from '../nodes/copymove';
 import { copyrotateRuntime } from '../nodes/copyrotate';
+import { pointtransformRuntime } from '../nodes/pointtransform';
 
 const runtimeMap = {
   line: lineRuntime,
@@ -36,6 +37,7 @@ const runtimeMap = {
   bezier: bezierRuntime,
   copymove: copymoveRuntime,
   copyrotate: copyrotateRuntime,
+  pointtransform: pointtransformRuntime,
 };
 
 export function getRuntime(runtimeId) {

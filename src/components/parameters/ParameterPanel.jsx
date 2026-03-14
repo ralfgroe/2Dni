@@ -80,6 +80,23 @@ export default function ParameterPanel() {
               />
             );
           }
+          if (definition.id === 'pointtransform' && paramDef.id === 'point_offsets') {
+            return null;
+          }
+          if (definition.id === 'pointtransform' && paramDef.id === 'scale_points') {
+            return null;
+          }
+          if (definition.id === 'pointtransform' && (paramDef.id === 'offset_x' || paramDef.id === 'offset_y')) {
+            return (
+              <PointOffsetSlider
+                key={paramDef.id}
+                paramDef={paramDef}
+                value={params[paramDef.id]}
+                nodeId={selectedNode.id}
+                params={params}
+              />
+            );
+          }
           return (
             <ParameterRow
               key={paramDef.id}
@@ -366,4 +383,70 @@ function parseCornerSelection(sel, sharpPoints = []) {
     if (!isNaN(idx) && sharpIndices.has(idx)) result.add(idx);
   }
   return result;
+}
+
+function PointOffsetSlider({ paramDef, value, nodeId, params }) {
+  const updateNodeParams = useGraphStore((s) => s.updateNodeParams);
+
+  const handleChange = (newValue) => {
+    const offsets = (() => {
+      try { return JSON.parse(params.point_offsets || '{}'); }
+      catch { return {}; }
+    })();
+
+    const hasAnyOffset = Object.keys(offsets).length > 0;
+    if (!hasAnyOffset) {
+      updateNodeParams(nodeId, { [paramDef.id]: newValue });
+      return;
+    }
+
+    const axis = paramDef.id === 'offset_x' ? 0 : 1;
+    const selectedIndices = Object.keys(offsets).filter(k => {
+      const off = offsets[k];
+      return off && (Math.abs(off[0] - (params.offset_x || 0)) < 0.01 &&
+                     Math.abs(off[1] - (params.offset_y || 0)) < 0.01);
+    });
+
+    if (selectedIndices.length > 0) {
+      const newOffsets = { ...offsets };
+      for (const idx of selectedIndices) {
+        if (!newOffsets[idx]) newOffsets[idx] = [0, 0];
+        newOffsets[idx] = [...newOffsets[idx]];
+        newOffsets[idx][axis] = newValue;
+      }
+      updateNodeParams(nodeId, {
+        [paramDef.id]: newValue,
+        point_offsets: JSON.stringify(newOffsets),
+      });
+    } else {
+      updateNodeParams(nodeId, { [paramDef.id]: newValue });
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="text-[11px] font-medium text-text-secondary">
+        {paramDef.label}
+      </label>
+      <div className="flex items-center gap-2">
+        <input
+          type="range"
+          min={paramDef.min ?? -500}
+          max={paramDef.max ?? 500}
+          step={0.01}
+          value={value ?? paramDef.default}
+          onChange={(e) => handleChange(parseFloat(e.target.value))}
+          className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-bg-tertiary accent-accent"
+        />
+        <input
+          type="number"
+          min={paramDef.min}
+          max={paramDef.max}
+          value={value ?? paramDef.default}
+          onChange={(e) => handleChange(parseFloat(e.target.value) || 0)}
+          className="w-16 rounded border border-border-primary bg-bg-primary px-2 py-1 text-xs text-text-primary outline-none focus:border-accent"
+        />
+      </div>
+    </div>
+  );
 }
