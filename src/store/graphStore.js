@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
 let nextNodeId = 1;
+const MAX_HISTORY = 10;
 
 function buildDefaultParams(definition) {
   const params = {};
@@ -10,13 +11,40 @@ function buildDefaultParams(definition) {
   return params;
 }
 
-export const useGraphStore = create((set, get) => ({
+function snapshot(state) {
+  return {
+    nodes: JSON.parse(JSON.stringify(state.nodes)),
+    edges: JSON.parse(JSON.stringify(state.edges)),
+    selectedNodeId: state.selectedNodeId,
+    displayNodeId: state.displayNodeId,
+  };
+}
+
+export const useGraphStore = create((rawSet, get) => {
+  const history = [];
+
+  const pushHistory = () => {
+    const state = get();
+    history.push(snapshot(state));
+    if (history.length > MAX_HISTORY) history.shift();
+  };
+
+  const set = (updater) => rawSet(updater);
+
+  return {
   nodes: [],
   edges: [],
   selectedNodeId: null,
   displayNodeId: null,
 
+  undo: () => {
+    if (history.length === 0) return;
+    const prev = history.pop();
+    rawSet(prev);
+  },
+
   addNode: (definition, position = { x: 0, y: 0 }) => {
+    pushHistory();
     const id = `node_${nextNodeId++}`;
     const newNode = {
       id,
@@ -39,6 +67,7 @@ export const useGraphStore = create((set, get) => ({
   },
 
   removeNode: (nodeId) => {
+    pushHistory();
     set((state) => ({
       nodes: state.nodes.filter((n) => n.id !== nodeId),
       edges: state.edges.filter(
@@ -56,6 +85,7 @@ export const useGraphStore = create((set, get) => ({
   },
 
   toggleBypass: (nodeId) => {
+    pushHistory();
     set((state) => ({
       nodes: state.nodes.map((n) =>
         n.id === nodeId
@@ -66,6 +96,7 @@ export const useGraphStore = create((set, get) => ({
   },
 
   toggleTemplate: (nodeId) => {
+    pushHistory();
     set((state) => ({
       nodes: state.nodes.map((n) =>
         n.id === nodeId
@@ -82,6 +113,7 @@ export const useGraphStore = create((set, get) => ({
   },
 
   updateNodeParams: (nodeId, params) => {
+    pushHistory();
     set((state) => ({
       nodes: state.nodes.map((n) =>
         n.id === nodeId
@@ -102,12 +134,14 @@ export const useGraphStore = create((set, get) => ({
   setNodes: (nodes) => set({ nodes }),
 
   addEdge: (edge) => {
+    pushHistory();
     set((state) => ({
       edges: [...state.edges, { ...edge, id: `edge_${Date.now()}` }],
     }));
   },
 
   removeEdge: (edgeId) => {
+    pushHistory();
     set((state) => ({
       edges: state.edges.filter((e) => e.id !== edgeId),
     }));
@@ -121,10 +155,12 @@ export const useGraphStore = create((set, get) => ({
   },
 
   clearGraph: () => {
+    pushHistory();
     set({ nodes: [], edges: [], selectedNodeId: null, displayNodeId: null });
   },
 
   duplicateNode: (nodeId, offset = { x: 40, y: 40 }) => {
+    pushHistory();
     const { nodes } = get();
     const source = nodes.find((n) => n.id === nodeId);
     if (!source) return null;
@@ -154,6 +190,7 @@ export const useGraphStore = create((set, get) => ({
   },
 
   duplicateNodes: (nodeIds, offset = { x: 40, y: 40 }) => {
+    pushHistory();
     const { nodes, edges } = get();
     const idMap = {};
     const newNodes = [];
@@ -200,4 +237,5 @@ export const useGraphStore = create((set, get) => ({
       selectedNodeId: newNodes.length > 0 ? newNodes[newNodes.length - 1].id : state.selectedNodeId,
     }));
   },
-}));
+};
+});

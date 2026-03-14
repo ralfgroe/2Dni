@@ -34,6 +34,7 @@ export default function NodeGraph() {
   const selectNode = useGraphStore((s) => s.selectNode);
   const addNode = useGraphStore((s) => s.addNode);
   const duplicateNodes = useGraphStore((s) => s.duplicateNodes);
+  const undo = useGraphStore((s) => s.undo);
 
   const getDefinition = useNodeRegistryStore((s) => s.getDefinition);
 
@@ -185,6 +186,12 @@ export default function NodeGraph() {
     (event) => {
       const isCtrlOrCmd = event.ctrlKey || event.metaKey;
 
+      if (isCtrlOrCmd && event.key === 'z') {
+        event.preventDefault();
+        undo();
+        return;
+      }
+
       if (isCtrlOrCmd && event.key === 'c') {
         const selectedIds = nodes.filter(n => n.selected).map(n => n.id);
         if (selectedIds.length > 0) {
@@ -226,7 +233,7 @@ export default function NodeGraph() {
         setShowStartup(false);
       }
     },
-    [reactFlowInstance, selectedNodeId, nodes, duplicateNodes]
+    [reactFlowInstance, selectedNodeId, nodes, duplicateNodes, undo]
   );
 
   const isValidConnection = useCallback(
@@ -405,7 +412,7 @@ export default function NodeGraph() {
           <img
             src="/rightclick.svg"
             alt="Right-click or press Tab to start"
-            style={{ width: '360px', objectFit: 'contain' }}
+            style={{ width: '252px', objectFit: 'contain' }}
             draggable={false}
           />
         </div>
