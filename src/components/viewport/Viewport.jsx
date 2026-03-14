@@ -13,7 +13,7 @@ export default function Viewport() {
   const svgRef = useRef(null);
   const [viewBox, setViewBox] = useState({ x: -400, y: -300, w: 800, h: 600 });
   const [isPanning, setIsPanning] = useState(false);
-  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const panRef = useRef({ active: false, x: 0, y: 0 });
   const [showGrid, setShowGrid] = useState(true);
   const [fontVersion, setFontVersion] = useState(0);
 
@@ -59,9 +59,10 @@ export default function Viewport() {
   const handleMouseDown = useCallback(
     (e) => {
       if (e.button === 1 || (e.button === 0 && e.altKey)) {
-        setIsPanning(true);
-        setPanStart({ x: e.clientX, y: e.clientY });
         e.preventDefault();
+        e.stopPropagation();
+        panRef.current = { active: true, x: e.clientX, y: e.clientY };
+        setIsPanning(true);
       }
     },
     []
@@ -69,21 +70,23 @@ export default function Viewport() {
 
   const handleMouseMove = useCallback(
     (e) => {
-      if (!isPanning) return;
+      if (!panRef.current.active) return;
       const svg = svgRef.current;
       if (!svg) return;
       const ctm = svg.getScreenCTM();
       if (!ctm) return;
       const scale = ctm.a;
-      const dx = (e.clientX - panStart.x) / scale;
-      const dy = (e.clientY - panStart.y) / scale;
+      const dx = (e.clientX - panRef.current.x) / scale;
+      const dy = (e.clientY - panRef.current.y) / scale;
+      panRef.current.x = e.clientX;
+      panRef.current.y = e.clientY;
       setViewBox((v) => ({ ...v, x: v.x - dx, y: v.y - dy }));
-      setPanStart({ x: e.clientX, y: e.clientY });
     },
-    [isPanning, panStart]
+    []
   );
 
   const handleMouseUp = useCallback(() => {
+    panRef.current.active = false;
     setIsPanning(false);
   }, []);
 
@@ -116,6 +119,25 @@ export default function Viewport() {
     svg.addEventListener('wheel', handleWheel, { passive: false });
     return () => svg.removeEventListener('wheel', handleWheel);
   }, [handleWheel]);
+
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const onDown = (e) => {
+      if (e.button === 1) {
+        e.preventDefault();
+        handleMouseDown(e);
+      }
+    };
+    svg.addEventListener('mousedown', onDown);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      svg.removeEventListener('mousedown', onDown);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [handleMouseDown, handleMouseMove, handleMouseUp]);
 
   const handlePaneClick = useCallback(() => {
     selectNode(null);

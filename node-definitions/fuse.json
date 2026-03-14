@@ -10,7 +10,7 @@
     { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
   ],
   "parameters": [
-    { "id": "distance", "label": "Snap Distance", "type": "number", "default": 5, "min": 0, "max": 200 }
+    { "id": "distance", "label": "Snap Distance", "type": "number", "default": 5, "min": 0, "max": 10 }
   ],
   "runtime": "fuse"
 }

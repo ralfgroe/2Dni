@@ -53,7 +53,7 @@ export default function ParameterPanel() {
   };
 
   return (
-    <div className="flex h-full w-full flex-col overflow-y-auto overflow-x-hidden bg-bg-primary" style={{ padding: '0 14px' }}>
+    <div className="flex h-full w-full flex-col overflow-y-auto overflow-x-hidden bg-bg-primary" style={{ padding: '12px 14px 0 26px' }}>
       {/* Header */}
       <div className="shrink-0 border-b border-border-primary pb-3 pt-10">
         <h2 className="text-sm font-semibold text-text-primary">{definition.label}</h2>
@@ -286,7 +286,7 @@ function CornerSelector({ value, nodeId, sourceGeometry }) {
       </span>
 
       {isSimpleRect ? (
-        <div className="relative mx-auto h-20 w-28 rounded-lg border-2 border-dashed border-border-primary">
+        <div className="relative mx-auto h-20 w-28 rounded-lg border-2 border-dashed border-border-primary" style={{ marginTop: 12, marginBottom: 12 }}>
           {sharpPoints.map((pt, i) => {
             const isOn = selected.has(pt.idx);
             const labels = ['TL', 'TR', 'BR', 'BL'];
