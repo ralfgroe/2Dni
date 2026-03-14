@@ -410,7 +410,7 @@ export default function NodeGraph() {
           }}
         >
           <img
-            src="/rightclick.svg"
+            src={`${import.meta.env.BASE_URL}rightclick.svg`}
             alt="Right-click or press Tab to start"
             style={{ width: '252px', objectFit: 'contain' }}
             draggable={false}
