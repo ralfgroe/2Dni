@@ -12,12 +12,12 @@ function ensurePaper() {
 }
 
 export function copyrotateRuntime(params, inputs) {
-  const { copies = 3, pivot_x = 0, pivot_y = 0 } = params;
+  const { copies = 3, pivot_x = 0, pivot_y = 0, scale_step = 0 } = params;
   const inputGeo = inputs.geometry_in;
   if (!inputGeo) return null;
 
   const count = Math.round(Math.max(1, copies));
-  if (count === 1) return inputGeo;
+  if (count === 1 && scale_step === 0) return inputGeo;
 
   ensurePaper();
 
@@ -32,6 +32,10 @@ export function copyrotateRuntime(params, inputs) {
   for (let i = 1; i < count; i++) {
     const copy = sourcePath.clone();
     copy.rotate(angleStep * i, pivot);
+    const scaleFactor = 1 + (scale_step * i);
+    if (scaleFactor > 0.01) {
+      copy.scale(scaleFactor, pivot);
+    }
     allPaths.push(copy);
   }
 

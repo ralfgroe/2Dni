@@ -12,7 +12,8 @@
   "parameters": [
     { "id": "copies", "label": "Copies", "type": "number", "default": 3, "min": 1, "max": 50 },
     { "id": "pivot_x", "label": "Pivot X", "type": "number", "default": 0, "min": -500, "max": 500 },
-    { "id": "pivot_y", "label": "Pivot Y", "type": "number", "default": 0, "min": -500, "max": 500 }
+    { "id": "pivot_y", "label": "Pivot Y", "type": "number", "default": 0, "min": -500, "max": 500 },
+    { "id": "scale_step", "label": "Scale", "type": "number", "default": 0, "min": -0.5, "max": 0.5 }
   ],
   "runtime": "copyrotate"
 }

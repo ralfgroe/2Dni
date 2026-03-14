@@ -12,7 +12,7 @@ function ensurePaper() {
 }
 
 export function copymoveRuntime(params, inputs) {
-  const { copies = 1, offset_x = 50, offset_y = 0 } = params;
+  const { copies = 1, offset_x = 50, offset_y = 0, scale_step = 0 } = params;
   const inputGeo = inputs.geometry_in;
   if (!inputGeo) return null;
 
@@ -29,6 +29,10 @@ export function copymoveRuntime(params, inputs) {
   for (let i = 1; i <= count; i++) {
     const copy = sourcePath.clone();
     copy.translate(new paper.Point(offset_x * i, offset_y * i));
+    const scaleFactor = 1 + (scale_step * i);
+    if (scaleFactor > 0.01) {
+      copy.scale(scaleFactor);
+    }
     allPaths.push(copy);
   }
 
