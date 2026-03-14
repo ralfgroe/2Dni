@@ -394,20 +394,13 @@ function PointOffsetSlider({ paramDef, value, nodeId, params }) {
       catch { return {}; }
     })();
 
-    const hasAnyOffset = Object.keys(offsets).length > 0;
-    if (!hasAnyOffset) {
-      updateNodeParams(nodeId, { [paramDef.id]: newValue });
-      return;
-    }
-
-    const axis = paramDef.id === 'offset_x' ? 0 : 1;
-    const selectedIndices = Object.keys(offsets).filter(k => {
-      const off = offsets[k];
-      return off && (Math.abs(off[0] - (params.offset_x || 0)) < 0.01 &&
-                     Math.abs(off[1] - (params.offset_y || 0)) < 0.01);
-    });
+    const selectedIndices = (params.scale_points || '')
+      .split(',')
+      .map(x => x.trim())
+      .filter(Boolean);
 
     if (selectedIndices.length > 0) {
+      const axis = paramDef.id === 'offset_x' ? 0 : 1;
       const newOffsets = { ...offsets };
       for (const idx of selectedIndices) {
         if (!newOffsets[idx]) newOffsets[idx] = [0, 0];
