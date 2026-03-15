@@ -100,14 +100,9 @@ export default function Viewport() {
       const ctm = svg.getScreenCTM();
       if (!ctm) return;
 
-      const isTrackpadPan = !e.ctrlKey && !e.metaKey && Math.abs(e.deltaX) > 0;
+      const isPinchZoom = e.ctrlKey || e.metaKey;
 
-      if (isTrackpadPan) {
-        const scale = ctm.a;
-        const dx = e.deltaX / scale;
-        const dy = e.deltaY / scale;
-        setViewBox(v => ({ ...v, x: v.x + dx, y: v.y + dy }));
-      } else {
+      if (isPinchZoom) {
         const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
         const inv = ctm.inverse();
         const mx = inv.a * e.clientX + inv.c * e.clientY + inv.e;
@@ -120,6 +115,11 @@ export default function Viewport() {
           w: newW,
           h: newH,
         });
+      } else {
+        const scale = ctm.a;
+        const dx = e.deltaX / scale;
+        const dy = e.deltaY / scale;
+        setViewBox(v => ({ ...v, x: v.x + dx, y: v.y + dy }));
       }
     },
     [viewBox]

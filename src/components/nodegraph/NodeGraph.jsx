@@ -358,6 +358,8 @@ export default function NodeGraph() {
         deleteKeyCode={["Delete", "Backspace"]}
         selectionOnDrag
         panOnDrag={[1, 2]}
+        panOnScroll
+        zoomOnScroll={false}
         zoomOnPinch
         selectionMode={SelectionMode.Partial}
         className="nodegraph-flow"
