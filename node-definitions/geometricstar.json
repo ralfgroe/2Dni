@@ -1,0 +1,24 @@
+{
+  "id": "geometricstar",
+  "label": "Geometric Star",
+  "category": "Geometry",
+  "description": "Generates geometric star patterns with optional rosette infill and grid tiling. Based on traditional compass-and-straightedge construction principles.",
+  "inputs": [],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "preset", "label": "Preset", "type": "select", "default": "8-Fold", "options": ["6-Fold", "8-Fold", "10-Fold", "12-Fold", "Custom"] },
+    { "id": "points", "label": "Points", "type": "number", "default": 8, "min": 3, "max": 24 },
+    { "id": "radius", "label": "Radius", "type": "number", "default": 100, "min": 10, "max": 500 },
+    { "id": "star_depth", "label": "Star Depth", "type": "number", "default": 0.45, "min": 0.1, "max": 0.9 },
+    { "id": "show_rosette", "label": "Show Rosette", "type": "boolean", "default": true },
+    { "id": "tile", "label": "Tile", "type": "boolean", "default": false },
+    { "id": "grid_type", "label": "Grid Type", "type": "select", "default": "Square", "options": ["Square", "Hexagonal"] },
+    { "id": "rings", "label": "Rings", "type": "number", "default": 1, "min": 0, "max": 5 },
+    { "id": "x", "label": "X", "type": "number", "default": 0, "min": -500, "max": 500 },
+    { "id": "y", "label": "Y", "type": "number", "default": 0, "min": -500, "max": 500 },
+    { "id": "stroke_width", "label": "Stroke Width", "type": "number", "default": 1, "min": 0, "max": 10 }
+  ],
+  "runtime": "geometricstar"
+}

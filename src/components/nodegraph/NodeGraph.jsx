@@ -2,7 +2,6 @@ import { useCallback, useState, useRef, useMemo } from 'react';
 import ReactFlow, {
   Background,
   Controls,
-  MiniMap,
   SelectionMode,
   addEdge as rfAddEdge,
   applyNodeChanges,
@@ -367,6 +366,7 @@ export default function NodeGraph() {
         deleteKeyCode={["Delete", "Backspace"]}
         selectionOnDrag
         panOnDrag={[1, 2]}
+        zoomOnPinch
         selectionMode={SelectionMode.Partial}
         className="nodegraph-flow"
         proOptions={{ hideAttribution: true }}
@@ -380,17 +380,7 @@ export default function NodeGraph() {
           className="nodegraph-controls"
           showInteractive={false}
         />
-        <MiniMap
-          className="nodegraph-minimap"
-          nodeColor={(n) => {
-            if (n.data?.bypassed) return '#868e96';
-            const def = getDefinition(n.data?.definitionId);
-            if (!def) return '#868e96';
-            const firstOutput = def.outputs[0];
-            return firstOutput ? getPortColor(firstOutput.type) : '#868e96';
-          }}
-          maskColor={'rgba(255,255,255,0.6)'}
-        />
+        
       </ReactFlow>
 
       {palette && (
@@ -406,6 +396,7 @@ export default function NodeGraph() {
           style={{
             position: 'absolute', inset: 0,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
+            transform: 'translateY(-36px)',
             pointerEvents: 'none',
           }}
         >

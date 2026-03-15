@@ -16,6 +16,7 @@ export default function Viewport() {
   const [isPanning, setIsPanning] = useState(false);
   const panRef = useRef({ active: false, x: 0, y: 0 });
   const [showGrid, setShowGrid] = useState(true);
+  const [showSplash, setShowSplash] = useState(true);
   const [fontVersion, setFontVersion] = useState(0);
 
   useEffect(() => {
@@ -94,22 +95,32 @@ export default function Viewport() {
   const handleWheel = useCallback(
     (e) => {
       e.preventDefault();
-      const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
       const svg = svgRef.current;
       if (!svg) return;
       const ctm = svg.getScreenCTM();
       if (!ctm) return;
-      const inv = ctm.inverse();
-      const mx = inv.a * e.clientX + inv.c * e.clientY + inv.e;
-      const my = inv.b * e.clientX + inv.d * e.clientY + inv.f;
-      const newW = viewBox.w * zoomFactor;
-      const newH = viewBox.h * zoomFactor;
-      setViewBox({
-        x: mx - (mx - viewBox.x) * zoomFactor,
-        y: my - (my - viewBox.y) * zoomFactor,
-        w: newW,
-        h: newH,
-      });
+
+      const isTrackpadPan = !e.ctrlKey && !e.metaKey && Math.abs(e.deltaX) > 0;
+
+      if (isTrackpadPan) {
+        const scale = ctm.a;
+        const dx = e.deltaX / scale;
+        const dy = e.deltaY / scale;
+        setViewBox(v => ({ ...v, x: v.x + dx, y: v.y + dy }));
+      } else {
+        const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
+        const inv = ctm.inverse();
+        const mx = inv.a * e.clientX + inv.c * e.clientY + inv.e;
+        const my = inv.b * e.clientX + inv.d * e.clientY + inv.f;
+        const newW = viewBox.w * zoomFactor;
+        const newH = viewBox.h * zoomFactor;
+        setViewBox({
+          x: mx - (mx - viewBox.x) * zoomFactor,
+          y: my - (my - viewBox.y) * zoomFactor,
+          w: newW,
+          h: newH,
+        });
+      }
     },
     [viewBox]
   );
@@ -144,6 +155,56 @@ export default function Viewport() {
     selectNode(null);
   }, [selectNode]);
 
+  const zoomIn = useCallback(() => {
+    setViewBox(v => {
+      const cx = v.x + v.w / 2, cy = v.y + v.h / 2;
+      const f = 0.8;
+      return { x: cx - (v.w * f) / 2, y: cy - (v.h * f) / 2, w: v.w * f, h: v.h * f };
+    });
+  }, []);
+
+  const zoomOut = useCallback(() => {
+    setViewBox(v => {
+      const cx = v.x + v.w / 2, cy = v.y + v.h / 2;
+      const f = 1.25;
+      return { x: cx - (v.w * f) / 2, y: cy - (v.h * f) / 2, w: v.w * f, h: v.h * f };
+    });
+  }, []);
+
+  const fitAll = useCallback(() => {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let found = false;
+    for (const [, geo] of results) {
+      if (!geo || geo.type === 'export') continue;
+      const b = geo.bounds;
+      if (b) {
+        minX = Math.min(minX, b.x);
+        minY = Math.min(minY, b.y);
+        maxX = Math.max(maxX, b.x + b.width);
+        maxY = Math.max(maxY, b.y + b.height);
+        found = true;
+      }
+    }
+    if (!found) {
+      setViewBox({ x: -400, y: -300, w: 800, h: 600 });
+      return;
+    }
+    const padding = 60;
+    const w = (maxX - minX) + padding * 2;
+    const h = (maxY - minY) + padding * 2;
+    const svg = svgRef.current;
+    if (svg) {
+      const rect = svg.getBoundingClientRect();
+      const aspect = rect.width / rect.height;
+      const vw = Math.max(w, h * aspect);
+      const vh = vw / aspect;
+      const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+      setViewBox({ x: cx - vw / 2, y: cy - vh / 2, w: vw, h: vh });
+    } else {
+      setViewBox({ x: minX - padding, y: minY - padding, w, h });
+    }
+  }, [results]);
+
   const gridSize = 50;
 
   return (
@@ -156,6 +217,26 @@ export default function Viewport() {
       >
         {showGrid ? 'Grid: On' : 'Grid: Off'}
       </button>
+
+      <div className="absolute bottom-3 left-3 z-10 flex flex-col rounded border border-border-primary bg-white shadow-sm">
+        <button
+          onClick={zoomIn}
+          className="flex h-7 w-7 items-center justify-center text-sm text-text-secondary hover:bg-bg-tertiary"
+          title="Zoom in"
+        >+</button>
+        <div className="border-t border-border-primary" />
+        <button
+          onClick={zoomOut}
+          className="flex h-7 w-7 items-center justify-center text-sm text-text-secondary hover:bg-bg-tertiary"
+          title="Zoom out"
+        >−</button>
+        <div className="border-t border-border-primary" />
+        <button
+          onClick={fitAll}
+          className="flex h-7 w-7 items-center justify-center text-[10px] text-text-secondary hover:bg-bg-tertiary"
+          title="Fit all geometry"
+        >⛶</button>
+      </div>
 
       <svg
         ref={svgRef}
@@ -297,6 +378,25 @@ export default function Viewport() {
           />
         )}
       </svg>
+
+      {showSplash && nodes.length === 0 && (
+        <div
+          onClick={() => setShowSplash(false)}
+          style={{
+            position: 'absolute', inset: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            pointerEvents: 'auto',
+            cursor: 'pointer',
+          }}
+        >
+          <img
+            src={`${import.meta.env.BASE_URL}starcover.svg`}
+            alt="Welcome"
+            style={{ width: '756px', objectFit: 'contain' }}
+            draggable={false}
+          />
+        </div>
+      )}
     </div>
   );
 }

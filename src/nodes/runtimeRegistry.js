@@ -17,6 +17,7 @@ import { bezierRuntime } from '../nodes/bezier';
 import { copymoveRuntime } from '../nodes/copymove';
 import { copyrotateRuntime } from '../nodes/copyrotate';
 import { pointtransformRuntime } from '../nodes/pointtransform';
+import { geometricstarRuntime } from '../nodes/islamicstar';
 
 const runtimeMap = {
   line: lineRuntime,
@@ -38,6 +39,8 @@ const runtimeMap = {
   copymove: copymoveRuntime,
   copyrotate: copyrotateRuntime,
   pointtransform: pointtransformRuntime,
+  islamicstar: geometricstarRuntime,
+  geometricstar: geometricstarRuntime,
 };
 
 export function getRuntime(runtimeId) {
