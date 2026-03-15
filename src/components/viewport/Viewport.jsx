@@ -60,7 +60,7 @@ export default function Viewport() {
 
   const handleMouseDown = useCallback(
     (e) => {
-      if (e.button === 1 || (e.button === 0 && e.altKey)) {
+      if (e.button === 1 || e.button === 2 || (e.button === 0 && e.altKey)) {
         e.preventDefault();
         e.stopPropagation();
         panRef.current = { active: true, x: e.clientX, y: e.clientY };
@@ -136,16 +136,19 @@ export default function Viewport() {
     const svg = svgRef.current;
     if (!svg) return;
     const onDown = (e) => {
-      if (e.button === 1) {
+      if (e.button === 1 || e.button === 2) {
         e.preventDefault();
         handleMouseDown(e);
       }
     };
+    const onCtx = (e) => e.preventDefault();
     svg.addEventListener('mousedown', onDown);
+    svg.addEventListener('contextmenu', onCtx);
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
     return () => {
       svg.removeEventListener('mousedown', onDown);
+      svg.removeEventListener('contextmenu', onCtx);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
