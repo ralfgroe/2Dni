@@ -71,9 +71,13 @@ export default function FreeCurveOverlay({ nodeId, screenToSvg, results }) {
       return true;
     }
   });
+  const isDrawingRef = useRef(isDrawing);
+  isDrawingRef.current = isDrawing;
   const [preview, setPreview] = useState(null);
   const [snapTarget, setSnapTarget] = useState(null);
   const [dragIdx, setDragIdx] = useState(null);
+  const dragIdxRef = useRef(dragIdx);
+  dragIdxRef.current = dragIdx;
   const dragRef = useRef(null);
   const justFinishedDrag = useRef(false);
 
@@ -207,7 +211,7 @@ export default function FreeCurveOverlay({ nodeId, screenToSvg, results }) {
   // --- Keyboard handlers ---
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Escape') {
-      if (dragIdx !== null) {
+      if (dragIdxRef.current !== null) {
         setDragIdx(null);
         dragRef.current = null;
       } else {
@@ -216,16 +220,7 @@ export default function FreeCurveOverlay({ nodeId, screenToSvg, results }) {
         setSnapTarget(null);
       }
     }
-    if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && points.length > 0 && dragIdx === null) {
-      e.preventDefault();
-      savePoints(points.slice(0, -1));
-    }
-    if (e.key === 'Delete' || e.key === 'Backspace') {
-      if (!isDrawing && dragIdx === null && points.length > 0) {
-        // Could add selected point deletion here later
-      }
-    }
-  }, [points, savePoints, isDrawing, dragIdx]);
+  }, []);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);

@@ -99,6 +99,8 @@ export default function BezierOverlay({ nodeId, screenToSvg, results }) {
     try { return JSON.parse(nodeParams?.anchors_data || '[]').length === 0; }
     catch { return true; }
   });
+  const isDrawingRef = useRef(isDrawing);
+  isDrawingRef.current = isDrawing;
   const [preview, setPreview] = useState(null);
   const [snapTarget, setSnapTarget] = useState(null);
   const [, forceRender] = useState(0);
@@ -217,14 +219,11 @@ export default function BezierOverlay({ nodeId, screenToSvg, results }) {
       if (dragRef.current.active) {
         dragRef.current = { active: false, idx: null, type: null };
         forceRender(c => c + 1);
-      } else if (isDrawing) handleStopDrawing();
+      } else if (isDrawingRef.current) {
+        handleStopDrawing();
+      }
     }
-    if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && anchorsRef.current.length > 0 && !dragRef.current.active) {
-      e.preventDefault();
-      const shorter = anchorsRef.current.slice(0, -1);
-      saveAnchors(autoSmooth(shorter));
-    }
-  }, [isDrawing, handleStopDrawing, saveAnchors]);
+  }, [handleStopDrawing]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
