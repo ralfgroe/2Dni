@@ -33,8 +33,6 @@ export default function NodeGraph() {
   const selectNode = useGraphStore((s) => s.selectNode);
   const addNode = useGraphStore((s) => s.addNode);
   const duplicateNodes = useGraphStore((s) => s.duplicateNodes);
-  const undo = useGraphStore((s) => s.undo);
-
   const getDefinition = useNodeRegistryStore((s) => s.getDefinition);
 
   const clipboardRef = useRef(null);
@@ -185,12 +183,6 @@ export default function NodeGraph() {
     (event) => {
       const isCtrlOrCmd = event.ctrlKey || event.metaKey;
 
-      if (isCtrlOrCmd && event.key === 'z') {
-        event.preventDefault();
-        undo();
-        return;
-      }
-
       if (isCtrlOrCmd && event.key === 'c') {
         const selectedIds = nodes.filter(n => n.selected).map(n => n.id);
         if (selectedIds.length > 0) {
@@ -232,7 +224,7 @@ export default function NodeGraph() {
         setShowStartup(false);
       }
     },
-    [reactFlowInstance, selectedNodeId, nodes, duplicateNodes, undo]
+    [reactFlowInstance, selectedNodeId, nodes, duplicateNodes]
   );
 
   const isValidConnection = useCallback(

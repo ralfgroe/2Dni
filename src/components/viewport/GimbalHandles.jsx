@@ -14,6 +14,7 @@ export default function GimbalHandles({ geometry, node, definition, screenToSvg 
   const startDrag = useCallback((type, e) => {
     e.stopPropagation();
     setDragging({ type, startX: e.clientX, startY: e.clientY, startParams: { ...node.data.params } });
+    useGraphStore.getState().beginOperation();
 
     const handleMove = (me) => {
       setDragging((prev) => {
@@ -31,6 +32,7 @@ export default function GimbalHandles({ geometry, node, definition, screenToSvg 
       setDragging(null);
       window.removeEventListener('mousemove', handleMove);
       window.removeEventListener('mouseup', handleUp);
+      useGraphStore.getState().endOperation();
     };
 
     window.addEventListener('mousemove', handleMove);

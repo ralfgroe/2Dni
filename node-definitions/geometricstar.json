@@ -9,7 +9,7 @@
   ],
   "parameters": [
     { "id": "preset", "label": "Preset", "type": "select", "default": "8-Fold", "options": ["6-Fold", "8-Fold", "10-Fold", "12-Fold", "Custom"] },
-    { "id": "points", "label": "Points", "type": "number", "default": 8, "min": 3, "max": 24 },
+    { "id": "points", "label": "Points", "type": "number", "default": 8, "min": 3, "max": 48 },
     { "id": "radius", "label": "Radius", "type": "number", "default": 100, "min": 10, "max": 500 },
     { "id": "star_depth", "label": "Star Depth", "type": "number", "default": 0.45, "min": 0.1, "max": 0.9 },
     { "id": "show_rosette", "label": "Show Rosette", "type": "boolean", "default": true },

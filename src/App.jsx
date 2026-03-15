@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 import { useNodeRegistryStore } from './store/nodeRegistryStore';
+import { useGraphStore } from './store/graphStore';
 import Toolbar from './components/ui/Toolbar';
 import Viewport from './components/viewport/Viewport';
 import NodeGraph from './components/nodegraph/NodeGraph';
@@ -30,10 +31,22 @@ function ResizeHandle({ direction = 'horizontal' }) {
 export default function App() {
   const loadDefinitions = useNodeRegistryStore((s) => s.loadDefinitions);
   const loaded = useNodeRegistryStore((s) => s.loaded);
+  const undo = useGraphStore((s) => s.undo);
 
   useEffect(() => {
     if (!loaded) loadDefinitions();
   }, [loaded, loadDefinitions]);
+
+  useEffect(() => {
+    const handleGlobalUndo = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        undo();
+      }
+    };
+    window.addEventListener('keydown', handleGlobalUndo);
+    return () => window.removeEventListener('keydown', handleGlobalUndo);
+  }, [undo]);
 
   return (
     <div className="flex h-full flex-col">

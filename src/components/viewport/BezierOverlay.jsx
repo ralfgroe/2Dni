@@ -128,6 +128,7 @@ export default function BezierOverlay({ nodeId, screenToSvg, results }) {
   const startDrag = useCallback((idx, type) => {
     dragRef.current = { active: true, idx, type };
     forceRender(c => c + 1);
+    useGraphStore.getState().beginOperation();
 
     const onMove = (e) => {
       const svgPt = screenToSvgRef.current(e.clientX, e.clientY);
@@ -165,6 +166,7 @@ export default function BezierOverlay({ nodeId, screenToSvg, results }) {
       dragRef.current = { active: false, idx: null, type: null };
       setSnapTarget(null);
       forceRender(c => c + 1);
+      useGraphStore.getState().endOperation();
       justFinishedDrag.current = true;
       setTimeout(() => { justFinishedDrag.current = false; }, 200);
     };

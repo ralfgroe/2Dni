@@ -93,6 +93,9 @@ export default function PointTransformOverlay({ nodeId, screenToSvg, edges, resu
     e.stopPropagation();
     e.preventDefault();
 
+    const { beginOperation, endOperation } = useGraphStore.getState();
+    beginOperation();
+
     const sel = selectionRef.current;
     const wasSelected = sel.has(idx);
 
@@ -147,6 +150,7 @@ export default function PointTransformOverlay({ nodeId, screenToSvg, edges, resu
       }
 
       syncScalePoints(selectionRef.current);
+      endOperation();
     };
 
     window.addEventListener('mousemove', onMove);

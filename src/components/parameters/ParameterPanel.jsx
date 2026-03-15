@@ -157,6 +157,9 @@ function ParameterRow({ paramDef, value, nodeId }) {
 }
 
 function ParameterInput({ paramDef, value, onChange }) {
+  const beginOperation = useGraphStore((s) => s.beginOperation);
+  const endOperation = useGraphStore((s) => s.endOperation);
+
   switch (paramDef.type) {
     case 'number':
       return (
@@ -167,6 +170,10 @@ function ParameterInput({ paramDef, value, onChange }) {
             max={paramDef.max ?? 100}
             step={paramDef.max > 10 ? 1 : 0.01}
             value={value ?? paramDef.default}
+            onMouseDown={beginOperation}
+            onTouchStart={beginOperation}
+            onMouseUp={endOperation}
+            onTouchEnd={endOperation}
             onChange={(e) => onChange(parseFloat(e.target.value))}
             className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-bg-tertiary accent-accent"
           />
@@ -175,6 +182,8 @@ function ParameterInput({ paramDef, value, onChange }) {
             min={paramDef.min}
             max={paramDef.max}
             value={value ?? paramDef.default}
+            onFocus={beginOperation}
+            onBlur={endOperation}
             onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
             className="w-16 rounded border border-border-primary bg-bg-primary px-2 py-1 text-xs text-text-primary outline-none focus:border-accent"
           />
@@ -391,6 +400,8 @@ function parseCornerSelection(sel, sharpPoints = []) {
 
 function PointOffsetSlider({ paramDef, value, nodeId, params }) {
   const updateNodeParams = useGraphStore((s) => s.updateNodeParams);
+  const beginOperation = useGraphStore((s) => s.beginOperation);
+  const endOperation = useGraphStore((s) => s.endOperation);
 
   const handleChange = (newValue) => {
     const offsets = (() => {
@@ -432,6 +443,10 @@ function PointOffsetSlider({ paramDef, value, nodeId, params }) {
           max={paramDef.max ?? 500}
           step={0.01}
           value={value ?? paramDef.default}
+          onMouseDown={beginOperation}
+          onTouchStart={beginOperation}
+          onMouseUp={endOperation}
+          onTouchEnd={endOperation}
           onChange={(e) => handleChange(parseFloat(e.target.value))}
           className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-bg-tertiary accent-accent"
         />
@@ -440,6 +455,8 @@ function PointOffsetSlider({ paramDef, value, nodeId, params }) {
           min={paramDef.min}
           max={paramDef.max}
           value={value ?? paramDef.default}
+          onFocus={beginOperation}
+          onBlur={endOperation}
           onChange={(e) => handleChange(parseFloat(e.target.value) || 0)}
           className="w-16 rounded border border-border-primary bg-bg-primary px-2 py-1 text-xs text-text-primary outline-none focus:border-accent"
         />

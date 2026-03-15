@@ -256,7 +256,7 @@ export function geometricstarRuntime(params) {
   ensurePaper();
 
   const resolved = resolveParams(params);
-  const n = Math.max(3, Math.min(24, Math.round(resolved.points)));
+  const n = Math.max(3, Math.min(48, Math.round(resolved.points)));
   const radius = resolved.radius || 100;
   const depth = Math.max(0.1, Math.min(0.9, resolved.star_depth || 0.45));
   const showRosette = resolved.show_rosette !== false;

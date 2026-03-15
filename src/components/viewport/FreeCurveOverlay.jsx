@@ -154,6 +154,7 @@ export default function FreeCurveOverlay({ nodeId, screenToSvg, results }) {
     if (e.button !== 0) return;
     e.stopPropagation();
     e.preventDefault();
+    useGraphStore.getState().beginOperation();
     setDragIdx(idx);
     dragRef.current = { idx, lastSave: Date.now() };
   }, []);
@@ -187,6 +188,7 @@ export default function FreeCurveOverlay({ nodeId, screenToSvg, results }) {
       setDragIdx(null);
       setSnapTarget(null);
       dragRef.current = null;
+      useGraphStore.getState().endOperation();
 
       setTimeout(() => {
         justFinishedDrag.current = false;

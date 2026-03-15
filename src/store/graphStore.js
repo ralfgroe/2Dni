@@ -22,8 +22,10 @@ function snapshot(state) {
 
 export const useGraphStore = create((rawSet, get) => {
   const history = [];
+  let operationActive = false;
 
   const pushHistory = () => {
+    if (operationActive) return;
     const state = get();
     history.push(snapshot(state));
     if (history.length > MAX_HISTORY) history.shift();
@@ -36,6 +38,19 @@ export const useGraphStore = create((rawSet, get) => {
   edges: [],
   selectedNodeId: null,
   displayNodeId: null,
+
+  beginOperation: () => {
+    if (!operationActive) {
+      const state = get();
+      history.push(snapshot(state));
+      if (history.length > MAX_HISTORY) history.shift();
+      operationActive = true;
+    }
+  },
+
+  endOperation: () => {
+    operationActive = false;
+  },
 
   undo: () => {
     if (history.length === 0) return;
