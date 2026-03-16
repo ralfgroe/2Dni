@@ -1,4 +1,4 @@
-import { useCallback, useState, useRef, useMemo } from 'react';
+import { useCallback, useState, useRef, useMemo, useEffect } from 'react';
 import ReactFlow, {
   Background,
   Controls,
@@ -327,6 +327,32 @@ export default function NodeGraph() {
     },
     [getClosestEdge, nodes, getDefinition, setEdges]
   );
+
+  useEffect(() => {
+    const el = reactFlowWrapper.current;
+    if (!el || !reactFlowInstance) return;
+    const onWheel = (e) => {
+      const isPinch = e.ctrlKey || e.metaKey;
+      if (isPinch) return;
+
+      const hasHorizontal = Math.abs(e.deltaX) > 0;
+      const isDiscrete = e.deltaY !== 0 && e.deltaY % 1 === 0 && Math.abs(e.deltaY) >= 50;
+      const isMouseWheel = !hasHorizontal && isDiscrete;
+
+      if (!isMouseWheel) {
+        e.preventDefault();
+        e.stopPropagation();
+        const { x, y, zoom } = reactFlowInstance.getViewport();
+        reactFlowInstance.setViewport({
+          x: x - e.deltaX,
+          y: y - e.deltaY,
+          zoom,
+        });
+      }
+    };
+    el.addEventListener('wheel', onWheel, { passive: false, capture: true });
+    return () => el.removeEventListener('wheel', onWheel, { capture: true });
+  }, [reactFlowInstance]);
 
   return (
     <div
