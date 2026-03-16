@@ -19,11 +19,12 @@ export function radiusRuntime(params, inputs) {
 
   if (inputGeo.type === 'rect' || inputGeo.type === 'roundedRect') {
     const selected = parsePointSelection(point_selection, 4);
+    const existing = inputGeo.corners || [0, 0, 0, 0];
     const corners = [
-      selected.has(0) ? radius : 0,
-      selected.has(1) ? radius : 0,
-      selected.has(2) ? radius : 0,
-      selected.has(3) ? radius : 0,
+      selected.has(0) ? radius : existing[0],
+      selected.has(1) ? radius : existing[1],
+      selected.has(2) ? radius : existing[2],
+      selected.has(3) ? radius : existing[3],
     ];
 
     return {
