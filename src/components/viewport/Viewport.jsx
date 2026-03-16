@@ -227,24 +227,32 @@ export default function Viewport() {
         {showGrid ? 'Grid: On' : 'Grid: Off'}
       </button>
 
-      <div className="absolute bottom-3 left-3 z-10 flex flex-col rounded border border-border-primary bg-white shadow-sm">
+      <div className="absolute bottom-3 left-3 z-10 flex flex-col overflow-hidden rounded-lg border border-border-primary bg-white shadow-sm"
+        style={{ borderRadius: 8 }}
+      >
         <button
           onClick={zoomIn}
-          className="flex h-7 w-7 items-center justify-center text-sm text-text-secondary hover:bg-bg-tertiary"
+          className="flex h-[26px] w-[26px] items-center justify-center border-b border-border-primary text-text-secondary hover:bg-bg-tertiary"
           title="Zoom in"
-        >+</button>
-        <div className="border-t border-border-primary" />
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12"><path d="M6 0v12M0 6h12" stroke="currentColor" strokeWidth="1.5" fill="none"/></svg>
+        </button>
         <button
           onClick={zoomOut}
-          className="flex h-7 w-7 items-center justify-center text-sm text-text-secondary hover:bg-bg-tertiary"
+          className="flex h-[26px] w-[26px] items-center justify-center border-b border-border-primary text-text-secondary hover:bg-bg-tertiary"
           title="Zoom out"
-        >−</button>
-        <div className="border-t border-border-primary" />
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12"><path d="M0 6h12" stroke="currentColor" strokeWidth="1.5" fill="none"/></svg>
+        </button>
         <button
           onClick={fitAll}
-          className="flex h-7 w-7 items-center justify-center text-[10px] text-text-secondary hover:bg-bg-tertiary"
+          className="flex h-[26px] w-[26px] items-center justify-center text-text-secondary hover:bg-bg-tertiary"
           title="Fit all geometry"
-        >⛶</button>
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2">
+            <path d="M1 4V1h3M8 1h3v3M11 8v3H8M4 11H1V8"/>
+          </svg>
+        </button>
       </div>
 
       <svg
