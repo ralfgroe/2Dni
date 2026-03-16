@@ -159,7 +159,7 @@ export default function PointTransformOverlay({ nodeId, screenToSvg, edges, resu
 
   if (!sourceGeo || points.length === 0) return null;
 
-  const ptRadius = 5;
+  const ptRadius = 4.5;
 
   let centroid = null;
   if (selectedPts.size >= 2) {
@@ -182,11 +182,11 @@ export default function PointTransformOverlay({ nodeId, screenToSvg, edges, resu
         const isSel = selectedPts.has(pt.idx);
         return (
           <g key={pt.idx}>
-            {/* Larger invisible hit area */}
+            {/* Hit area */}
             <circle
               cx={pt.x}
               cy={pt.y}
-              r={ptRadius * 3}
+              r={ptRadius}
               fill="transparent"
               stroke="none"
               style={{ cursor: 'pointer' }}
@@ -205,20 +205,6 @@ export default function PointTransformOverlay({ nodeId, screenToSvg, edges, resu
           </g>
         );
       })}
-
-      {points.map(pt => (
-        <text
-          key={`lbl_${pt.idx}`}
-          x={pt.x}
-          y={pt.y - ptRadius - 3}
-          textAnchor="middle"
-          fontSize={8}
-          fill="#868e96"
-          style={{ pointerEvents: 'none', userSelect: 'none' }}
-        >
-          {pt.idx}
-        </text>
-      ))}
 
       {centroid && (
         <>

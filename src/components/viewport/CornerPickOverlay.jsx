@@ -82,22 +82,10 @@ export default function CornerPickOverlay({ geometry, nodeId }) {
               cx={pt.x}
               cy={pt.y}
               r={HANDLE_R}
-              fill={isOn ? '#4263eb' : '#ffffff'}
+              fill={isOn ? 'rgba(66,99,235,0.25)' : 'rgba(255,255,255,0.3)'}
               stroke={isOn ? '#3b5bdb' : '#adb5bd'}
               strokeWidth={1.5}
             />
-            <text
-              x={pt.x}
-              y={pt.y + 0.5}
-              textAnchor="middle"
-              dominantBaseline="central"
-              fontSize={totalSharp > 20 ? 5 : 6}
-              fontWeight="700"
-              fill={isOn ? '#ffffff' : '#868e96'}
-              pointerEvents="none"
-            >
-              {pt.idx}
-            </text>
           </g>
         );
       })}
