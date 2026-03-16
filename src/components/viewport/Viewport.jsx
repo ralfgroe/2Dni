@@ -15,6 +15,7 @@ export default function Viewport() {
   const [viewBox, setViewBox] = useState({ x: -400, y: -300, w: 800, h: 600 });
   const [isPanning, setIsPanning] = useState(false);
   const panRef = useRef({ active: false, x: 0, y: 0 });
+  const wheelState = useRef({ lastTime: 0, count: 0, isTrackpad: false });
   const [showGrid, setShowGrid] = useState(true);
   const [showSplash, setShowSplash] = useState(true);
   const [fontVersion, setFontVersion] = useState(0);
@@ -101,15 +102,30 @@ export default function Viewport() {
       if (!ctm) return;
 
       const isPinch = e.ctrlKey || e.metaKey;
-      const isTrackpadPan = !isPinch && Math.abs(e.deltaX) > 0;
 
-      if (isTrackpadPan) {
+      const now = Date.now();
+      const ws = wheelState.current;
+      if (now - ws.lastTime < 40) {
+        ws.count++;
+        if (ws.count >= 2) ws.isTrackpad = true;
+      } else {
+        ws.count = 0;
+        ws.isTrackpad = false;
+      }
+      ws.lastTime = now;
+
+      const hasHorizontal = Math.abs(e.deltaX) > 0;
+      const shouldPan = !isPinch && (hasHorizontal || ws.isTrackpad);
+
+      if (shouldPan) {
         const scale = ctm.a;
         const dx = e.deltaX / scale;
         const dy = e.deltaY / scale;
         setViewBox(v => ({ ...v, x: v.x + dx, y: v.y + dy }));
       } else {
-        const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
+        const zoomFactor = isPinch
+          ? Math.pow(2, -e.deltaY * 0.01)
+          : (e.deltaY > 0 ? 1.1 : 0.9);
         const inv = ctm.inverse();
         const mx = inv.a * e.clientX + inv.c * e.clientY + inv.e;
         const my = inv.b * e.clientX + inv.d * e.clientY + inv.f;
