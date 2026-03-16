@@ -418,12 +418,37 @@ export default function NodeGraph() {
             pointerEvents: 'none',
           }}
         >
-          <img
-            src={`${import.meta.env.BASE_URL}rightclick.svg`}
-            alt="Right-click or press Tab to start"
-            style={{ width: '756px', objectFit: 'contain' }}
-            draggable={false}
-          />
+          <div style={{ position: 'relative', width: '756px' }}>
+            <img
+              src={`${import.meta.env.BASE_URL}start1.svg`}
+              alt="Click the red triangle or right-click to start"
+              style={{ width: '100%', objectFit: 'contain' }}
+              draggable={false}
+            />
+            <div
+              style={{
+                position: 'absolute',
+                left: '33%',
+                top: '56%',
+                width: '10%',
+                height: '10%',
+                cursor: 'pointer',
+                pointerEvents: 'auto',
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                const bounds = reactFlowWrapper.current?.getBoundingClientRect();
+                if (!bounds) return;
+                const screenPos = { x: bounds.width / 2, y: bounds.height / 2 };
+                const flowPos = reactFlowInstance?.screenToFlowPosition({
+                  x: bounds.left + bounds.width / 2,
+                  y: bounds.top + bounds.height / 2,
+                }) || { x: 0, y: 0 };
+                setPalette({ screen: screenPos, flow: flowPos, pendingConnection: null });
+                setShowStartup(false);
+              }}
+            />
+          </div>
         </div>
       )}
     </div>
