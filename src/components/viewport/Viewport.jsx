@@ -124,7 +124,7 @@ export default function Viewport() {
         setViewBox(v => ({ ...v, x: v.x + dx, y: v.y + dy }));
       } else {
         const zoomFactor = isPinch
-          ? Math.pow(2, -e.deltaY * 0.01)
+          ? Math.pow(2, e.deltaY * 0.01)
           : (e.deltaY > 0 ? 1.1 : 0.9);
         const inv = ctm.inverse();
         const mx = inv.a * e.clientX + inv.c * e.clientY + inv.e;
