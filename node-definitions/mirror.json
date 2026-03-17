@@ -1,0 +1,20 @@
+{
+  "id": "mirror",
+  "label": "Mirror",
+  "category": "Transform",
+  "description": "Mirrors geometry across an X or Y axis at a specified position.",
+  "inputs": [
+    { "id": "geometry_in", "label": "Geometry", "type": "geometry" }
+  ],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "mirror_x", "label": "Mirror X", "type": "boolean", "default": true },
+    { "id": "mirror_y", "label": "Mirror Y", "type": "boolean", "default": false },
+    { "id": "axis_x", "label": "Axis X", "type": "number", "default": 0, "min": -500, "max": 500 },
+    { "id": "axis_y", "label": "Axis Y", "type": "number", "default": 0, "min": -500, "max": 500 },
+    { "id": "keep_original", "label": "Keep Original", "type": "boolean", "default": true }
+  ],
+  "runtime": "mirror"
+}
