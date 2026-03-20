@@ -86,6 +86,12 @@ function applyDrag(type, dx, dy, startParams, nodeId, defId, updateNodeParams) {
         translate_y: Math.round(startParams.translate_y + dy),
       });
     }
+    if (type === 'pivot') {
+      updateNodeParams(nodeId, {
+        pivot_x: Math.round((startParams.pivot_x || 0) + dx),
+        pivot_y: Math.round((startParams.pivot_y || 0) + dy),
+      });
+    }
   } else {
     if (type === 'move') {
       if (startParams.x !== undefined) {
@@ -156,14 +162,13 @@ function renderRectHandles(geo, startDrag) {
 }
 
 function renderTransformHandles(geo, node, startDrag) {
-  const tx = node.data.params.translate_x || 0;
-  const ty = node.data.params.translate_y || 0;
+  const px = node.data.params.pivot_x || 0;
+  const py = node.data.params.pivot_y || 0;
   return (
     <g>
-      {/* Translate crosshair */}
-      <line x1={tx - 15} y1={ty} x2={tx + 15} y2={ty} stroke={HANDLE_COLOR} strokeWidth={1} />
-      <line x1={tx} y1={ty - 15} x2={tx} y2={ty + 15} stroke={HANDLE_COLOR} strokeWidth={1} />
-      <CircleHandle cx={tx} cy={ty} cursor="move" onMouseDown={(e) => startDrag('translate', e)} />
+      <line x1={px - 15} y1={py} x2={px + 15} y2={py} stroke={HANDLE_COLOR} strokeWidth={1} />
+      <line x1={px} y1={py - 15} x2={px} y2={py + 15} stroke={HANDLE_COLOR} strokeWidth={1} />
+      <CircleHandle cx={px} cy={py} cursor="move" onMouseDown={(e) => startDrag('pivot', e)} />
     </g>
   );
 }

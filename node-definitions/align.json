@@ -1,0 +1,18 @@
+{
+  "id": "align",
+  "label": "Align",
+  "category": "Transform",
+  "description": "Aligns the second geometry to the first on the X or Y axis.",
+  "inputs": [
+    { "id": "geometry_a", "label": "Reference", "type": "geometry" },
+    { "id": "geometry_b", "label": "Target", "type": "geometry" }
+  ],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "align_x", "label": "Align X", "type": "select", "default": "None", "options": ["None", "Left", "Center", "Right"] },
+    { "id": "align_y", "label": "Align Y", "type": "select", "default": "None", "options": ["None", "Top", "Center", "Bottom"] }
+  ],
+  "runtime": "align"
+}

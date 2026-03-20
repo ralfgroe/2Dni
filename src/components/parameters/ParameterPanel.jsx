@@ -11,6 +11,7 @@ export default function ParameterPanel() {
   const nodes = useGraphStore((s) => s.nodes);
   const edges = useGraphStore((s) => s.edges);
   const displayNodeId = useGraphStore((s) => s.displayNodeId);
+  const updateNodeParams = useGraphStore((s) => s.updateNodeParams);
   const definitions = useNodeRegistryStore((s) => s.definitions);
   const getDefinition = useNodeRegistryStore((s) => s.getDefinition);
 
@@ -99,6 +100,55 @@ export default function ParameterPanel() {
                 nodeId={selectedNode.id}
                 params={params}
               />
+            );
+          }
+          if (definition.id === 'transform' && paramDef.id === 'rotate') {
+            return (
+              <div key={paramDef.id} style={{ paddingTop: 24 }}>
+                <ParameterRow paramDef={paramDef} value={params[paramDef.id]} nodeId={selectedNode.id} />
+              </div>
+            );
+          }
+          if (definition.id === 'transform' && paramDef.id === 'scale') {
+            return (
+              <div key={paramDef.id} style={{ paddingTop: 30 }}>
+                <ParameterRow paramDef={paramDef} value={params[paramDef.id]} nodeId={selectedNode.id} />
+              </div>
+            );
+          }
+          if (definition.id === 'transform' && paramDef.id === 'pivot_x') {
+            const sourceEdge = edges.find((e) => e.target === selectedNode.id && e.targetHandle === 'geometry_in');
+            const sourceGeo = sourceEdge ? results.get(sourceEdge.source) : null;
+            return (
+              <div key="pivot_group" style={{ paddingTop: 30 }}>
+                <div style={{ marginBottom: 12 }} className="flex items-center gap-2">
+                  <button
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border-primary bg-bg-secondary text-[10px] text-text-secondary hover:bg-bg-tertiary"
+                    title="Center Pivot"
+                    onClick={() => {
+                      if (!sourceGeo) return;
+                      const b = sourceGeo.bounds || (sourceGeo.type === 'rect' || sourceGeo.type === 'roundedRect'
+                        ? { x: sourceGeo.x, y: sourceGeo.y, width: sourceGeo.width, height: sourceGeo.height }
+                        : null);
+                      if (!b) return;
+                      const cx = Math.round((b.x + b.width / 2) * 100) / 100;
+                      const cy = Math.round((b.y + b.height / 2) * 100) / 100;
+                      updateNodeParams(selectedNode.id, { pivot_x: cx, pivot_y: cy });
+                    }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 20 20">
+                      <circle cx="10" cy="10" r="7" fill="#fff" stroke="#231f20" strokeWidth="1.2" />
+                      <circle cx="10" cy="10" r="2.5" fill="#ec008c" />
+                    </svg>
+                  </button>
+                  <span className="text-[11px] font-medium text-text-secondary">Center Pivot</span>
+                </div>
+                <ParameterRow
+                  paramDef={paramDef}
+                  value={params[paramDef.id]}
+                  nodeId={selectedNode.id}
+                />
+              </div>
             );
           }
           return (
