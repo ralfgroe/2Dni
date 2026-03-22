@@ -27,13 +27,14 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
     const rect = el.getBoundingClientRect();
     const parent = el.offsetParent;
     const parentRect = parent ? parent.getBoundingClientRect() : { top: 0, height: window.innerHeight };
-    const maxTop = parentRect.height - rect.height - 100;
+    const estimatedHeight = rect.height + 60;
+    const maxTop = parentRect.height - estimatedHeight - 100;
     if (position.y > maxTop) {
       setClampedTop(Math.max(0, maxTop));
     } else {
       setClampedTop(position.y);
     }
-  });
+  }, [position.x, position.y]);
 
   const syncThumb = useCallback(() => {
     const el = scrollRef.current;
@@ -323,13 +324,15 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
           </div>
         </div>
 
-        {descriptionDef && (
-          <div className="border-t border-border-primary" style={{ padding: '8px 10px 10px 12px' }}>
+        <div className="border-t border-border-primary" style={{ padding: '8px 10px 10px 12px', minHeight: '48px' }}>
+          {descriptionDef ? (
             <p className="text-[10px] leading-snug text-text-muted">
               {descriptionDef.description}
             </p>
-          </div>
-        )}
+          ) : (
+            <p className="text-[10px] leading-snug text-text-muted" style={{ opacity: 0 }}>&nbsp;</p>
+          )}
+        </div>
       </div>
     </>
   );
