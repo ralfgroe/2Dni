@@ -1,0 +1,16 @@
+{
+  "id": "split",
+  "label": "Split",
+  "category": "Transform",
+  "description": "Separates compound geometry into individual pieces. Outputs up to 3 separate geometry streams from grouped or compound path geometry.",
+  "inputs": [
+    { "id": "geometry_in", "label": "Geometry In", "type": "geometry" }
+  ],
+  "outputs": [
+    { "id": "geo_out_1", "label": "Piece 1", "type": "geometry" },
+    { "id": "geo_out_2", "label": "Piece 2", "type": "geometry" },
+    { "id": "geo_out_3", "label": "Piece 3", "type": "geometry" }
+  ],
+  "parameters": [],
+  "runtime": "split"
+}

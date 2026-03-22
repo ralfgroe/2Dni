@@ -129,16 +129,19 @@ export default memo(function GraphNode({ id, data, selected }) {
           className="graph-port-bottom"
         />
       ) : (
-        outputs.map((output, i) => (
-          <Handle
-            key={output.id}
-            type="source"
-            position={Position.Bottom}
-            id={output.id}
-            className="graph-port-bottom-extra"
-            style={{ left: `${35 + i * 30}%` }}
-          />
-        ))
+        outputs.map((output, i) => {
+          const pos = outputs.length === 1 ? 50 : 25 + (i * 50) / (outputs.length - 1);
+          return (
+            <Handle
+              key={output.id}
+              type="source"
+              position={Position.Bottom}
+              id={output.id}
+              className="graph-port-bottom-extra"
+              style={{ left: `${pos}%` }}
+            />
+          );
+        })
       )}
     </div>
   );
