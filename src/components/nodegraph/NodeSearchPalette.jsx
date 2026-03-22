@@ -44,9 +44,11 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
     const el = scrollRef.current;
     if (!el) return;
     const handleWheel = (e) => {
+      e.preventDefault();
       e.stopPropagation();
+      el.scrollTop += e.deltaY;
     };
-    el.addEventListener('wheel', handleWheel, { passive: true });
+    el.addEventListener('wheel', handleWheel, { passive: false });
     return () => el.removeEventListener('wheel', handleWheel);
   }, []);
 
