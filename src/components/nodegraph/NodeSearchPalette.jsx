@@ -3,7 +3,6 @@ import { useNodeRegistryStore } from '../../store/nodeRegistryStore';
 
 export default function NodeSearchPalette({ position, onSelect, onClose }) {
   const [query, setQuery] = useState('');
-  const [descriptionDef, setDescriptionDef] = useState(null);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef(null);
   const scrollRef = useRef(null);
@@ -11,7 +10,8 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
   const trackRef = useRef(null);
   const thumbRef = useRef(null);
   const rafRef = useRef(null);
-  const hoverTimerRef = useRef(null);
+  const isScrollingRef = useRef(false);
+  const scrollTimerRef = useRef(null);
   const [clampedTop, setClampedTop] = useState(position.y);
   const categories = useNodeRegistryStore((s) => s.categories);
   const getDefinitionsByCategory = useNodeRegistryStore((s) => s.getDefinitionsByCategory);
@@ -63,13 +63,24 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
     const el = scrollRef.current;
     if (!el) return;
     syncThumb();
-    el.addEventListener('scroll', scheduleSyncThumb, { passive: true });
+
+    const onScroll = () => {
+      isScrollingRef.current = true;
+      clearTimeout(scrollTimerRef.current);
+      scrollTimerRef.current = setTimeout(() => {
+        isScrollingRef.current = false;
+      }, 150);
+      scheduleSyncThumb();
+    };
+
+    el.addEventListener('scroll', onScroll, { passive: true });
     const observer = new ResizeObserver(syncThumb);
     observer.observe(el);
     return () => {
-      el.removeEventListener('scroll', scheduleSyncThumb);
+      el.removeEventListener('scroll', onScroll);
       observer.disconnect();
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      clearTimeout(scrollTimerRef.current);
     };
   }, [syncThumb, scheduleSyncThumb]);
 
@@ -150,6 +161,15 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
     setSelectedIndex(-1);
   }, [query]);
 
+  const scrollToItem = useCallback((index) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const buttons = el.querySelectorAll('[data-node-btn]');
+    if (buttons[index]) {
+      buttons[index].scrollIntoView({ block: 'nearest' });
+    }
+  }, []);
+
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Escape') {
       onClose();
@@ -182,45 +202,23 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
       }
       return;
     }
-  }, [flatList, selectedIndex, onSelect, onClose]);
+  }, [flatList, selectedIndex, onSelect, onClose, scrollToItem]);
 
-  useEffect(() => {
-    if (selectedIndex >= 0 && flatList[selectedIndex]) {
-      setDescriptionDef(flatList[selectedIndex]);
-    }
-  }, [selectedIndex, flatList]);
-
-  const scrollToItem = useCallback((index) => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const buttons = el.querySelectorAll('[data-node-btn]');
-    if (buttons[index]) {
-      buttons[index].scrollIntoView({ block: 'nearest' });
-    }
-  }, []);
-
-  const handleMouseEnter = useCallback((def) => {
-    clearTimeout(hoverTimerRef.current);
-    hoverTimerRef.current = setTimeout(() => {
-      setDescriptionDef(def);
-      setSelectedIndex(-1);
-    }, 60);
+  const handleMouseEnter = useCallback((idx) => {
+    if (isScrollingRef.current) return;
+    setSelectedIndex(idx);
   }, []);
 
   const handleMouseLeave = useCallback(() => {
-    clearTimeout(hoverTimerRef.current);
-    hoverTimerRef.current = setTimeout(() => {
-      setDescriptionDef(null);
-    }, 100);
-  }, []);
-
-  useEffect(() => {
-    return () => clearTimeout(hoverTimerRef.current);
+    if (isScrollingRef.current) return;
+    setSelectedIndex(-1);
   }, []);
 
   const stopWheel = useCallback((e) => {
     e.stopPropagation();
   }, []);
+
+  const descriptionDef = selectedIndex >= 0 ? flatList[selectedIndex] : null;
 
   return (
     <>
@@ -272,20 +270,16 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
                   </div>
                   {groupedFiltered[cat].map((def) => {
                     const idx = flatIdx++;
-                    const isKbSelected = idx === selectedIndex;
+                    const isActive = idx === selectedIndex;
                     return (
                       <button
                         key={def.id}
                         data-node-btn
                         onClick={() => onSelect(def)}
-                        onMouseEnter={() => handleMouseEnter(def)}
+                        onMouseEnter={() => handleMouseEnter(idx)}
                         onMouseLeave={handleMouseLeave}
-                        className={`flex w-full items-center gap-2 rounded py-1.5 pr-4 text-left text-xs transition-colors ${
-                          isKbSelected
-                            ? 'bg-accent text-white'
-                            : selectedIndex >= 0
-                              ? 'text-text-secondary'
-                              : 'text-text-secondary hover:bg-accent hover:text-white'
+                        className={`flex w-full items-center gap-2 rounded py-1.5 pr-4 text-left text-xs text-text-secondary transition-colors ${
+                          isActive ? 'bg-accent text-white' : ''
                         }`}
                         style={{ paddingLeft: '16px' }}
                       >
