@@ -27,7 +27,7 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
     const rect = el.getBoundingClientRect();
     const parent = el.offsetParent;
     const parentRect = parent ? parent.getBoundingClientRect() : { top: 0, height: window.innerHeight };
-    const maxTop = parentRect.height - rect.height;
+    const maxTop = parentRect.height - rect.height - 100;
     if (position.y > maxTop) {
       setClampedTop(Math.max(0, maxTop));
     } else {
