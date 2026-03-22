@@ -41,7 +41,10 @@ export function evaluateGraph(nodes, edges, definitions, displayNodeId) {
       const incomingEdges = adjacency.get(nodeId) || [];
       if (incomingEdges.length > 0) {
         const firstEdge = incomingEdges[0];
-        const passthrough = results.get(firstEdge.source);
+        let passthrough = results.get(firstEdge.source);
+        if (passthrough && passthrough.__multiOutput && firstEdge.sourceHandle) {
+          passthrough = passthrough[firstEdge.sourceHandle];
+        }
         if (passthrough !== undefined) {
           results.set(nodeId, passthrough);
         }
@@ -60,7 +63,11 @@ export function evaluateGraph(nodes, edges, definitions, displayNodeId) {
     for (const edge of incomingEdges) {
       const sourceResult = results.get(edge.source);
       if (sourceResult !== undefined) {
-        inputs[edge.targetHandle] = sourceResult;
+        if (sourceResult && sourceResult.__multiOutput && edge.sourceHandle) {
+          inputs[edge.targetHandle] = sourceResult[edge.sourceHandle];
+        } else {
+          inputs[edge.targetHandle] = sourceResult;
+        }
       }
     }
 

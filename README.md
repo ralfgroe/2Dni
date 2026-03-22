@@ -2,6 +2,8 @@
 
 A procedural, node-based 2D graphics tool inspired by Houdini. Create and manipulate 2D vector graphics by chaining nodes together in a live, non-destructive, fully parametric design environment.
 
+**[Live Demo](https://ralfgroe.github.io/2Dni)**
+
 ## Getting Started
 
 ```bash
@@ -29,6 +31,8 @@ Open **http://localhost:5173** in your browser.
 | Line | Geometry | Straight line with length, angle, weight, color |
 | Rectangle | Geometry | Rectangle with size, position, fill, stroke |
 | Transform | Transform | Translate, rotate, scale incoming geometry |
+| Align | Transform | Align two geometry streams on X/Y axis with separate outputs |
+| Mirror | Transform | Mirror geometry on X/Y axis |
 | Text | Geometry | Vector text with font, size, weight, color |
 | Code | Utility | JavaScript code editor for geometry manipulation |
 | Boolean | Geometry | Union, subtract, intersect, exclude operations |

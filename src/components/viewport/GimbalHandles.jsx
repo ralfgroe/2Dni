@@ -5,7 +5,7 @@ const HANDLE_SIZE = 8;
 const HANDLE_COLOR = '#4263eb';
 const HANDLE_FILL = '#ffffff';
 
-export default function GimbalHandles({ geometry, node, definition, screenToSvg }) {
+export default function GimbalHandles({ geometry, node, definition, screenToSvg, viewBox }) {
   const updateNodeParams = useGraphStore((s) => s.updateNodeParams);
   const [dragging, setDragging] = useState(null);
 
@@ -43,7 +43,7 @@ export default function GimbalHandles({ geometry, node, definition, screenToSvg 
 
   if (defId === 'line') return renderLineHandles(geometry, startDrag);
   if (defId === 'rectangle') return renderRectHandles(geometry, startDrag);
-  if (defId === 'transform') return renderTransformHandles(geometry, node, startDrag);
+  if (defId === 'transform') return renderTransformHandles(geometry, node, startDrag, viewBox);
 
   return renderBoundsHandles(geometry, startDrag);
 }
@@ -161,14 +161,27 @@ function renderRectHandles(geo, startDrag) {
   );
 }
 
-function renderTransformHandles(geo, node, startDrag) {
+function renderTransformHandles(geo, node, startDrag, viewBox) {
   const px = node.data.params.pivot_x || 0;
   const py = node.data.params.pivot_y || 0;
+  const scale = viewBox ? viewBox.w / 800 : 1;
+  const arm = 20 * scale;
+  const r = (HANDLE_SIZE / 2) * scale;
+  const sw = 1.5 * scale;
   return (
     <g>
-      <line x1={px - 15} y1={py} x2={px + 15} y2={py} stroke={HANDLE_COLOR} strokeWidth={1} />
-      <line x1={px} y1={py - 15} x2={px} y2={py + 15} stroke={HANDLE_COLOR} strokeWidth={1} />
-      <CircleHandle cx={px} cy={py} cursor="move" onMouseDown={(e) => startDrag('pivot', e)} />
+      <line x1={px - arm} y1={py} x2={px + arm} y2={py} stroke={HANDLE_COLOR} strokeWidth={sw} />
+      <line x1={px} y1={py - arm} x2={px} y2={py + arm} stroke={HANDLE_COLOR} strokeWidth={sw} />
+      <circle
+        cx={px}
+        cy={py}
+        r={r}
+        fill={HANDLE_FILL}
+        stroke={HANDLE_COLOR}
+        strokeWidth={sw}
+        cursor="move"
+        onMouseDown={(e) => startDrag('pivot', e)}
+      />
     </g>
   );
 }

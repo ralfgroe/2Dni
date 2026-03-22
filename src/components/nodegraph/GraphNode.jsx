@@ -34,69 +34,73 @@ export default memo(function GraphNode({ id, data, selected }) {
   if (!definition) return null;
 
   const { inputs, outputs } = definition;
-  const primaryInput = inputs[0];
-  const extraInputs = inputs.slice(1);
+  const hasMultiplePorts = inputs.length > 1 && outputs.length > 1;
+
+  const inputPositions = hasMultiplePorts
+    ? inputs.map((_, i) => 35 + i * 30)
+    : null;
+  const outputPositions = hasMultiplePorts
+    ? outputs.map((_, i) => 35 + i * 30)
+    : null;
 
   return (
     <div
       className={`graph-node-houdini ${selected ? 'selected' : ''} ${isBypassed ? 'bypassed' : ''}`}
       style={{ width: NODE_WIDTH }}
     >
-      {/* Primary input port — top center */}
-      {primaryInput && (
-        <Handle
-          type="target"
-          position={Position.Top}
-          id={primaryInput.id}
-          className="graph-port-top"
-        />
+      {/* Input ports — top */}
+      {hasMultiplePorts ? (
+        inputs.map((input, i) => (
+          <Handle
+            key={input.id}
+            type="target"
+            position={Position.Top}
+            id={input.id}
+            className={i === 0 ? 'graph-port-top' : 'graph-port-top-extra'}
+            style={{ left: `${inputPositions[i]}%` }}
+          />
+        ))
+      ) : (
+        <>
+          {inputs[0] && (
+            <Handle
+              type="target"
+              position={Position.Top}
+              id={inputs[0].id}
+              className="graph-port-top"
+            />
+          )}
+          {inputs.slice(1).map((input, i) => (
+            <Handle
+              key={input.id}
+              type="target"
+              position={Position.Top}
+              id={input.id}
+              className="graph-port-top-extra"
+              style={{ left: `${65 + i * 18}%` }}
+            />
+          ))}
+        </>
       )}
-
-      {/* Extra input ports — top right area */}
-      {extraInputs.map((input, i) => (
-        <Handle
-          key={input.id}
-          type="target"
-          position={Position.Top}
-          id={input.id}
-          className="graph-port-top-extra"
-          style={{
-            left: `${65 + i * 18}%`,
-          }}
-        />
-      ))}
 
       {/* Node body */}
       <div className="graph-node-body-houdini">
-        {/* Bypass flag — left side */}
         <button
           className={`graph-flag bypass-flag ${isBypassed ? 'active' : ''}`}
           onClick={handleBypassClick}
           title={isBypassed ? 'Enable node' : 'Bypass node'}
         />
-
-        {/* Separator */}
         <div style={{ width: '2px', height: '100%', backgroundColor: '#1a1a2e', flexShrink: 0 }} />
-
-        {/* Template flag — next to bypass */}
         <button
           className={`graph-flag template-flag ${isTemplated ? 'active' : ''}`}
           onClick={handleTemplateClick}
           title={isTemplated ? 'Remove template' : 'Show as template'}
         />
-
-        {/* Separator — left of title */}
         <div style={{ width: '2px', height: '100%', backgroundColor: '#1a1a2e', flexShrink: 0 }} />
-
-        {/* Node title */}
         <div className="graph-node-title">
           {definition.label}
         </div>
-
-        {/* Separator — right of title */}
         <div style={{ width: '2px', height: '100%', backgroundColor: '#1a1a2e', flexShrink: 0 }} />
-
-        {/* Display flag — right side */}
         <button
           className={`graph-flag display-flag ${isDisplay ? 'active' : ''}`}
           onClick={handleDisplayClick}
@@ -104,16 +108,38 @@ export default memo(function GraphNode({ id, data, selected }) {
         />
       </div>
 
-      {/* Output port — bottom center */}
-      {outputs.map((output) => (
+      {/* Output ports — bottom */}
+      {hasMultiplePorts ? (
+        outputs.map((output, i) => (
+          <Handle
+            key={output.id}
+            type="source"
+            position={Position.Bottom}
+            id={output.id}
+            className={i === 0 ? 'graph-port-bottom' : 'graph-port-bottom-extra'}
+            style={{ left: `${outputPositions[i]}%` }}
+          />
+        ))
+      ) : outputs.length === 1 ? (
         <Handle
-          key={output.id}
+          key={outputs[0].id}
           type="source"
           position={Position.Bottom}
-          id={output.id}
+          id={outputs[0].id}
           className="graph-port-bottom"
         />
-      ))}
+      ) : (
+        outputs.map((output, i) => (
+          <Handle
+            key={output.id}
+            type="source"
+            position={Position.Bottom}
+            id={output.id}
+            className="graph-port-bottom-extra"
+            style={{ left: `${35 + i * 30}%` }}
+          />
+        ))
+      )}
     </div>
   );
 });

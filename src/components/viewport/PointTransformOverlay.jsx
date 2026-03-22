@@ -66,7 +66,9 @@ export default function PointTransformOverlay({ nodeId, screenToSvg, edges, resu
   const scale = params.scale ?? 1;
 
   const sourceEdge = edges.find(e => e.target === nodeId && e.targetHandle === 'geometry_in');
-  const sourceGeo = sourceEdge ? results.get(sourceEdge.source) : null;
+  const sourceGeoRaw = sourceEdge ? results.get(sourceEdge.source) : null;
+  const sourceGeo = sourceGeoRaw && sourceGeoRaw.__multiOutput && sourceEdge?.sourceHandle
+    ? sourceGeoRaw[sourceEdge.sourceHandle] : sourceGeoRaw;
 
   const scaleIndices = useMemo(() => {
     const s = params.scale_points || '';

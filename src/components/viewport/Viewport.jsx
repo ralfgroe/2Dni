@@ -38,7 +38,10 @@ export default function Viewport() {
   );
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId);
-  const selectedGeo = selectedNodeId ? results.get(selectedNodeId) : null;
+  const selectedGeoRaw = selectedNodeId ? results.get(selectedNodeId) : null;
+  const selectedGeo = selectedGeoRaw && selectedGeoRaw.__multiOutput
+    ? (() => { const parts = Object.entries(selectedGeoRaw).filter(([k]) => k !== '__multiOutput').map(([, v]) => v).filter(Boolean); return parts.length > 0 ? { type: 'group', children: parts, bounds: parts[0].bounds } : null; })()
+    : selectedGeoRaw;
   const selectedDef = selectedNode
     ? definitions[selectedNode.data.definitionId]
     : null;
@@ -307,6 +310,11 @@ export default function Viewport() {
           if (!node.data.templated) return null;
           let geo = results.get(node.id);
           if (!geo) return null;
+          if (geo.__multiOutput) {
+            const parts = Object.entries(geo).filter(([k]) => k !== '__multiOutput').map(([, v]) => v).filter(Boolean);
+            if (parts.length === 0) return null;
+            geo = { type: 'group', children: parts, bounds: parts[0].bounds };
+          }
           if (geo.type === 'export' && geo.geometry) geo = geo.geometry;
           if (geo.type === 'export') return null;
           return (
@@ -321,6 +329,10 @@ export default function Viewport() {
         {(() => {
           if (displayNodeId) {
             let geo = results.get(displayNodeId);
+            if (geo && geo.__multiOutput) {
+              const parts = Object.entries(geo).filter(([k]) => k !== '__multiOutput').map(([, v]) => v).filter(Boolean);
+              geo = parts.length > 0 ? { type: 'group', children: parts, bounds: parts[0].bounds } : null;
+            }
             if (geo && geo.type === 'export' && geo.geometry) {
               geo = geo.geometry;
             }
@@ -337,8 +349,13 @@ export default function Viewport() {
 
           return nodes.map((node) => {
             if (nodesWithDownstream.has(node.id)) return null;
-            const geo = results.get(node.id);
+            let geo = results.get(node.id);
             if (!geo || geo.type === 'export') return null;
+            if (geo.__multiOutput) {
+              const parts = Object.entries(geo).filter(([k]) => k !== '__multiOutput').map(([, v]) => v).filter(Boolean);
+              if (parts.length === 0) return null;
+              geo = { type: 'group', children: parts, bounds: parts[0].bounds };
+            }
             return renderGeometry(geo, node.id, selectedNodeId, selectNode);
           });
         })()}
@@ -349,13 +366,16 @@ export default function Viewport() {
             node={selectedNode}
             definition={selectedDef}
             screenToSvg={screenToSvg}
+            viewBox={viewBox}
           />
         )}
 
         {/* Corner pick overlay for Radius nodes */}
         {selectedNode && selectedDef && selectedDef.id === 'radius' && (() => {
           const sourceEdge = edges.find((e) => e.target === selectedNode.id && e.targetHandle === 'geometry_in');
-          const sourceGeo = sourceEdge ? results.get(sourceEdge.source) : null;
+          const sourceGeoRaw = sourceEdge ? results.get(sourceEdge.source) : null;
+          const sourceGeo = sourceGeoRaw && sourceGeoRaw.__multiOutput && sourceEdge.sourceHandle
+            ? sourceGeoRaw[sourceEdge.sourceHandle] : sourceGeoRaw;
           if (sourceGeo && (sourceGeo.type === 'rect' || sourceGeo.type === 'roundedRect' || sourceGeo.type === 'booleanResult')) {
             return (
               <CornerPickOverlay

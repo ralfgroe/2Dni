@@ -8,7 +8,8 @@
     { "id": "geometry_b", "label": "Target", "type": "geometry" }
   ],
   "outputs": [
-    { "id": "geometry_out", "label": "Geometry", "type": "geometry" }
+    { "id": "geometry_out_a", "label": "Reference", "type": "geometry" },
+    { "id": "geometry_out_b", "label": "Target", "type": "geometry" }
   ],
   "parameters": [
     { "id": "align_x", "label": "Align X", "type": "select", "default": "None", "options": ["None", "Left", "Center", "Right"] },

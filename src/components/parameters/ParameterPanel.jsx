@@ -25,6 +25,15 @@ export default function ParameterPanel() {
     [nodes, edges, definitions, displayNodeId]
   );
 
+  function resolveEdgeResult(edge) {
+    if (!edge) return null;
+    const raw = results.get(edge.source);
+    if (raw && raw.__multiOutput && edge.sourceHandle) {
+      return raw[edge.sourceHandle] ?? null;
+    }
+    return raw ?? null;
+  }
+
   if (!selectedNode || !definition) {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center bg-bg-primary px-4" style={{ position: 'relative' }}>
@@ -75,7 +84,7 @@ export default function ParameterPanel() {
           }
           if (definition.id === 'radius' && paramDef.id === 'point_selection') {
             const sourceEdge = edges.find((e) => e.target === selectedNode.id && e.targetHandle === 'geometry_in');
-            const sourceGeo = sourceEdge ? results.get(sourceEdge.source) : null;
+            const sourceGeo = resolveEdgeResult(sourceEdge);
             return (
               <CornerSelector
                 key={paramDef.id}
@@ -117,8 +126,10 @@ export default function ParameterPanel() {
             );
           }
           if (definition.id === 'transform' && paramDef.id === 'pivot_x') {
-            const sourceEdge = edges.find((e) => e.target === selectedNode.id && e.targetHandle === 'geometry_in');
-            const sourceGeo = sourceEdge ? results.get(sourceEdge.source) : null;
+            const transformGeo = results.get(selectedNode.id);
+            const resolvedGeo = transformGeo && transformGeo.__multiOutput
+              ? (() => { const parts = Object.entries(transformGeo).filter(([k]) => k !== '__multiOutput').map(([, v]) => v).filter(Boolean); return parts.length > 0 ? { type: 'group', children: parts, bounds: parts[0].bounds } : null; })()
+              : transformGeo;
             return (
               <div key="pivot_group" style={{ paddingTop: 30 }}>
                 <div style={{ marginBottom: 12 }} className="flex items-center gap-2">
@@ -126,9 +137,9 @@ export default function ParameterPanel() {
                     className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border-primary bg-bg-secondary text-[10px] text-text-secondary hover:bg-bg-tertiary"
                     title="Center Pivot"
                     onClick={() => {
-                      if (!sourceGeo) return;
-                      const b = sourceGeo.bounds || (sourceGeo.type === 'rect' || sourceGeo.type === 'roundedRect'
-                        ? { x: sourceGeo.x, y: sourceGeo.y, width: sourceGeo.width, height: sourceGeo.height }
+                      if (!resolvedGeo) return;
+                      const b = resolvedGeo.bounds || (resolvedGeo.type === 'rect' || resolvedGeo.type === 'roundedRect'
+                        ? { x: resolvedGeo.x, y: resolvedGeo.y, width: resolvedGeo.width, height: resolvedGeo.height }
                         : null);
                       if (!b) return;
                       const cx = Math.round((b.x + b.width / 2) * 100) / 100;
@@ -175,7 +186,7 @@ export default function ParameterPanel() {
         {/* AI chat for code wrangle nodes */}
         {definition.id === 'code' && (() => {
           const sourceEdge = edges.find((e) => e.target === selectedNode.id && e.targetHandle === 'geometry_in');
-          const inputGeo = sourceEdge ? results.get(sourceEdge.source) : null;
+          const inputGeo = resolveEdgeResult(sourceEdge);
           return (
             <WrangleChat
               nodeId={selectedNode.id}

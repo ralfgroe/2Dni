@@ -29,17 +29,19 @@ export function alignRuntime(params, inputs) {
   const geoA = inputs.geometry_a;
   const geoB = inputs.geometry_b;
 
-  if (!geoA && !geoB) return null;
-  if (!geoA) return geoB;
-  if (!geoB) return geoA;
+  if (!geoA && !geoB) return { __multiOutput: true, geometry_out_a: null, geometry_out_b: null };
+  if (!geoA) return { __multiOutput: true, geometry_out_a: null, geometry_out_b: geoB };
+  if (!geoB) return { __multiOutput: true, geometry_out_a: geoA, geometry_out_b: null };
 
   if (align_x === 'None' && align_y === 'None') {
-    return mergeGeo(geoA, geoB, 0, 0);
+    return { __multiOutput: true, geometry_out_a: geoA, geometry_out_b: geoB };
   }
 
   const boundsA = getBounds(geoA);
   const boundsB = getBounds(geoB);
-  if (!boundsA || !boundsB) return mergeGeo(geoA, geoB, 0, 0);
+  if (!boundsA || !boundsB) {
+    return { __multiOutput: true, geometry_out_a: geoA, geometry_out_b: geoB };
+  }
 
   let dx = 0;
   let dy = 0;
@@ -64,47 +66,30 @@ export function alignRuntime(params, inputs) {
     dy = (boundsA.y + boundsA.height) - (boundsB.y + boundsB.height);
   }
 
-  return mergeGeo(geoA, geoB, dx, dy);
+  const alignedB = translateGeo(geoB, dx, dy);
+  return { __multiOutput: true, geometry_out_a: geoA, geometry_out_b: alignedB };
 }
 
-function mergeGeo(geoA, geoB, dx, dy) {
-  if (dx === 0 && dy === 0) {
-    const bA = getBounds(geoA) || { x: 0, y: 0, width: 0, height: 0 };
-    const bB = getBounds(geoB) || { x: 0, y: 0, width: 0, height: 0 };
-    const minX = Math.min(bA.x, bB.x);
-    const minY = Math.min(bA.y, bB.y);
-    const maxX = Math.max(bA.x + bA.width, bB.x + bB.width);
-    const maxY = Math.max(bA.y + bA.height, bB.y + bB.height);
-    return {
-      type: 'group',
-      children: [geoA, geoB],
-      bounds: { x: minX, y: minY, width: maxX - minX, height: maxY - minY },
-    };
-  }
+function translateGeo(geo, dx, dy) {
+  if (dx === 0 && dy === 0) return geo;
 
   ensurePaper();
 
-  const pathA = geoToPaperPath(geoA);
-  const pathB = geoToPaperPath(geoB);
-  if (!pathA || !pathB) {
-    return { type: 'group', children: [geoA, geoB], bounds: getBounds(geoA) };
-  }
+  const path = geoToPaperPath(geo);
+  if (!path) return geo;
 
-  pathB.translate(new paper.Point(dx, dy));
+  path.translate(new paper.Point(dx, dy));
 
-  const compound = new paper.CompoundPath({ children: [pathA.clone(), pathB.clone()] });
-  const pathData = compound.pathData;
-  const bounds = compound.bounds;
-  compound.remove();
-  pathA.remove();
-  pathB.remove();
+  const pathData = path.pathData;
+  const bounds = path.bounds;
+  path.remove();
 
   return {
     type: 'booleanResult',
     pathData,
-    fill: geoA.fill && geoA.fill !== 'none' ? geoA.fill : (geoB.fill && geoB.fill !== 'none' ? geoB.fill : 'none'),
-    stroke: geoA.stroke || geoB.stroke || '#000000',
-    strokeWidth: geoA.strokeWidth ?? geoB.strokeWidth ?? 1,
+    fill: geo.fill && geo.fill !== 'none' ? geo.fill : 'none',
+    stroke: geo.stroke || '#000000',
+    strokeWidth: geo.strokeWidth ?? 1,
     bounds: {
       x: bounds.x,
       y: bounds.y,
