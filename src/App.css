@@ -149,13 +149,8 @@
 }
 
 /* ========================================
-   Palette scrollbar — hide native, use custom
+   Palette scrollbar — hide native via overflow clip
    ======================================== */
-
-.palette-hide-scrollbar::-webkit-scrollbar {
-  display: none !important;
-  width: 0 !important;
-}
 
 /* ========================================
    React Flow Controls & Minimap

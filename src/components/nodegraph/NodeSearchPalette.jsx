@@ -220,17 +220,17 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
         </div>
 
         <div className="relative" style={{ maxHeight: '256px' }}>
-          <div
-            ref={scrollRef}
-            className="max-h-64 pb-1.5 palette-hide-scrollbar"
-            style={{
-              paddingLeft: '12px',
-              paddingRight: '12px',
-              overflowY: 'auto',
-              scrollbarWidth: 'none',
-              msOverflowStyle: 'none',
-            }}
-          >
+          <div style={{ overflow: 'hidden', maxHeight: '256px' }}>
+            <div
+              ref={scrollRef}
+              className="max-h-64 pb-1.5"
+              style={{
+                paddingLeft: '12px',
+                overflowY: 'scroll',
+                marginRight: '-20px',
+                paddingRight: '32px',
+              }}
+            >
             {Object.keys(groupedFiltered).length === 0 && (
               <div className="px-2 py-3 text-center text-xs text-text-muted">
                 No matching nodes
@@ -268,6 +268,7 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
                 </div>
               ));
             })()}
+          </div>
           </div>
 
           <div
