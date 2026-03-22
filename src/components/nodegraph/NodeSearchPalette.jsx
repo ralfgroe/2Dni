@@ -3,7 +3,7 @@ import { useNodeRegistryStore } from '../../store/nodeRegistryStore';
 
 export default function NodeSearchPalette({ position, onSelect, onClose }) {
   const [query, setQuery] = useState('');
-  const [hoveredDef, setHoveredDef] = useState(null);
+  const [descriptionDef, setDescriptionDef] = useState(null);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef(null);
   const scrollRef = useRef(null);
@@ -11,6 +11,7 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
   const trackRef = useRef(null);
   const thumbRef = useRef(null);
   const rafRef = useRef(null);
+  const hoverTimerRef = useRef(null);
   const [clampedTop, setClampedTop] = useState(position.y);
   const categories = useNodeRegistryStore((s) => s.categories);
   const getDefinitionsByCategory = useNodeRegistryStore((s) => s.getDefinitionsByCategory);
@@ -183,6 +184,12 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
     }
   }, [flatList, selectedIndex, onSelect, onClose]);
 
+  useEffect(() => {
+    if (selectedIndex >= 0 && flatList[selectedIndex]) {
+      setDescriptionDef(flatList[selectedIndex]);
+    }
+  }, [selectedIndex, flatList]);
+
   const scrollToItem = useCallback((index) => {
     const el = scrollRef.current;
     if (!el) return;
@@ -190,6 +197,25 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
     if (buttons[index]) {
       buttons[index].scrollIntoView({ block: 'nearest' });
     }
+  }, []);
+
+  const handleMouseEnter = useCallback((def) => {
+    clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = setTimeout(() => {
+      setDescriptionDef(def);
+      setSelectedIndex(-1);
+    }, 60);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = setTimeout(() => {
+      setDescriptionDef(null);
+    }, 100);
+  }, []);
+
+  useEffect(() => {
+    return () => clearTimeout(hoverTimerRef.current);
   }, []);
 
   const stopWheel = useCallback((e) => {
@@ -246,16 +272,16 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
                   </div>
                   {groupedFiltered[cat].map((def) => {
                     const idx = flatIdx++;
-                    const isSelected = idx === selectedIndex;
+                    const isKbSelected = idx === selectedIndex;
                     return (
                       <button
                         key={def.id}
                         data-node-btn
                         onClick={() => onSelect(def)}
-                        onMouseEnter={() => { setHoveredDef(def); setSelectedIndex(idx); }}
-                        onMouseLeave={() => setHoveredDef(null)}
+                        onMouseEnter={() => handleMouseEnter(def)}
+                        onMouseLeave={handleMouseLeave}
                         className={`flex w-full items-center gap-2 rounded py-1.5 pr-4 text-left text-xs transition-colors ${
-                          isSelected
+                          isKbSelected
                             ? 'bg-accent text-white'
                             : 'text-text-secondary hover:bg-accent hover:text-white'
                         }`}
@@ -301,10 +327,10 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
           </div>
         </div>
 
-        {(hoveredDef || (selectedIndex >= 0 && flatList[selectedIndex])) && (
+        {descriptionDef && (
           <div className="border-t border-border-primary" style={{ padding: '8px 10px 10px 12px' }}>
             <p className="text-[10px] leading-snug text-text-muted">
-              {(hoveredDef || flatList[selectedIndex])?.description}
+              {descriptionDef.description}
             </p>
           </div>
         )}
