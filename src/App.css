@@ -149,35 +149,12 @@
 }
 
 /* ========================================
-   Palette scrollbar — always visible
+   Palette scrollbar — hide native, use custom
    ======================================== */
 
-.palette-scroll {
-  overflow-y: scroll !important;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin !important;
-  scrollbar-color: #c1c1c1 #f0f0f0 !important;
-}
-
-.palette-scroll::-webkit-scrollbar {
-  -webkit-appearance: none !important;
-  width: 8px !important;
-  display: block !important;
-}
-
-.palette-scroll::-webkit-scrollbar-track {
-  background: #f0f0f0 !important;
-  border-radius: 4px !important;
-}
-
-.palette-scroll::-webkit-scrollbar-thumb {
-  background-color: #c1c1c1 !important;
-  border-radius: 4px !important;
-  min-height: 30px !important;
-}
-
-.palette-scroll::-webkit-scrollbar-thumb:hover {
-  background-color: #999 !important;
+.palette-hide-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
 }
 
 /* ========================================

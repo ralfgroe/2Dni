@@ -1,10 +1,12 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useNodeRegistryStore } from '../../store/nodeRegistryStore';
 
 export default function NodeSearchPalette({ position, onSelect, onClose }) {
   const [query, setQuery] = useState('');
   const [hoveredDef, setHoveredDef] = useState(null);
   const inputRef = useRef(null);
+  const scrollRef = useRef(null);
+  const [scrollState, setScrollState] = useState({ thumbTop: 0, thumbHeight: 0, visible: false });
   const categories = useNodeRegistryStore((s) => s.categories);
   const getDefinitionsByCategory = useNodeRegistryStore((s) => s.getDefinitionsByCategory);
   const getAllDefinitions = useNodeRegistryStore((s) => s.getAllDefinitions);
@@ -20,6 +22,46 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [onClose]);
+
+  const updateScrollbar = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const { scrollTop, scrollHeight, clientHeight } = el;
+    const needsScroll = scrollHeight > clientHeight;
+    if (!needsScroll) {
+      setScrollState({ thumbTop: 0, thumbHeight: 0, visible: false });
+      return;
+    }
+    const trackHeight = clientHeight;
+    const thumbH = Math.max(24, (clientHeight / scrollHeight) * trackHeight);
+    const maxScroll = scrollHeight - clientHeight;
+    const thumbT = maxScroll > 0 ? (scrollTop / maxScroll) * (trackHeight - thumbH) : 0;
+    setScrollState({ thumbTop: thumbT, thumbHeight: thumbH, visible: true });
+  }, []);
+
+  const handleThumbDrag = useCallback((e) => {
+    e.preventDefault();
+    const el = scrollRef.current;
+    if (!el) return;
+    const startY = e.clientY;
+    const startScroll = el.scrollTop;
+    const { scrollHeight, clientHeight } = el;
+    const trackHeight = clientHeight;
+    const thumbH = Math.max(24, (clientHeight / scrollHeight) * trackHeight);
+    const maxScroll = scrollHeight - clientHeight;
+    const ratio = maxScroll / (trackHeight - thumbH);
+
+    const onMove = (me) => {
+      const dy = me.clientY - startY;
+      el.scrollTop = Math.min(maxScroll, Math.max(0, startScroll + dy * ratio));
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, []);
 
   const filtered = useMemo(() => {
     const all = getAllDefinitions();
@@ -55,6 +97,19 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
     return ordered;
   }, [groupedFiltered]);
 
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    updateScrollbar();
+    el.addEventListener('scroll', updateScrollbar);
+    const observer = new MutationObserver(updateScrollbar);
+    observer.observe(el, { childList: true, subtree: true });
+    return () => {
+      el.removeEventListener('scroll', updateScrollbar);
+      observer.disconnect();
+    };
+  }, [updateScrollbar, filtered]);
+
   return (
     <>
       {/* Backdrop */}
@@ -77,32 +132,71 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
           />
         </div>
 
-        <div className="max-h-64 pb-1.5 palette-scroll" style={{ paddingLeft: '12px', paddingRight: '4px', overflowY: 'scroll' }}>
-          {Object.keys(groupedFiltered).length === 0 && (
-            <div className="px-2 py-3 text-center text-xs text-text-muted">
-              No matching nodes
+        <div className="relative" style={{ maxHeight: '256px' }}>
+          <div
+            ref={scrollRef}
+            className="max-h-64 pb-1.5 palette-hide-scrollbar"
+            style={{
+              paddingLeft: '12px',
+              paddingRight: scrollState.visible ? '12px' : '4px',
+              overflowY: 'auto',
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+            }}
+          >
+            {Object.keys(groupedFiltered).length === 0 && (
+              <div className="px-2 py-3 text-center text-xs text-text-muted">
+                No matching nodes
+              </div>
+            )}
+
+            {orderedCategories.map((cat) => (
+              <div key={cat}>
+                <div className="pt-2 pb-1 text-[10px] font-medium uppercase tracking-wider text-text-muted" style={{ paddingLeft: '16px' }}>
+                  {cat}
+                </div>
+                {groupedFiltered[cat].map((def) => (
+                  <button
+                    key={def.id}
+                    onClick={() => onSelect(def)}
+                    onMouseEnter={() => setHoveredDef(def)}
+                    onMouseLeave={() => setHoveredDef(null)}
+                    className="flex w-full items-center gap-2 rounded py-1.5 pr-4 text-left text-xs text-text-secondary transition-colors hover:bg-accent hover:text-white"
+                    style={{ paddingLeft: '16px' }}
+                  >
+                    <span className="font-medium">{def.label}</span>
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+
+          {scrollState.visible && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                right: '2px',
+                width: '6px',
+                height: '100%',
+                borderRadius: '3px',
+                background: '#f0f0f0',
+              }}
+            >
+              <div
+                onMouseDown={handleThumbDrag}
+                style={{
+                  position: 'absolute',
+                  top: scrollState.thumbTop,
+                  width: '6px',
+                  height: scrollState.thumbHeight,
+                  borderRadius: '3px',
+                  background: '#c1c1c1',
+                  cursor: 'pointer',
+                }}
+              />
             </div>
           )}
-
-          {orderedCategories.map((cat) => (
-            <div key={cat}>
-              <div className="pt-2 pb-1 text-[10px] font-medium uppercase tracking-wider text-text-muted" style={{ paddingLeft: '16px' }}>
-                {cat}
-              </div>
-              {groupedFiltered[cat].map((def) => (
-                <button
-                  key={def.id}
-                  onClick={() => onSelect(def)}
-                  onMouseEnter={() => setHoveredDef(def)}
-                  onMouseLeave={() => setHoveredDef(null)}
-                  className="flex w-full items-center gap-2 rounded py-1.5 pr-4 text-left text-xs text-text-secondary transition-colors hover:bg-accent hover:text-white"
-                  style={{ paddingLeft: '16px' }}
-                >
-                  <span className="font-medium">{def.label}</span>
-                </button>
-              ))}
-            </div>
-          ))}
         </div>
 
         {hoveredDef && (
