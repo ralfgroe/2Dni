@@ -7,7 +7,8 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
   const inputRef = useRef(null);
   const scrollRef = useRef(null);
   const paletteRef = useRef(null);
-  const [scrollState, setScrollState] = useState({ thumbTop: 0, thumbHeight: 0, visible: false });
+  const trackRef = useRef(null);
+  const thumbRef = useRef(null);
   const [clampedTop, setClampedTop] = useState(position.y);
   const categories = useNodeRegistryStore((s) => s.categories);
   const getDefinitionsByCategory = useNodeRegistryStore((s) => s.getDefinitionsByCategory);
@@ -43,32 +44,44 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
     const el = scrollRef.current;
     if (!el) return;
     const handleWheel = (e) => {
-      const { scrollTop, scrollHeight, clientHeight } = el;
-      const atTop = scrollTop <= 0 && e.deltaY < 0;
-      const atBottom = scrollTop + clientHeight >= scrollHeight && e.deltaY > 0;
-      if (!atTop && !atBottom) {
-        e.stopPropagation();
-      }
+      e.stopPropagation();
     };
     el.addEventListener('wheel', handleWheel, { passive: true });
     return () => el.removeEventListener('wheel', handleWheel);
   }, []);
 
-  const updateScrollbar = useCallback(() => {
+  const syncThumb = useCallback(() => {
     const el = scrollRef.current;
-    if (!el) return;
+    const track = trackRef.current;
+    const thumb = thumbRef.current;
+    if (!el || !track || !thumb) return;
     const { scrollTop, scrollHeight, clientHeight } = el;
     const needsScroll = scrollHeight > clientHeight;
-    if (!needsScroll) {
-      setScrollState({ thumbTop: 0, thumbHeight: 0, visible: false });
-      return;
-    }
-    const trackHeight = clientHeight;
-    const thumbH = Math.max(24, (clientHeight / scrollHeight) * trackHeight);
+    track.style.display = needsScroll ? '' : 'none';
+    if (!needsScroll) return;
+    const thumbH = Math.max(24, (clientHeight / scrollHeight) * clientHeight);
     const maxScroll = scrollHeight - clientHeight;
-    const thumbT = maxScroll > 0 ? (scrollTop / maxScroll) * (trackHeight - thumbH) : 0;
-    setScrollState({ thumbTop: thumbT, thumbHeight: thumbH, visible: true });
+    const thumbT = maxScroll > 0 ? (scrollTop / maxScroll) * (clientHeight - thumbH) : 0;
+    thumb.style.height = thumbH + 'px';
+    thumb.style.top = thumbT + 'px';
   }, []);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    syncThumb();
+    el.addEventListener('scroll', syncThumb, { passive: true });
+    const observer = new ResizeObserver(syncThumb);
+    observer.observe(el);
+    return () => {
+      el.removeEventListener('scroll', syncThumb);
+      observer.disconnect();
+    };
+  }, [syncThumb]);
+
+  useEffect(() => {
+    syncThumb();
+  });
 
   const handleThumbDrag = useCallback((e) => {
     e.preventDefault();
@@ -77,10 +90,9 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
     const startY = e.clientY;
     const startScroll = el.scrollTop;
     const { scrollHeight, clientHeight } = el;
-    const trackHeight = clientHeight;
-    const thumbH = Math.max(24, (clientHeight / scrollHeight) * trackHeight);
+    const thumbH = Math.max(24, (clientHeight / scrollHeight) * clientHeight);
     const maxScroll = scrollHeight - clientHeight;
-    const ratio = maxScroll / (trackHeight - thumbH);
+    const ratio = maxScroll / (clientHeight - thumbH);
 
     const onMove = (me) => {
       const dy = me.clientY - startY;
@@ -128,25 +140,10 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
     return ordered;
   }, [groupedFiltered]);
 
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    updateScrollbar();
-    el.addEventListener('scroll', updateScrollbar);
-    const observer = new MutationObserver(updateScrollbar);
-    observer.observe(el, { childList: true, subtree: true });
-    return () => {
-      el.removeEventListener('scroll', updateScrollbar);
-      observer.disconnect();
-    };
-  }, [updateScrollbar, filtered]);
-
   return (
     <>
-      {/* Backdrop */}
       <div className="fixed inset-0 z-40" onClick={onClose} />
 
-      {/* Palette */}
       <div
         ref={paletteRef}
         className="absolute z-50 w-56 rounded-lg border border-border-primary bg-bg-panel shadow-xl"
@@ -160,7 +157,7 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="w-full rounded border border-border-primary bg-bg-primary py-1.5 pr-2.5 text-xs text-text-primary outline-none placeholder:text-text-muted focus:border-accent"
-                  style={{ paddingLeft: '15px' }}
+            style={{ paddingLeft: '15px' }}
           />
         </div>
 
@@ -170,7 +167,7 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
             className="max-h-64 pb-1.5 palette-hide-scrollbar"
             style={{
               paddingLeft: '12px',
-              paddingRight: scrollState.visible ? '12px' : '4px',
+              paddingRight: '12px',
               overflowY: 'auto',
               scrollbarWidth: 'none',
               msOverflowStyle: 'none',
@@ -203,32 +200,34 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
             ))}
           </div>
 
-          {scrollState.visible && (
+          <div
+            ref={trackRef}
+            style={{
+              position: 'absolute',
+              top: 0,
+              right: '2px',
+              width: '6px',
+              height: '100%',
+              borderRadius: '3px',
+              background: '#f0f0f0',
+              pointerEvents: 'none',
+            }}
+          >
             <div
+              ref={thumbRef}
+              onMouseDown={handleThumbDrag}
               style={{
                 position: 'absolute',
                 top: 0,
-                right: '2px',
                 width: '6px',
-                height: '100%',
+                height: 24,
                 borderRadius: '3px',
-                background: '#f0f0f0',
+                background: '#c1c1c1',
+                cursor: 'pointer',
+                pointerEvents: 'auto',
               }}
-            >
-              <div
-                onMouseDown={handleThumbDrag}
-                style={{
-                  position: 'absolute',
-                  top: scrollState.thumbTop,
-                  width: '6px',
-                  height: scrollState.thumbHeight,
-                  borderRadius: '3px',
-                  background: '#c1c1c1',
-                  cursor: 'pointer',
-                }}
-              />
-            </div>
-          )}
+            />
+          </div>
         </div>
 
         {hoveredDef && (
