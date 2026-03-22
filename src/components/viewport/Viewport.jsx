@@ -22,7 +22,11 @@ export default function Viewport() {
   useEffect(() => {
     const handler = () => setFontVersion((v) => v + 1);
     window.addEventListener('font-loaded', handler);
-    return () => window.removeEventListener('font-loaded', handler);
+    window.addEventListener('import-image-loaded', handler);
+    return () => {
+      window.removeEventListener('font-loaded', handler);
+      window.removeEventListener('import-image-loaded', handler);
+    };
   }, []);
 
   const nodes = useGraphStore((s) => s.nodes);

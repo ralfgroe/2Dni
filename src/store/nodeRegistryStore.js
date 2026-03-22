@@ -9,7 +9,7 @@ export const useNodeRegistryStore = create((set, get) => ({
   loadDefinitions: () => {
     const definitions = loadNodeDefinitions();
 
-    const categoryOrder = ['Geometry', 'Transform', 'Appearance', 'Output'];
+    const categoryOrder = ['Geometry', 'Transform', 'Appearance', 'I/O'];
     const categorySet = new Set();
     for (const def of Object.values(definitions)) {
       if (def.category) categorySet.add(def.category);
@@ -31,7 +31,7 @@ export const useNodeRegistryStore = create((set, get) => ({
   getDefinitionsByCategory: (category) =>
     Object.values(get().definitions)
       .filter((d) => d.category === category)
-      .sort((a, b) => a.label.localeCompare(b.label)),
+      .sort((a, b) => (a.sortOrder ?? 99) - (b.sortOrder ?? 99) || a.label.localeCompare(b.label)),
 
   getAllDefinitions: () =>
     Object.values(get().definitions).sort((a, b) => a.label.localeCompare(b.label)),

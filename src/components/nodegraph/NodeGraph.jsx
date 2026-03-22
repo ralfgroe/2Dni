@@ -381,6 +381,7 @@ export default function NodeGraph() {
         defaultEdgeOptions={defaultEdgeOptions}
         edgesFocusable
         fitView={false}
+        minZoom={0.1}
         deleteKeyCode={["Delete", "Backspace"]}
         selectionOnDrag
         panOnDrag={[1, 2]}

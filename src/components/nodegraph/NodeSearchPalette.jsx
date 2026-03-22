@@ -40,12 +40,12 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
       groups[def.category].push(def);
     }
     for (const cat of Object.keys(groups)) {
-      groups[cat].sort((a, b) => a.label.localeCompare(b.label));
+      groups[cat].sort((a, b) => (a.sortOrder ?? 99) - (b.sortOrder ?? 99) || a.label.localeCompare(b.label));
     }
     return groups;
   }, [filtered]);
 
-  const categoryOrder = ['Geometry', 'Transform', 'Appearance', 'Output'];
+  const categoryOrder = ['Geometry', 'Transform', 'Appearance', 'I/O'];
   const orderedCategories = useMemo(() => {
     const present = Object.keys(groupedFiltered);
     const ordered = categoryOrder.filter((c) => present.includes(c));

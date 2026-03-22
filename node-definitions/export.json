@@ -1,7 +1,7 @@
 {
   "id": "export",
   "label": "Export",
-  "category": "Output",
+  "category": "I/O",
   "description": "Terminal node that exports the graph result as SVG or PNG.",
   "inputs": [
     { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }
@@ -14,5 +14,6 @@
     { "id": "canvas_height", "label": "Canvas Height", "type": "number", "default": 1080, "min": 1, "max": 16384 },
     { "id": "background_color", "label": "Background", "type": "color", "default": "#ffffff" }
   ],
-  "runtime": "export"
+  "runtime": "export",
+  "sortOrder": 1
 }

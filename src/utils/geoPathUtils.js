@@ -207,6 +207,15 @@ export function geoToPaperPath(geo) {
       return compound;
     }
 
+    case 'image': {
+      const ix = geo.x || 0, iy = geo.y || 0;
+      const iw = geo.width || 200, ih = geo.height || 200;
+      return new paper.Path.Rectangle(
+        new paper.Point(ix, iy),
+        new paper.Size(iw, ih)
+      );
+    }
+
     default:
       return null;
   }

@@ -10,7 +10,6 @@ export function exportSVG(geometry, params) {
 
   const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${canvasWidth}" height="${canvasHeight}" viewBox="0 0 ${canvasWidth} ${canvasHeight}">
-  <rect width="${canvasWidth}" height="${canvasHeight}" fill="${backgroundColor}" />
   <g transform="translate(${canvasWidth / 2}, ${canvasHeight / 2})">
     ${svgContent}
   </g>

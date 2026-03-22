@@ -321,6 +321,40 @@ function ParameterInput({ paramDef, value, onChange }) {
         />
       );
 
+    case 'file':
+      return (
+        <div className="flex flex-col gap-2">
+          <label
+            className="flex cursor-pointer items-center justify-center rounded border border-dashed border-border-primary bg-bg-secondary px-3 py-2.5 text-[11px] font-medium text-text-secondary transition-colors hover:border-accent hover:text-accent"
+          >
+            {value ? 'Replace file...' : 'Choose SVG or PNG...'}
+            <input
+              type="file"
+              accept=".svg,.png,image/svg+xml,image/png"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => onChange(reader.result);
+                reader.readAsDataURL(file);
+              }}
+            />
+          </label>
+          {value && (
+            <div className="flex items-center gap-2">
+              <span className="flex-1 truncate text-[10px] text-text-muted">File loaded</span>
+              <button
+                onClick={() => onChange('')}
+                className="text-[10px] text-red-400 hover:text-red-300"
+              >
+                Clear
+              </button>
+            </div>
+          )}
+        </div>
+      );
+
     default:
       return (
         <input

@@ -20,6 +20,7 @@ import { pointtransformRuntime } from '../nodes/pointtransform';
 import { geometricstarRuntime } from '../nodes/islamicstar';
 import { mirrorRuntime } from '../nodes/mirror';
 import { alignRuntime } from '../nodes/align';
+import { importRuntime } from '../nodes/import';
 
 const runtimeMap = {
   line: lineRuntime,
@@ -45,6 +46,7 @@ const runtimeMap = {
   geometricstar: geometricstarRuntime,
   mirror: mirrorRuntime,
   align: alignRuntime,
+  import: importRuntime,
 };
 
 export function getRuntime(runtimeId) {

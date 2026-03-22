@@ -1,0 +1,18 @@
+{
+  "id": "import",
+  "label": "Import",
+  "category": "I/O",
+  "description": "Import SVG or PNG files as geometry. SVG paths become editable vector geometry; PNG images are placed as raster objects.",
+  "inputs": [],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "file_data", "label": "File", "type": "file", "default": "" },
+    { "id": "x", "label": "X Position", "type": "number", "default": 0, "min": -2000, "max": 2000 },
+    { "id": "y", "label": "Y Position", "type": "number", "default": 0, "min": -2000, "max": 2000 },
+    { "id": "scale", "label": "Scale", "type": "number", "default": 1, "min": 0.01, "max": 20 }
+  ],
+  "runtime": "import",
+  "sortOrder": 0
+}

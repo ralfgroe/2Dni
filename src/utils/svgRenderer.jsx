@@ -194,6 +194,22 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
       }
       return null;
 
+    case 'image':
+      return (
+        <image
+          key={nodeId}
+          href={geo.dataUrl}
+          x={geo.x}
+          y={geo.y}
+          width={geo.width}
+          height={geo.height}
+          preserveAspectRatio="none"
+          onClick={handleClick}
+          className="cursor-pointer"
+          filter={isSelected ? 'url(#selection-glow)' : undefined}
+        />
+      );
+
     default:
       return null;
   }
