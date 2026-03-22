@@ -1,0 +1,16 @@
+{
+  "id": "layers",
+  "label": "Layer",
+  "category": "Appearance",
+  "description": "Assigns a rendering layer (0–4) to geometry. Higher layers render on top of lower layers when merged. Use with transparency to control visual stacking order.",
+  "inputs": [
+    { "id": "geometry_in", "label": "Geometry In", "type": "geometry" }
+  ],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "layer", "label": "Layer", "type": "number", "default": 0, "min": 0, "max": 4, "step": 1 }
+  ],
+  "runtime": "layers"
+}

@@ -143,6 +143,7 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
       const transformStr = hasTransform
         ? `translate(${tx}, ${ty}) rotate(${rot}, ${px}, ${py}) scale(${sx}, ${sy})`
         : undefined;
+      const sortedChildren = sortByLayer(geo.children || []);
       return (
         <g
           key={nodeId}
@@ -151,7 +152,7 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
           className="cursor-pointer"
           filter={isSelected ? 'url(#selection-glow)' : undefined}
         >
-          {(geo.children || []).map((child, i) =>
+          {sortedChildren.map((child, i) =>
             renderGeometry(child, `${nodeId}_child_${i}`, null, () => onSelect(nodeId))
           )}
         </g>
@@ -159,6 +160,7 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
     }
 
     case 'boolean': {
+      const sortedChildren = sortByLayer(geo.children || []);
       return (
         <g
           key={nodeId}
@@ -166,7 +168,7 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
           className="cursor-pointer"
           filter={isSelected ? 'url(#selection-glow)' : undefined}
         >
-          {(geo.children || []).map((child, i) =>
+          {sortedChildren.map((child, i) =>
             renderGeometry(child, `${nodeId}_bool_${i}`, null, () => onSelect(nodeId))
           )}
         </g>
@@ -213,6 +215,12 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
     default:
       return null;
   }
+}
+
+function sortByLayer(children) {
+  const hasLayers = children.some((c) => c && c.layer != null);
+  if (!hasLayers) return children;
+  return [...children].sort((a, b) => (a?.layer ?? 0) - (b?.layer ?? 0));
 }
 
 function roundedRectPath(x, y, w, h, corners) {

@@ -22,6 +22,7 @@ import { mirrorRuntime } from '../nodes/mirror';
 import { alignRuntime } from '../nodes/align';
 import { importRuntime } from '../nodes/import';
 import { splitRuntime } from '../nodes/split';
+import { layersRuntime } from '../nodes/layers';
 
 const runtimeMap = {
   line: lineRuntime,
@@ -49,6 +50,7 @@ const runtimeMap = {
   align: alignRuntime,
   import: importRuntime,
   split: splitRuntime,
+  layers: layersRuntime,
 };
 
 export function getRuntime(runtimeId) {
