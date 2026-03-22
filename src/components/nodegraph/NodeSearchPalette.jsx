@@ -72,7 +72,8 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
             placeholder="Search nodes..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full rounded border border-border-primary bg-bg-primary px-2.5 py-1.5 text-xs text-text-primary outline-none placeholder:text-text-muted focus:border-accent"
+            className="w-full rounded border border-border-primary bg-bg-primary py-1.5 pr-2.5 text-xs text-text-primary outline-none placeholder:text-text-muted focus:border-accent"
+                  style={{ paddingLeft: '15px' }}
           />
         </div>
 
@@ -85,7 +86,7 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
 
           {orderedCategories.map((cat) => (
             <div key={cat}>
-              <div className="px-4 pt-2 pb-1 text-[10px] font-medium uppercase tracking-wider text-text-muted">
+              <div className="pt-2 pb-1 text-[10px] font-medium uppercase tracking-wider text-text-muted" style={{ paddingLeft: '16px' }}>
                 {cat}
               </div>
               {groupedFiltered[cat].map((def) => (
@@ -94,7 +95,8 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
                   onClick={() => onSelect(def)}
                   onMouseEnter={() => setHoveredDef(def)}
                   onMouseLeave={() => setHoveredDef(null)}
-                  className="flex w-full items-center gap-2 rounded px-4 py-1.5 text-left text-xs text-text-secondary transition-colors hover:bg-accent hover:text-white"
+                  className="flex w-full items-center gap-2 rounded py-1.5 pr-4 text-left text-xs text-text-secondary transition-colors hover:bg-accent hover:text-white"
+                  style={{ paddingLeft: '16px' }}
                 >
                   <span className="font-medium">{def.label}</span>
                 </button>
