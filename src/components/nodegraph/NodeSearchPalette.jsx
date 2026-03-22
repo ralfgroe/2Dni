@@ -4,11 +4,13 @@ import { useNodeRegistryStore } from '../../store/nodeRegistryStore';
 export default function NodeSearchPalette({ position, onSelect, onClose }) {
   const [query, setQuery] = useState('');
   const [hoveredDef, setHoveredDef] = useState(null);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef(null);
   const scrollRef = useRef(null);
   const paletteRef = useRef(null);
   const trackRef = useRef(null);
   const thumbRef = useRef(null);
+  const rafRef = useRef(null);
   const [clampedTop, setClampedTop] = useState(position.y);
   const categories = useNodeRegistryStore((s) => s.categories);
   const getDefinitionsByCategory = useNodeRegistryStore((s) => s.getDefinitionsByCategory);
@@ -17,14 +19,6 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
-
-  useEffect(() => {
-    const handleKey = (e) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [onClose]);
 
   useEffect(() => {
     const el = paletteRef.current;
@@ -39,18 +33,6 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
       setClampedTop(position.y);
     }
   });
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const handleWheel = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      el.scrollTop += e.deltaY;
-    };
-    el.addEventListener('wheel', handleWheel, { passive: false });
-    return () => el.removeEventListener('wheel', handleWheel);
-  }, []);
 
   const syncThumb = useCallback(() => {
     const el = scrollRef.current;
@@ -68,18 +50,27 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
     thumb.style.top = thumbT + 'px';
   }, []);
 
+  const scheduleSyncThumb = useCallback(() => {
+    if (rafRef.current) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      syncThumb();
+    });
+  }, [syncThumb]);
+
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     syncThumb();
-    el.addEventListener('scroll', syncThumb, { passive: true });
+    el.addEventListener('scroll', scheduleSyncThumb, { passive: true });
     const observer = new ResizeObserver(syncThumb);
     observer.observe(el);
     return () => {
-      el.removeEventListener('scroll', syncThumb);
+      el.removeEventListener('scroll', scheduleSyncThumb);
       observer.disconnect();
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [syncThumb]);
+  }, [syncThumb, scheduleSyncThumb]);
 
   useEffect(() => {
     syncThumb();
@@ -142,6 +133,69 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
     return ordered;
   }, [groupedFiltered]);
 
+  const flatList = useMemo(() => {
+    const list = [];
+    for (const cat of orderedCategories) {
+      if (groupedFiltered[cat]) {
+        for (const def of groupedFiltered[cat]) {
+          list.push(def);
+        }
+      }
+    }
+    return list;
+  }, [orderedCategories, groupedFiltered]);
+
+  useEffect(() => {
+    setSelectedIndex(-1);
+  }, [query]);
+
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'Escape') {
+      onClose();
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedIndex((prev) => {
+        const next = prev < flatList.length - 1 ? prev + 1 : 0;
+        scrollToItem(next);
+        return next;
+      });
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedIndex((prev) => {
+        const next = prev > 0 ? prev - 1 : flatList.length - 1;
+        scrollToItem(next);
+        return next;
+      });
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (selectedIndex >= 0 && selectedIndex < flatList.length) {
+        onSelect(flatList[selectedIndex]);
+      } else if (flatList.length === 1) {
+        onSelect(flatList[0]);
+      }
+      return;
+    }
+  }, [flatList, selectedIndex, onSelect, onClose]);
+
+  const scrollToItem = useCallback((index) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const buttons = el.querySelectorAll('[data-node-btn]');
+    if (buttons[index]) {
+      buttons[index].scrollIntoView({ block: 'nearest' });
+    }
+  }, []);
+
+  const stopWheel = useCallback((e) => {
+    e.stopPropagation();
+  }, []);
+
   return (
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} />
@@ -150,6 +204,7 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
         ref={paletteRef}
         className="absolute z-50 w-56 rounded-lg border border-border-primary bg-bg-panel shadow-xl"
         style={{ left: position.x, top: clampedTop }}
+        onWheel={stopWheel}
       >
         <div style={{ padding: '8px 8px 8px 12px' }}>
           <input
@@ -158,6 +213,7 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
             placeholder="Search nodes..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
             className="w-full rounded border border-border-primary bg-bg-primary py-1.5 pr-2.5 text-xs text-text-primary outline-none placeholder:text-text-muted focus:border-accent"
             style={{ paddingLeft: '15px' }}
           />
@@ -181,25 +237,37 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
               </div>
             )}
 
-            {orderedCategories.map((cat) => (
-              <div key={cat}>
-                <div className="pt-2 pb-1 text-[10px] font-medium uppercase tracking-wider text-text-muted" style={{ paddingLeft: '16px' }}>
-                  {cat}
+            {(() => {
+              let flatIdx = 0;
+              return orderedCategories.map((cat) => (
+                <div key={cat}>
+                  <div className="pt-2 pb-1 text-[10px] font-medium uppercase tracking-wider text-text-muted" style={{ paddingLeft: '16px' }}>
+                    {cat}
+                  </div>
+                  {groupedFiltered[cat].map((def) => {
+                    const idx = flatIdx++;
+                    const isSelected = idx === selectedIndex;
+                    return (
+                      <button
+                        key={def.id}
+                        data-node-btn
+                        onClick={() => onSelect(def)}
+                        onMouseEnter={() => { setHoveredDef(def); setSelectedIndex(idx); }}
+                        onMouseLeave={() => setHoveredDef(null)}
+                        className={`flex w-full items-center gap-2 rounded py-1.5 pr-4 text-left text-xs transition-colors ${
+                          isSelected
+                            ? 'bg-accent text-white'
+                            : 'text-text-secondary hover:bg-accent hover:text-white'
+                        }`}
+                        style={{ paddingLeft: '16px' }}
+                      >
+                        <span className="font-medium">{def.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
-                {groupedFiltered[cat].map((def) => (
-                  <button
-                    key={def.id}
-                    onClick={() => onSelect(def)}
-                    onMouseEnter={() => setHoveredDef(def)}
-                    onMouseLeave={() => setHoveredDef(null)}
-                    className="flex w-full items-center gap-2 rounded py-1.5 pr-4 text-left text-xs text-text-secondary transition-colors hover:bg-accent hover:text-white"
-                    style={{ paddingLeft: '16px' }}
-                  >
-                    <span className="font-medium">{def.label}</span>
-                  </button>
-                ))}
-              </div>
-            ))}
+              ));
+            })()}
           </div>
 
           <div
@@ -232,9 +300,11 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
           </div>
         </div>
 
-        {hoveredDef && (
+        {(hoveredDef || (selectedIndex >= 0 && flatList[selectedIndex])) && (
           <div className="border-t border-border-primary" style={{ padding: '8px 10px 10px 12px' }}>
-            <p className="text-[10px] leading-snug text-text-muted">{hoveredDef.description}</p>
+            <p className="text-[10px] leading-snug text-text-muted">
+              {(hoveredDef || flatList[selectedIndex])?.description}
+            </p>
           </div>
         )}
       </div>
