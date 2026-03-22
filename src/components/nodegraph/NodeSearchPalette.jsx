@@ -283,7 +283,9 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
                         className={`flex w-full items-center gap-2 rounded py-1.5 pr-4 text-left text-xs transition-colors ${
                           isKbSelected
                             ? 'bg-accent text-white'
-                            : 'text-text-secondary hover:bg-accent hover:text-white'
+                            : selectedIndex >= 0
+                              ? 'text-text-secondary'
+                              : 'text-text-secondary hover:bg-accent hover:text-white'
                         }`}
                         style={{ paddingLeft: '16px' }}
                       >
