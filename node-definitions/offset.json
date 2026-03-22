@@ -1,7 +1,7 @@
 {
   "id": "offset",
   "label": "Offset",
-  "category": "Geometry",
+  "category": "Transform",
   "description": "Offsets incoming lines and curves by a specified distance, creating parallel geometry.",
   "inputs": [
     { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }

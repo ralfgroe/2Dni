@@ -1,7 +1,7 @@
 {
   "id": "boolean",
   "label": "Boolean",
-  "category": "Geometry",
+  "category": "Transform",
   "description": "Combines or subtracts two geometry inputs using boolean path operations.",
   "inputs": [
     { "id": "geometry_a", "label": "Geometry A", "type": "geometry", "required": true },

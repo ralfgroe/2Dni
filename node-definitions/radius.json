@@ -1,7 +1,7 @@
 {
   "id": "radius",
   "label": "Radius",
-  "category": "Geometry",
+  "category": "Transform",
   "description": "Rounds selected points or corners of incoming geometry by a given radius.",
   "inputs": [
     { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }

@@ -1,7 +1,7 @@
 {
   "id": "fuse",
   "label": "Fuse",
-  "category": "Geometry",
+  "category": "Transform",
   "description": "Snaps nearby endpoints together and joins separate paths into continuous geometry. Useful for preparing geometry for the Radius node.",
   "inputs": [
     { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }

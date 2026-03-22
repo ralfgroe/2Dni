@@ -1,7 +1,7 @@
 {
   "id": "code",
   "label": "Code (Wrangle)",
-  "category": "Utility",
+  "category": "Transform",
   "description": "Manipulate geometry via JavaScript code with access to the geometry API.",
   "inputs": [
     { "id": "geometry_in", "label": "Geometry In", "type": "any", "required": false }

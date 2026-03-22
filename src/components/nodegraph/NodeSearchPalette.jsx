@@ -3,6 +3,7 @@ import { useNodeRegistryStore } from '../../store/nodeRegistryStore';
 
 export default function NodeSearchPalette({ position, onSelect, onClose }) {
   const [query, setQuery] = useState('');
+  const [hoveredDef, setHoveredDef] = useState(null);
   const inputRef = useRef(null);
   const categories = useNodeRegistryStore((s) => s.categories);
   const getDefinitionsByCategory = useNodeRegistryStore((s) => s.getDefinitionsByCategory);
@@ -38,8 +39,21 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
       if (!groups[def.category]) groups[def.category] = [];
       groups[def.category].push(def);
     }
+    for (const cat of Object.keys(groups)) {
+      groups[cat].sort((a, b) => a.label.localeCompare(b.label));
+    }
     return groups;
   }, [filtered]);
+
+  const categoryOrder = ['Geometry', 'Transform', 'Appearance', 'Output'];
+  const orderedCategories = useMemo(() => {
+    const present = Object.keys(groupedFiltered);
+    const ordered = categoryOrder.filter((c) => present.includes(c));
+    for (const c of present) {
+      if (!ordered.includes(c)) ordered.push(c);
+    }
+    return ordered;
+  }, [groupedFiltered]);
 
   return (
     <>
@@ -69,15 +83,17 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
             </div>
           )}
 
-          {Object.entries(groupedFiltered).map(([cat, defs]) => (
+          {orderedCategories.map((cat) => (
             <div key={cat}>
               <div className="px-4 pt-2 pb-1 text-[10px] font-medium uppercase tracking-wider text-text-muted">
                 {cat}
               </div>
-              {defs.map((def) => (
+              {groupedFiltered[cat].map((def) => (
                 <button
                   key={def.id}
                   onClick={() => onSelect(def)}
+                  onMouseEnter={() => setHoveredDef(def)}
+                  onMouseLeave={() => setHoveredDef(null)}
                   className="flex w-full items-center gap-2 rounded px-4 py-1.5 text-left text-xs text-text-secondary transition-colors hover:bg-accent hover:text-white"
                 >
                   <span className="font-medium">{def.label}</span>
@@ -86,6 +102,12 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
             </div>
           ))}
         </div>
+
+        {hoveredDef && (
+          <div className="border-t border-border-primary" style={{ padding: '8px 10px 10px 12px' }}>
+            <p className="text-[10px] leading-snug text-text-muted">{hoveredDef.description}</p>
+          </div>
+        )}
       </div>
     </>
   );

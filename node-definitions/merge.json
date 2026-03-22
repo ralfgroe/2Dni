@@ -1,7 +1,7 @@
 {
   "id": "merge",
   "label": "Merge",
-  "category": "Geometry",
+  "category": "Transform",
   "description": "Combines two geometry inputs into a single group for display, without joining or modifying them.",
   "inputs": [
     { "id": "geometry_a", "label": "Geometry A", "type": "geometry" },
