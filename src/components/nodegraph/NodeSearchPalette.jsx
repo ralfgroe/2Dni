@@ -77,7 +77,7 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
           />
         </div>
 
-        <div className="max-h-64 overflow-y-auto pb-1.5 palette-scroll" style={{ paddingLeft: '12px', paddingRight: '4px' }}>
+        <div className="max-h-64 pb-1.5 palette-scroll" style={{ paddingLeft: '12px', paddingRight: '4px', overflowY: 'scroll' }}>
           {Object.keys(groupedFiltered).length === 0 && (
             <div className="px-2 py-3 text-center text-xs text-text-muted">
               No matching nodes
