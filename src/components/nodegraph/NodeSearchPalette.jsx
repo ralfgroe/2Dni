@@ -6,7 +6,9 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
   const [hoveredDef, setHoveredDef] = useState(null);
   const inputRef = useRef(null);
   const scrollRef = useRef(null);
+  const paletteRef = useRef(null);
   const [scrollState, setScrollState] = useState({ thumbTop: 0, thumbHeight: 0, visible: false });
+  const [clampedTop, setClampedTop] = useState(position.y);
   const categories = useNodeRegistryStore((s) => s.categories);
   const getDefinitionsByCategory = useNodeRegistryStore((s) => s.getDefinitionsByCategory);
   const getAllDefinitions = useNodeRegistryStore((s) => s.getAllDefinitions);
@@ -22,6 +24,35 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [onClose]);
+
+  useEffect(() => {
+    const el = paletteRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const parent = el.offsetParent;
+    const parentRect = parent ? parent.getBoundingClientRect() : { top: 0, height: window.innerHeight };
+    const maxTop = parentRect.height - rect.height;
+    if (position.y > maxTop) {
+      setClampedTop(Math.max(0, maxTop));
+    } else {
+      setClampedTop(position.y);
+    }
+  });
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const handleWheel = (e) => {
+      const { scrollTop, scrollHeight, clientHeight } = el;
+      const atTop = scrollTop <= 0 && e.deltaY < 0;
+      const atBottom = scrollTop + clientHeight >= scrollHeight && e.deltaY > 0;
+      if (!atTop && !atBottom) {
+        e.stopPropagation();
+      }
+    };
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => el.removeEventListener('wheel', handleWheel);
+  }, []);
 
   const updateScrollbar = useCallback(() => {
     const el = scrollRef.current;
@@ -117,8 +148,9 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
 
       {/* Palette */}
       <div
+        ref={paletteRef}
         className="absolute z-50 w-56 rounded-lg border border-border-primary bg-bg-panel shadow-xl"
-        style={{ left: position.x, top: position.y }}
+        style={{ left: position.x, top: clampedTop }}
       >
         <div style={{ padding: '8px 8px 8px 12px' }}>
           <input
