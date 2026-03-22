@@ -50,7 +50,7 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
         e.stopPropagation();
       }
     };
-    el.addEventListener('wheel', handleWheel, { passive: false });
+    el.addEventListener('wheel', handleWheel, { passive: true });
     return () => el.removeEventListener('wheel', handleWheel);
   }, []);
 
