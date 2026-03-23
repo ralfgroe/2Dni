@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useGraphStore } from '../../store/graphStore';
 import { useNodeRegistryStore } from '../../store/nodeRegistryStore';
 import { evaluateGraph } from '../../utils/evaluateGraph';
-import { exportSVG, exportPNG } from '../../utils/exportUtils';
+import { exportSVG, exportPNG, exportOBJ, exportGEO } from '../../utils/exportUtils';
 import { extractPoints } from '../../utils/geometryPoints';
 import WrangleChat from './WrangleChat';
 
@@ -55,10 +55,12 @@ export default function ParameterPanel() {
     const geo = results.get(selectedNode.id);
     if (!geo) return;
     const sourceGeo = geo.geometry || geo;
-    if (params.format === 'png') {
-      exportPNG(sourceGeo, { ...params, canvasWidth: params.canvas_width, canvasHeight: params.canvas_height, backgroundColor: params.background_color });
-    } else {
-      exportSVG(sourceGeo, { ...params, canvasWidth: params.canvas_width, canvasHeight: params.canvas_height, backgroundColor: params.background_color });
+    const exportParams = { ...params, canvasWidth: params.canvas_width, canvasHeight: params.canvas_height, backgroundColor: params.background_color };
+    switch (params.format) {
+      case 'png': exportPNG(sourceGeo, exportParams); break;
+      case 'obj': exportOBJ(sourceGeo, exportParams); break;
+      case 'geo': exportGEO(sourceGeo, exportParams); break;
+      default:    exportSVG(sourceGeo, exportParams); break;
     }
   };
 

@@ -1,3 +1,204 @@
+import paper from 'paper';
+import { geoToPaperPath } from './geoPathUtils';
+
+/* ========================================
+   Geometry → polygon flattening (shared by OBJ & GEO)
+   ======================================== */
+
+const FLATTEN_TOLERANCE = 1;
+
+function flattenPaperPath(paperPath) {
+  if (!paperPath) return [];
+  paperPath.flatten(FLATTEN_TOLERANCE);
+
+  if (paperPath.className === 'CompoundPath') {
+    return (paperPath.children || []).map((child) => ({
+      points: child.segments.map((s) => [s.point.x, s.point.y]),
+      closed: child.closed,
+    }));
+  }
+  return [{
+    points: paperPath.segments.map((s) => [s.point.x, s.point.y]),
+    closed: paperPath.closed,
+  }];
+}
+
+function collectPolygons(geo, fill) {
+  if (!geo) return [];
+
+  const currentFill = geo.fill || fill || '#cccccc';
+
+  if (geo.type === 'group' || geo.type === 'boolean') {
+    const results = [];
+    for (const child of (geo.children || [])) {
+      results.push(...collectPolygons(child, currentFill));
+    }
+    return results;
+  }
+
+  const pp = geoToPaperPath(geo);
+  if (!pp) return [];
+  const polys = flattenPaperPath(pp);
+  pp.remove();
+  return polys.map((p) => ({ ...p, fill: currentFill, layer: geo.layer ?? 0 }));
+}
+
+function hexToRgb01(hex) {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.substring(0, 2), 16) / 255;
+  const g = parseInt(h.substring(2, 4), 16) / 255;
+  const b = parseInt(h.substring(4, 6), 16) / 255;
+  return [r, g, b];
+}
+
+/* ========================================
+   OBJ Export
+   ======================================== */
+
+export function exportOBJ(geometry, params) {
+  const { filename = 'export' } = params;
+  const polys = collectPolygons(geometry, '#cccccc');
+  if (polys.length === 0) return;
+
+  const lines = ['# Wavefront OBJ – exported from 2Dni', `# ${polys.length} polygon(s)`, ''];
+  let vertexOffset = 1;
+
+  for (let pi = 0; pi < polys.length; pi++) {
+    const poly = polys[pi];
+    if (poly.points.length < 2) continue;
+    lines.push(`g piece_${pi}`);
+    for (const [x, y] of poly.points) {
+      lines.push(`v ${x.toFixed(4)} ${(-y).toFixed(4)} 0.0000`);
+    }
+    const n = poly.points.length;
+    if (poly.closed && n >= 3) {
+      const face = [];
+      for (let i = 0; i < n; i++) face.push(vertexOffset + i);
+      lines.push(`f ${face.join(' ')}`);
+    } else {
+      for (let i = 0; i < n - 1; i++) {
+        lines.push(`l ${vertexOffset + i} ${vertexOffset + i + 1}`);
+      }
+    }
+    lines.push('');
+    vertexOffset += n;
+  }
+
+  downloadFile(lines.join('\n'), `${filename}.obj`, 'text/plain');
+}
+
+/* ========================================
+   Houdini .geo JSON Export
+   ======================================== */
+
+export function exportGEO(geometry, params) {
+  const { filename = 'export' } = params;
+  const polys = collectPolygons(geometry, '#cccccc');
+  if (polys.length === 0) return;
+
+  const allPoints = [];
+  const allColors = [];
+  const allLayers = [];
+  const primitives = [];
+  let globalVtx = 0;
+
+  for (const poly of polys) {
+    if (poly.points.length < 2) continue;
+    const startVtx = globalVtx;
+    const [cr, cg, cb] = hexToRgb01(poly.fill);
+
+    for (const [x, y] of poly.points) {
+      allPoints.push(x, -y, 0);
+      allColors.push(cr, cg, cb);
+      allLayers.push(poly.layer);
+      globalVtx++;
+    }
+
+    const verts = [];
+    for (let i = startVtx; i < globalVtx; i++) verts.push(i);
+
+    primitives.push({
+      type: poly.closed ? 'Poly' : 'PolyLine',
+      vertices: verts,
+      closed: poly.closed,
+    });
+  }
+
+  const pointCount = globalVtx;
+  const vertexCount = globalVtx;
+
+  const geo = {
+    fileversion: '18.5.351',
+    hasindex: false,
+    pointcount: pointCount,
+    vertexcount: vertexCount,
+    primitivecount: primitives.length,
+    info: { software: '2Dni', artist: 'Exported from 2Dni node editor' },
+    topology: {
+      pointref: { indices: Array.from({ length: vertexCount }, (_, i) => i) },
+    },
+    attributes: {
+      pointattributes: [
+        {
+          scope: 'public',
+          type: 'numeric',
+          name: 'P',
+          options: { type: { type: 'string', value: 'point' } },
+          values: {
+            size: 3,
+            storage: 'fpreal32',
+            tuples: chunkArray(allPoints, 3),
+          },
+        },
+        {
+          scope: 'public',
+          type: 'numeric',
+          name: 'Cd',
+          options: { type: { type: 'string', value: 'color' } },
+          values: {
+            size: 3,
+            storage: 'fpreal32',
+            tuples: chunkArray(allColors, 3),
+          },
+        },
+        {
+          scope: 'public',
+          type: 'numeric',
+          name: 'layer',
+          options: {},
+          values: {
+            size: 1,
+            storage: 'int32',
+            tuples: allLayers.map((v) => [v]),
+          },
+        },
+      ],
+    },
+    primitives: primitives.map((prim) => [
+      prim.closed ? 'run' : 'run',
+      'Poly',
+      {
+        vertex: prim.vertices,
+        closed: prim.closed,
+      },
+    ]),
+  };
+
+  downloadFile(JSON.stringify(geo, null, 2), `${filename}.geo`, 'application/json');
+}
+
+function chunkArray(arr, size) {
+  const result = [];
+  for (let i = 0; i < arr.length; i += size) {
+    result.push(arr.slice(i, i + size).map((v) => Math.round(v * 10000) / 10000));
+  }
+  return result;
+}
+
+/* ========================================
+   SVG Export
+   ======================================== */
+
 export function exportSVG(geometry, params) {
   const {
     canvasWidth = 1920,
