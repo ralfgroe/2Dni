@@ -229,7 +229,7 @@ function ParameterInput({ paramDef, value, onChange }) {
             type="range"
             min={paramDef.min ?? 0}
             max={paramDef.max ?? 100}
-            step={paramDef.max > 10 ? 1 : 0.01}
+            step={paramDef.step ?? (paramDef.max > 10 ? 1 : 0.01)}
             value={value ?? paramDef.default}
             onMouseDown={beginOperation}
             onTouchStart={beginOperation}
