@@ -5,7 +5,7 @@ import { geoToPaperPath } from './geoPathUtils';
    Geometry → polygon flattening (shared by OBJ & GEO)
    ======================================== */
 
-const FLATTEN_TOLERANCE = 1;
+const FLATTEN_TOLERANCE = 0.25;
 
 function flattenPaperPath(paperPath) {
   if (!paperPath) return [];
