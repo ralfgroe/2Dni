@@ -125,22 +125,22 @@ export function exportGEO(geometry, params) {
 
   const nverticesRle = buildRle(primVertCounts);
 
-  const geoArray = [
-    'fileversion', '18.5.351',
-    'hasindex', false,
-    'pointcount', pointCount,
-    'vertexcount', vertexCount,
-    'primitivecount', primitiveCount,
-    'info', {
+  const geoObj = {
+    fileversion: '18.5.351',
+    hasindex: false,
+    pointcount: pointCount,
+    vertexcount: vertexCount,
+    primitivecount: primitiveCount,
+    info: {
       software: '2Dni',
       comment: 'Exported from 2Dni node editor',
     },
-    'topology', {
+    topology: {
       pointref: {
         indices: vertexIndices,
       },
     },
-    'attributes', {
+    attributes: {
       pointattributes: [
         {
           scope: 'public',
@@ -180,7 +180,7 @@ export function exportGEO(geometry, params) {
         },
       ],
     },
-    'primitives', [
+    primitives: [
       {
         type: 'Polygon_run',
         startvertex: 0,
@@ -188,9 +188,23 @@ export function exportGEO(geometry, params) {
         nvertices_rle: nverticesRle,
       },
     ],
-  ];
+  };
 
-  downloadFile(JSON.stringify(geoArray, null, 2), `${filename}.geo`, 'application/json');
+  const houdiniArray = objToHoudini(geoObj);
+  downloadFile(JSON.stringify(houdiniArray, null, 2), `${filename}.geo`, 'application/json');
+}
+
+function objToHoudini(value) {
+  if (value === null || value === undefined) return value;
+  if (typeof value !== 'object') return value;
+  if (Array.isArray(value)) {
+    return value.map((item) => objToHoudini(item));
+  }
+  const arr = [];
+  for (const [k, v] of Object.entries(value)) {
+    arr.push(k, objToHoudini(v));
+  }
+  return arr;
 }
 
 function round4(v) {
