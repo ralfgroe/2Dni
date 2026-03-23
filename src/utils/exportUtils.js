@@ -96,48 +96,51 @@ export function exportGEO(geometry, params) {
   const polys = collectPolygons(geometry, '#cccccc');
   if (polys.length === 0) return;
 
-  const allPoints = [];
-  const allColors = [];
-  const allLayers = [];
-  const primitives = [];
-  let globalVtx = 0;
+  const pointTuples = [];
+  const colorTuples = [];
+  const layerTuples = [];
+  const vertexIndices = [];
+  const primVertCounts = [];
+  let globalPt = 0;
 
   for (const poly of polys) {
     if (poly.points.length < 2) continue;
-    const startVtx = globalVtx;
     const [cr, cg, cb] = hexToRgb01(poly.fill);
+    const startPt = globalPt;
 
     for (const [x, y] of poly.points) {
-      allPoints.push(x, -y, 0);
-      allColors.push(cr, cg, cb);
-      allLayers.push(poly.layer);
-      globalVtx++;
+      pointTuples.push([round4(x), round4(-y), 0, 1]);
+      colorTuples.push([round4(cr), round4(cg), round4(cb)]);
+      layerTuples.push([poly.layer]);
+      vertexIndices.push(globalPt);
+      globalPt++;
     }
 
-    const verts = [];
-    for (let i = startVtx; i < globalVtx; i++) verts.push(i);
-
-    primitives.push({
-      type: poly.closed ? 'Poly' : 'PolyLine',
-      vertices: verts,
-      closed: poly.closed,
-    });
+    primVertCounts.push(globalPt - startPt);
   }
 
-  const pointCount = globalVtx;
-  const vertexCount = globalVtx;
+  const pointCount = globalPt;
+  const vertexCount = vertexIndices.length;
+  const primitiveCount = primVertCounts.length;
 
-  const geo = {
-    fileversion: '18.5.351',
-    hasindex: false,
-    pointcount: pointCount,
-    vertexcount: vertexCount,
-    primitivecount: primitives.length,
-    info: { software: '2Dni', artist: 'Exported from 2Dni node editor' },
-    topology: {
-      pointref: { indices: Array.from({ length: vertexCount }, (_, i) => i) },
+  const nverticesRle = buildRle(primVertCounts);
+
+  const geoArray = [
+    'fileversion', '18.5.351',
+    'hasindex', false,
+    'pointcount', pointCount,
+    'vertexcount', vertexCount,
+    'primitivecount', primitiveCount,
+    'info', {
+      software: '2Dni',
+      comment: 'Exported from 2Dni node editor',
     },
-    attributes: {
+    'topology', {
+      pointref: {
+        indices: vertexIndices,
+      },
+    },
+    'attributes', {
       pointattributes: [
         {
           scope: 'public',
@@ -145,9 +148,10 @@ export function exportGEO(geometry, params) {
           name: 'P',
           options: { type: { type: 'string', value: 'point' } },
           values: {
-            size: 3,
+            size: 4,
             storage: 'fpreal32',
-            tuples: chunkArray(allPoints, 3),
+            defaults: { size: 4, storage: 'fpreal64', values: [0, 0, 0, 1] },
+            tuples: pointTuples,
           },
         },
         {
@@ -158,7 +162,8 @@ export function exportGEO(geometry, params) {
           values: {
             size: 3,
             storage: 'fpreal32',
-            tuples: chunkArray(allColors, 3),
+            defaults: { size: 3, storage: 'fpreal64', values: [1, 1, 1] },
+            tuples: colorTuples,
           },
         },
         {
@@ -169,22 +174,41 @@ export function exportGEO(geometry, params) {
           values: {
             size: 1,
             storage: 'int32',
-            tuples: allLayers.map((v) => [v]),
+            defaults: { size: 1, storage: 'int32', values: [0] },
+            tuples: layerTuples,
           },
         },
       ],
     },
-    primitives: primitives.map((prim) => [
-      prim.closed ? 'run' : 'run',
-      'Poly',
+    'primitives', [
       {
-        vertex: prim.vertices,
-        closed: prim.closed,
+        type: 'Polygon_run',
+        startvertex: 0,
+        nprimitives: primitiveCount,
+        nvertices_rle: nverticesRle,
       },
-    ]),
-  };
+    ],
+  ];
 
-  downloadFile(JSON.stringify(geo, null, 2), `${filename}.geo`, 'application/json');
+  downloadFile(JSON.stringify(geoArray, null, 2), `${filename}.geo`, 'application/json');
+}
+
+function round4(v) {
+  return Math.round(v * 10000) / 10000;
+}
+
+function buildRle(counts) {
+  if (counts.length === 0) return [];
+  const rle = [];
+  let i = 0;
+  while (i < counts.length) {
+    const val = counts[i];
+    let run = 1;
+    while (i + run < counts.length && counts[i + run] === val) run++;
+    rle.push(val, run);
+    i += run;
+  }
+  return rle;
 }
 
 function chunkArray(arr, size) {
