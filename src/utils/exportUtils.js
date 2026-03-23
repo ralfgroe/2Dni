@@ -109,7 +109,7 @@ export function exportGEO(geometry, params) {
     const startPt = globalPt;
 
     for (const [x, y] of poly.points) {
-      pointTuples.push([round4(x), round4(-y), 0, 1]);
+      pointTuples.push([round4(x), round4(-y), 0]);
       colorTuples.push([round4(cr), round4(cg), round4(cb)]);
       layerTuples.push([poly.layer]);
       vertexIndices.push(globalPt);
@@ -122,89 +122,112 @@ export function exportGEO(geometry, params) {
   const pointCount = globalPt;
   const vertexCount = vertexIndices.length;
   const primitiveCount = primVertCounts.length;
-
   const nverticesRle = buildRle(primVertCounts);
 
-  const geoObj = {
-    fileversion: '18.5.351',
-    hasindex: false,
-    pointcount: pointCount,
-    vertexcount: vertexCount,
-    primitivecount: primitiveCount,
-    info: {
+  const geoArray = [
+    'fileversion', '20.0.547',
+    'hasindex', false,
+    'pointcount', pointCount,
+    'vertexcount', vertexCount,
+    'primitivecount', primitiveCount,
+    'info', {
       software: '2Dni',
-      comment: 'Exported from 2Dni node editor',
+      artist: 'Exported from 2Dni node editor',
     },
-    topology: {
-      pointref: {
-        indices: vertexIndices,
-      },
-    },
-    attributes: {
-      pointattributes: [
-        {
-          scope: 'public',
-          type: 'numeric',
-          name: 'P',
-          options: { type: { type: 'string', value: 'point' } },
-          values: {
-            size: 4,
-            storage: 'fpreal32',
-            defaults: { size: 4, storage: 'fpreal64', values: [0, 0, 0, 1] },
-            tuples: pointTuples,
-          },
-        },
-        {
-          scope: 'public',
-          type: 'numeric',
-          name: 'Cd',
-          options: { type: { type: 'string', value: 'color' } },
-          values: {
-            size: 3,
-            storage: 'fpreal32',
-            defaults: { size: 3, storage: 'fpreal64', values: [1, 1, 1] },
-            tuples: colorTuples,
-          },
-        },
-        {
-          scope: 'public',
-          type: 'numeric',
-          name: 'layer',
-          options: {},
-          values: {
-            size: 1,
-            storage: 'int32',
-            defaults: { size: 1, storage: 'int32', values: [0] },
-            tuples: layerTuples,
-          },
-        },
+    'topology', [
+      'pointref', [
+        'indices', vertexIndices,
       ],
-    },
-    primitives: [
-      {
-        type: 'Polygon_run',
-        startvertex: 0,
-        nprimitives: primitiveCount,
-        nvertices_rle: nverticesRle,
-      },
     ],
-  };
+    'attributes', [
+      'pointattributes', [
+        [
+          [
+            'scope', 'public',
+            'type', 'numeric',
+            'name', 'P',
+            'options', {
+              type: { type: 'string', value: 'point' },
+            },
+          ],
+          [
+            'size', 3,
+            'storage', 'fpreal32',
+            'defaults', [
+              'size', 1,
+              'storage', 'fpreal64',
+              'values', [0],
+            ],
+            'values', [
+              'size', 3,
+              'storage', 'fpreal32',
+              'tuples', pointTuples,
+            ],
+          ],
+        ],
+        [
+          [
+            'scope', 'public',
+            'type', 'numeric',
+            'name', 'Cd',
+            'options', {
+              type: { type: 'string', value: 'color' },
+            },
+          ],
+          [
+            'size', 3,
+            'storage', 'fpreal32',
+            'defaults', [
+              'size', 1,
+              'storage', 'fpreal64',
+              'values', [1],
+            ],
+            'values', [
+              'size', 3,
+              'storage', 'fpreal32',
+              'tuples', colorTuples,
+            ],
+          ],
+        ],
+        [
+          [
+            'scope', 'public',
+            'type', 'numeric',
+            'name', 'layer',
+            'options', {},
+          ],
+          [
+            'size', 1,
+            'storage', 'int32',
+            'defaults', [
+              'size', 1,
+              'storage', 'int32',
+              'values', [0],
+            ],
+            'values', [
+              'size', 1,
+              'storage', 'int32',
+              'tuples', layerTuples,
+            ],
+          ],
+        ],
+      ],
+    ],
+    'primitives', [
+      [
+        [
+          'type', 'Polygon_run',
+        ],
+        [
+          'startvertex', 0,
+          'nprimitives', primitiveCount,
+          'nvertices_rle', nverticesRle,
+        ],
+      ],
+    ],
+  ];
 
-  const houdiniArray = objToHoudini(geoObj);
-  downloadFile(JSON.stringify(houdiniArray, null, 2), `${filename}.geo`, 'application/json');
-}
-
-function objToHoudini(value) {
-  if (value === null || value === undefined) return value;
-  if (typeof value !== 'object') return value;
-  if (Array.isArray(value)) {
-    return value.map((item) => objToHoudini(item));
-  }
-  const arr = [];
-  for (const [k, v] of Object.entries(value)) {
-    arr.push(k, objToHoudini(v));
-  }
-  return arr;
+  downloadFile(JSON.stringify(geoArray, null, '\t'), `${filename}.geo`, 'application/json');
 }
 
 function round4(v) {
