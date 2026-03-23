@@ -168,8 +168,23 @@ function renderTransformHandles(geo, node, startDrag, viewBox) {
   const arm = 20 * scale;
   const r = (HANDLE_SIZE / 2) * scale;
   const sw = 1.5 * scale;
+  const b = geo.bounds;
+  const pad = 4 * scale;
   return (
     <g>
+      {/* Invisible hit area over geometry bounds for direct translate dragging */}
+      {b && (
+        <rect
+          x={b.x - pad}
+          y={b.y - pad}
+          width={b.width + pad * 2}
+          height={b.height + pad * 2}
+          fill="transparent"
+          stroke="none"
+          cursor="move"
+          onMouseDown={(e) => startDrag('translate', e)}
+        />
+      )}
       <line x1={px - arm} y1={py} x2={px + arm} y2={py} stroke={HANDLE_COLOR} strokeWidth={sw} />
       <line x1={px} y1={py - arm} x2={px} y2={py + arm} stroke={HANDLE_COLOR} strokeWidth={sw} />
       <circle
