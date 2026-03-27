@@ -70,7 +70,22 @@ export default function QuickStartGuide({ onClose }) {
           </div>
         </Section>
 
-        <Section number="9" title="Keyboard & Mouse Shortcuts">
+        <Section number="9" title="Animating Your Design">
+          <P>2Dni includes a built-in animation system. Click the <B>Animate</B> button in the toolbar (next to AI) to reveal the timeline playbar at the bottom of the Viewport.</P>
+          <AnimationDiagram />
+          <Steps>
+            <Step>Click <B>Animate</B> in the toolbar to enable the timeline</Step>
+            <Step>Select a node and find a numeric parameter (e.g. Width or Rotation)</Step>
+            <Step>Move the playhead to frame <B>0</B>, then click the <B>diamond ◆</B> next to the parameter label to set a keyframe</Step>
+            <Step>Scrub to a later frame, change the parameter value, and click the diamond again</Step>
+            <Step>Press <B>Play</B> to see your animation — values interpolate between keyframes</Step>
+          </Steps>
+          <Tip>Keyframed parameters turn <B style={{ color: '#16a34a' }}>green</B>. Right-click a keyframe diamond in the timeline to change easing (linear, ease in/out).</Tip>
+          <P style={{ marginTop: 12 }}>When you're happy with the animation, choose a resolution from the dropdown (720p, 1080p, or 4K) and click the <B>export</B> icon. After encoding completes, click <B>Save</B> to download your <B>animation.mp4</B> file.</P>
+          <Tip>Use the <B>camera icon</B> to toggle a red frame overlay that previews exactly what area will be exported.</Tip>
+        </Section>
+
+        <Section number="10" title="Keyboard & Mouse Shortcuts">
           <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '6px 16px', marginTop: 8, fontSize: 12, color: '#495057' }}>
             <Kbd>Right-click</Kbd><span>Open toolbox (Node Graph)</span>
             <Kbd>Ctrl + Z</Kbd><span>Undo</span>
@@ -80,10 +95,13 @@ export default function QuickStartGuide({ onClose }) {
             <Kbd>B</Kbd><span>Bypass a node</span>
             <Kbd>T</Kbd><span>Template (ghost overlay) a node</span>
             <Kbd>Delete</Kbd><span>Remove selected node</span>
+            <Kbd>Space</Kbd><span>Play / pause animation</span>
+            <Kbd>Home</Kbd><span>Go to first frame</span>
+            <Kbd>End</Kbd><span>Go to last frame</span>
           </div>
         </Section>
 
-        <Section number="10" title="Tips & Tricks">
+        <Section number="11" title="Tips & Tricks">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
             <Tip>Hover over any node in the toolbox to see a description of what it does.</Tip>
             <Tip>Use <B>arrow keys</B> to navigate the toolbox, press <B>Enter</B> to add.</Tip>
@@ -268,6 +286,73 @@ function CopyRotateDiagram() {
       })}
       <circle cx={cx} cy={cy} r={2} fill="#e03131" />
       <text x={cx} y={cy + r + 20} textAnchor="middle" fontSize="9" fill="#868e96" fontFamily="system-ui">Copy Rotate — 8 copies around center</text>
+    </Illust>
+  );
+}
+
+function AnimationDiagram() {
+  return (
+    <Illust width={520} height={110}>
+      {/* Toolbar button */}
+      <rect x={10} y={8} width={72} height={22} rx={4} fill="#f1f3f5" stroke="#dee2e6" strokeWidth={1} />
+      <polygon points="22,15 22,25 30,20" fill="#4263eb" />
+      <text x={36} y={23} fontSize="8" fontWeight="600" fill="#495057" fontFamily="system-ui">Animate</text>
+
+      <path d="M82,20 L112,20" fill="none" stroke="#adb5bd" strokeWidth={1} markerEnd="url(#arrowAnim)" />
+
+      {/* Playbar */}
+      <rect x={120} y={6} width={390} height={28} rx={5} fill="#f8f9fa" stroke="#dee2e6" strokeWidth={1} />
+
+      {/* Transport */}
+      <rect x={128} y={12} width={14} height={14} rx={2} fill="#e9ecef" />
+      <polygon points="132,16 132,24 139,20" fill="#495057" />
+      <rect x={146} y={12} width={14} height={14} rx={2} fill="#e9ecef" />
+      <rect x={150} y={15} width={6} height={8} rx={1} fill="#495057" />
+
+      {/* Scrubber track */}
+      <rect x={168} y={14} width={200} height={12} rx={3} fill="#fff" stroke="#dee2e6" strokeWidth={0.8} />
+
+      {/* Keyframe diamonds */}
+      <rect x={192} y={17} width={5} height={5} rx={0.5} transform="rotate(45,194.5,19.5)" fill="#f59e0b" stroke="#b45309" strokeWidth={0.6} />
+      <rect x={272} y={17} width={5} height={5} rx={0.5} transform="rotate(45,274.5,19.5)" fill="#f59e0b" stroke="#b45309" strokeWidth={0.6} />
+      <rect x={342} y={17} width={5} height={5} rx={0.5} transform="rotate(45,344.5,19.5)" fill="#f59e0b" stroke="#b45309" strokeWidth={0.6} />
+
+      {/* Playhead */}
+      <line x1={238} y1={14} x2={238} y2={26} stroke="#4263eb" strokeWidth={1.5} />
+      <polygon points="234,13 242,13 238,10" fill="#4263eb" />
+
+      {/* Resolution */}
+      <rect x={378} y={12} width={48} height={14} rx={2} fill="#fff" stroke="#dee2e6" strokeWidth={0.8} />
+      <text x={390} y={22} fontSize="7" fill="#495057" fontFamily="system-ui">1080p</text>
+
+      {/* Camera + Export */}
+      <rect x={432} y={12} width={14} height={14} rx={2} fill="#e9ecef" />
+      <rect x={435} y={15} width={8} height={6} rx={1} fill="none" stroke="#495057" strokeWidth={0.8} />
+      <rect x={452} y={12} width={14} height={14} rx={2} fill="#e9ecef" />
+      <path d="M457,16 L457,22 M455,20 L459,20 L457,22" fill="none" stroke="#495057" strokeWidth={0.8} />
+      <line x1={452} y1={24} x2={466} y2={24} stroke="#495057" strokeWidth={0.6} />
+
+      {/* Labels */}
+      <text x={135} y={44} fontSize="7" fill="#868e96" fontFamily="system-ui">Transport</text>
+      <text x={240} y={44} fontSize="7" fill="#868e96" fontFamily="system-ui">Scrubber + Keyframes</text>
+      <text x={390} y={44} fontSize="7" fill="#868e96" fontFamily="system-ui">Resolution</text>
+      <text x={452} y={44} fontSize="7" fill="#868e96" fontFamily="system-ui">Export</text>
+
+      {/* Parameter with keyframe diamond */}
+      <rect x={120} y={56} width={240} height={42} rx={6} fill="#fff" stroke="#dee2e6" strokeWidth={1} />
+      <text x={132} y={72} fontSize="9" fontWeight="600" fill="#16a34a" fontFamily="system-ui">Width</text>
+      <rect x={164} y={71} width={5} height={5} rx={0.5} transform="rotate(45,166.5,73.5)" fill="#16a34a" stroke="#15803d" strokeWidth={0.7} />
+      <text x={178} y={73} fontSize="7" fill="#868e96" fontFamily="system-ui">◀ keyframe diamond</text>
+
+      {/* Slider */}
+      <rect x={132} y={80} width={160} height={6} rx={3} fill="#e9ecef" />
+      <rect x={132} y={80} width={96} height={6} rx={3} fill="#4263eb" opacity={0.3} />
+      <circle cx={228} cy={83} r={4} fill="#4263eb" />
+      <text x={296} y={87} fontSize="7" fill="#868e96" fontFamily="system-ui">200</text>
+
+      <text x={132} y={108} fontSize="7" fill="#4263eb" fontFamily="system-ui">Green label = parameter has keyframes</text>
+
+      <defs><marker id="arrowAnim" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#adb5bd" /></marker></defs>
     </Illust>
   );
 }
