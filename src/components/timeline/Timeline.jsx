@@ -34,6 +34,7 @@ export default function Timeline() {
   const [contextMenu, setContextMenu] = useState(null);
   const [exporting, setExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
+  const [readyBlob, setReadyBlob] = useState(null);
   const [editingField, setEditingField] = useState(null);
   const scrubberRef = useRef(null);
 
@@ -144,12 +145,13 @@ export default function Timeline() {
       }
 
       setExporting(true);
-      await exportAnimatedMP4(
+      const blob = await exportAnimatedMP4(
         gNodes, gEdges, defs, gDisplay,
         allKeyframes, duration, fps,
         res.width, res.height, camViewBox,
         (f, total) => setExportProgress(f / total)
       );
+      setReadyBlob(blob);
     } catch (e) {
       console.error('Export failed:', e);
       alert('Export failed: ' + (e.message || e));
@@ -157,6 +159,36 @@ export default function Timeline() {
       setExporting(false);
       setExportProgress(0);
     }
+  };
+
+  const handleSaveFile = async () => {
+    if (!readyBlob) return;
+    try {
+      if (window.showSaveFilePicker) {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: 'animation.mp4',
+          types: [{ description: 'MP4 Video', accept: { 'video/mp4': ['.mp4'] } }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(readyBlob);
+        await writable.close();
+      } else {
+        const url = URL.createObjectURL(readyBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'animation.mp4';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+      }
+    } catch (e) {
+      if (e.name !== 'AbortError') {
+        console.error('Save failed:', e);
+        alert('Save failed: ' + e.message);
+      }
+    }
+    setReadyBlob(null);
   };
 
   return (
@@ -269,7 +301,16 @@ export default function Timeline() {
       </button>
 
       {/* Export */}
-      {exporting ? (
+      {readyBlob ? (
+        <button
+          onClick={handleSaveFile}
+          className="pb-btn"
+          title="Save animation.mp4"
+          style={{ color: 'var(--accent)', fontWeight: 700, width: 'auto', padding: '0 6px', fontSize: 9 }}
+        >
+          Save
+        </button>
+      ) : exporting ? (
         <span className="pb-label" style={{ color: 'var(--accent)' }}>
           {Math.round(exportProgress * 100)}%
         </span>

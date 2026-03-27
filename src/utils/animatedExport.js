@@ -142,16 +142,5 @@ export async function exportAnimatedMP4(
   const mp4Data = encoder.FS.readFile(encoder.outputFilename);
   encoder.delete();
 
-  const blob = new Blob([mp4Data], { type: 'video/mp4' });
-
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'animation.mp4';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-
-  return blob;
+  return new Blob([mp4Data], { type: 'video/mp4' });
 }
