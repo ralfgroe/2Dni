@@ -460,7 +460,7 @@ export default function NodeGraph() {
           onClick={(e) => { e.stopPropagation(); setShowGuide(true); }}
           style={{
             position: 'absolute',
-            bottom: 48,
+            top: '58%',
             left: '50%',
             transform: 'translateX(-50%)',
             padding: '8px 24px',
