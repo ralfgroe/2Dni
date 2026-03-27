@@ -171,36 +171,29 @@ function LayoutDiagram() {
 }
 
 function ToolboxDiagram() {
-  const items = [
-    { cat: 'Geometry', nodes: ['Rectangle', 'Circle', 'Polygon', 'Line'] },
-    { cat: 'Transform', nodes: ['Boolean', 'Transform', 'Mirror'] },
-  ];
   return (
-    <Illust width={520} height={145}>
-      <rect x={160} y={8} width={200} height={130} rx={8} fill="#fff" stroke="#dee2e6" strokeWidth={1.5} />
+    <Illust width={520} height={165}>
+      <rect x={160} y={8} width={200} height={150} rx={8} fill="#fff" stroke="#dee2e6" strokeWidth={1.5} />
       <rect x={160} y={8} width={200} height={26} rx={8} fill="#f1f3f5" />
       <rect x={160} y={26} width={200} height={8} fill="#f1f3f5" />
       <text x={170} y={26} fontSize="10" fill="#868e96" fontFamily="system-ui">Search nodes...</text>
-      {items.map((cat, ci) => {
-        const catY = 46 + ci * 52;
-        return (
-          <g key={ci}>
-            <text x={170} y={catY} fontSize="8" fontWeight="700" fill="#adb5bd" fontFamily="system-ui" textTransform="uppercase">{cat.cat}</text>
-            {cat.nodes.map((n, ni) => (
-              <g key={ni}>
-                <rect x={170} y={catY + 4 + ni * 20} width={180} height={17} rx={4} fill={ni === 0 && ci === 0 ? '#4263eb' : 'transparent'} />
-                <text x={180} y={catY + 15 + ni * 20} fontSize="10" fill={ni === 0 && ci === 0 ? '#fff' : '#495057'} fontWeight={ni === 0 && ci === 0 ? '600' : '400'} fontFamily="system-ui">{n}</text>
-              </g>
-            ))}
-          </g>
-        );
-      })}
-      <g transform="translate(90, 60)">
+
+      <text x={170} y={48} fontSize="8" fontWeight="700" fill="#adb5bd" fontFamily="system-ui">GEOMETRY</text>
+      <rect x={170} y={52} width={180} height={17} rx={4} fill="#4263eb" />
+      <text x={180} y={63} fontSize="10" fill="#fff" fontWeight="600" fontFamily="system-ui">Rectangle</text>
+      <text x={180} y={81} fontSize="10" fill="#495057" fontFamily="system-ui">Circle</text>
+      <text x={180} y={97} fontSize="10" fill="#495057" fontFamily="system-ui">Polygon</text>
+
+      <text x={170} y={116} fontSize="8" fontWeight="700" fill="#adb5bd" fontFamily="system-ui">TRANSFORM</text>
+      <text x={180} y={132} fontSize="10" fill="#495057" fontFamily="system-ui">Boolean</text>
+      <text x={180} y={148} fontSize="10" fill="#495057" fontFamily="system-ui">Transform</text>
+
+      <g transform="translate(90, 70)">
         <circle cx={0} cy={0} r={18} fill="#fff" stroke="#dee2e6" strokeWidth={1.5} />
-        <text x={0} y={1} textAnchor="middle" fontSize="18" fill="#868e96" fontFamily="system-ui">⊞</text>
+        <text x={0} y={4} textAnchor="middle" fontSize="16" fill="#868e96" fontFamily="system-ui">+</text>
         <text x={0} y={18} textAnchor="middle" fontSize="7" fill="#adb5bd" fontFamily="system-ui">Right-click</text>
       </g>
-      <path d="M108,60 L155,40" fill="none" stroke="#adb5bd" strokeWidth={1} strokeDasharray="3 2" markerEnd="url(#arrowGray)" />
+      <path d="M108,70 L155,50" fill="none" stroke="#adb5bd" strokeWidth={1} strokeDasharray="3 2" markerEnd="url(#arrowGray)" />
       <defs><marker id="arrowGray" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#adb5bd" /></marker></defs>
     </Illust>
   );
