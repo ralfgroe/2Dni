@@ -1,14 +1,23 @@
 import { useGraphStore } from '../store/graphStore';
+import { useAnimationStore } from '../store/animationStore';
 
 export function saveProject() {
   const { nodes, edges, displayNodeId } = useGraphStore.getState();
+  const { duration, fps, loop, keyframes } = useAnimationStore.getState();
+
   const project = {
-    version: '1.0',
+    version: '1.1',
     app: '2Dni',
     savedAt: new Date().toISOString(),
     nodes,
     edges,
     displayNodeId,
+    animation: {
+      duration,
+      fps,
+      loop,
+      keyframes,
+    },
   };
 
   const json = JSON.stringify(project, null, 2);
@@ -41,6 +50,11 @@ export function loadProject() {
           setNodes(project.nodes || []);
           setEdges(project.edges || []);
           if (project.displayNodeId) setDisplayNode(project.displayNodeId);
+
+          if (project.animation) {
+            useAnimationStore.getState().loadAnimationState(project.animation);
+          }
+
           resolve(true);
         } catch {
           alert('Failed to parse project file.');

@@ -1,7 +1,9 @@
 import { useMemo } from 'react';
 import { useGraphStore } from '../../store/graphStore';
 import { useNodeRegistryStore } from '../../store/nodeRegistryStore';
+import { useAnimationStore } from '../../store/animationStore';
 import { evaluateGraph } from '../../utils/evaluateGraph';
+import { resolveAllNodesAtFrame } from '../../utils/interpolation';
 import { exportSVG, exportPNG, exportOBJ, exportGEO } from '../../utils/exportUtils';
 import { extractPoints } from '../../utils/geometryPoints';
 import WrangleChat from './WrangleChat';
@@ -15,14 +17,23 @@ export default function ParameterPanel() {
   const definitions = useNodeRegistryStore((s) => s.definitions);
   const getDefinition = useNodeRegistryStore((s) => s.getDefinition);
 
+  const animEnabled = useAnimationStore((s) => s.enabled);
+  const currentFrame = useAnimationStore((s) => s.currentFrame);
+  const allKeyframes = useAnimationStore((s) => s.keyframes);
+
   const selectedNode = nodes.find((n) => n.id === selectedNodeId);
   const definition = selectedNode
     ? getDefinition(selectedNode.data.definitionId)
     : null;
 
+  const animatedNodes = useMemo(() => {
+    if (!animEnabled || Object.keys(allKeyframes).length === 0) return nodes;
+    return resolveAllNodesAtFrame(nodes, allKeyframes, currentFrame);
+  }, [nodes, animEnabled, allKeyframes, currentFrame]);
+
   const results = useMemo(
-    () => evaluateGraph(nodes, edges, definitions, displayNodeId),
-    [nodes, edges, definitions, displayNodeId]
+    () => evaluateGraph(animatedNodes, edges, definitions, displayNodeId),
+    [animatedNodes, edges, definitions, displayNodeId]
   );
 
   function resolveEdgeResult(edge) {
@@ -240,6 +251,13 @@ export default function ParameterPanel() {
 
 function ParameterRow({ paramDef, value, nodeId, onPresetChange }) {
   const updateNodeParams = useGraphStore((s) => s.updateNodeParams);
+  const animEnabled = useAnimationStore((s) => s.enabled);
+  const currentFrame = useAnimationStore((s) => s.currentFrame);
+  const setKeyframe = useAnimationStore((s) => s.setKeyframe);
+  const hasKeyframes = useAnimationStore((s) => s.hasKeyframes);
+
+  const isKeyframeable = paramDef.type === 'number';
+  const hasKf = isKeyframeable && hasKeyframes(nodeId, paramDef.id);
 
   const handleChange = (newValue) => {
     if (onPresetChange) {
@@ -249,11 +267,35 @@ function ParameterRow({ paramDef, value, nodeId, onPresetChange }) {
     }
   };
 
+  const handleSetKeyframe = (e) => {
+    e.stopPropagation();
+    setKeyframe(nodeId, paramDef.id, currentFrame, value ?? paramDef.default);
+  };
+
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-[11px] font-medium text-text-secondary">
-        {paramDef.label}
-      </label>
+      <div className="flex items-center gap-1">
+        <label className="flex-1 text-[11px] font-medium text-text-secondary">
+          {paramDef.label}
+        </label>
+        {animEnabled && isKeyframeable && (
+          <button
+            onClick={handleSetKeyframe}
+            title={hasKf ? `Keyframed - Click to set keyframe at frame ${currentFrame}` : `Set keyframe at frame ${currentFrame}`}
+            className="flex h-4 w-4 items-center justify-center rounded hover:bg-bg-tertiary"
+          >
+            <svg width="8" height="8" viewBox="0 0 10 10">
+              <rect
+                x="1" y="1" width="8" height="8" rx="1"
+                transform="rotate(45 5 5)"
+                fill={hasKf ? '#f59e0b' : 'none'}
+                stroke={hasKf ? '#b45309' : 'var(--text-muted)'}
+                strokeWidth="1"
+              />
+            </svg>
+          </button>
+        )}
+      </div>
       <ParameterInput paramDef={paramDef} value={value} onChange={handleChange} />
     </div>
   );

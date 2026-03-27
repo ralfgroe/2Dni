@@ -2,7 +2,9 @@ import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { useGraphStore } from '../../store/graphStore';
 import { useNodeRegistryStore } from '../../store/nodeRegistryStore';
 import { useViewportStore } from '../../store/viewportStore';
+import { useAnimationStore } from '../../store/animationStore';
 import { evaluateGraph } from '../../utils/evaluateGraph';
+import { resolveAllNodesAtFrame } from '../../utils/interpolation';
 import { renderGeometry } from '../../utils/svgRenderer';
 import GimbalHandles from './GimbalHandles';
 import CornerPickOverlay from './CornerPickOverlay';
@@ -36,9 +38,18 @@ export default function Viewport() {
   const selectNode = useGraphStore((s) => s.selectNode);
   const definitions = useNodeRegistryStore((s) => s.definitions);
 
+  const animEnabled = useAnimationStore((s) => s.enabled);
+  const currentFrame = useAnimationStore((s) => s.currentFrame);
+  const allKeyframes = useAnimationStore((s) => s.keyframes);
+
+  const animatedNodes = useMemo(() => {
+    if (!animEnabled || Object.keys(allKeyframes).length === 0) return nodes;
+    return resolveAllNodesAtFrame(nodes, allKeyframes, currentFrame);
+  }, [nodes, animEnabled, allKeyframes, currentFrame]);
+
   const results = useMemo(
-    () => evaluateGraph(nodes, edges, definitions, displayNodeId),
-    [nodes, edges, definitions, displayNodeId, fontVersion]
+    () => evaluateGraph(animatedNodes, edges, definitions, displayNodeId),
+    [animatedNodes, edges, definitions, displayNodeId, fontVersion]
   );
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId);
