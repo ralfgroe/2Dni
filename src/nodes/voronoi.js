@@ -66,30 +66,64 @@ function inCircumcircle(p, a, b, c) {
   return det > 0;
 }
 
-function voronoiFromDelaunay(triangles, points, w, h) {
+function voronoiCells(triangles, points, w, h) {
   const halfW = w / 2, halfH = h / 2;
-  const edgeMap = new Map();
+  const ptToCCs = new Map();
 
   for (const tri of triangles) {
     const cc = circumcenter(tri[0], tri[1], tri[2]);
     if (!cc) continue;
-    for (let i = 0; i < 3; i++) {
-      const a = tri[i], b = tri[(i + 1) % 3];
-      const key = a.x < b.x || (a.x === b.x && a.y < b.y)
-        ? `${a.x},${a.y}-${b.x},${b.y}` : `${b.x},${b.y}-${a.x},${a.y}`;
-      if (!edgeMap.has(key)) edgeMap.set(key, []);
-      edgeMap.get(key).push(cc);
+    for (const p of tri) {
+      const key = `${p.x},${p.y}`;
+      if (!ptToCCs.has(key)) ptToCCs.set(key, { site: p, ccs: [] });
+      ptToCCs.get(key).ccs.push(cc);
     }
   }
 
-  const segments = [];
-  for (const [, centers] of edgeMap) {
-    if (centers.length === 2) {
-      const [a, b] = centers;
-      if (Math.abs(a.x) < halfW * 2 && Math.abs(a.y) < halfH * 2 &&
-          Math.abs(b.x) < halfW * 2 && Math.abs(b.y) < halfH * 2) {
-        segments.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y });
+  const cells = [];
+  for (const [, { site, ccs }] of ptToCCs) {
+    if (ccs.length < 3) continue;
+    ccs.sort((a, b) => Math.atan2(a.y - site.y, a.x - site.x) - Math.atan2(b.y - site.y, b.x - site.x));
+
+    const clipped = clipPolygonToRect(ccs, -halfW, -halfH, halfW, halfH);
+    if (clipped.length >= 3) cells.push(clipped);
+  }
+  return cells;
+}
+
+function clipPolygonToRect(poly, minX, minY, maxX, maxY) {
+  let output = poly;
+  const edges = [
+    { nx: 1, ny: 0, d: -minX },
+    { nx: -1, ny: 0, d: maxX },
+    { nx: 0, ny: 1, d: -minY },
+    { nx: 0, ny: -1, d: maxY },
+  ];
+  for (const { nx, ny, d } of edges) {
+    if (output.length === 0) break;
+    const input = output;
+    output = [];
+    for (let i = 0; i < input.length; i++) {
+      const cur = input[i];
+      const nxt = input[(i + 1) % input.length];
+      const cDist = nx * cur.x + ny * cur.y + d;
+      const nDist = nx * nxt.x + ny * nxt.y + d;
+      if (cDist >= 0) output.push(cur);
+      if ((cDist >= 0) !== (nDist >= 0)) {
+        const t = cDist / (cDist - nDist);
+        output.push({ x: cur.x + t * (nxt.x - cur.x), y: cur.y + t * (nxt.y - cur.y) });
       }
+    }
+  }
+  return output;
+}
+
+function voronoiEdgesFromCells(cells) {
+  const segments = [];
+  for (const cell of cells) {
+    for (let i = 0; i < cell.length; i++) {
+      const a = cell[i], b = cell[(i + 1) % cell.length];
+      segments.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y });
     }
   }
   return segments;
@@ -132,25 +166,24 @@ function lloydRelax(points, w, h, steps) {
   let pts = points;
   for (let s = 0; s < steps; s++) {
     const tris = delaunay(pts);
-    const segs = voronoiFromDelaunay(tris, pts, w, h);
-    const cellPts = new Map();
-    pts.forEach((p, i) => cellPts.set(i, []));
-    for (const seg of segs) {
-      for (let i = 0; i < pts.length; i++) {
-        const dx = pts[i].x - (seg.x1 + seg.x2) / 2;
-        const dy = pts[i].y - (seg.y1 + seg.y2) / 2;
-        if (dx * dx + dy * dy < w * w) {
-          cellPts.get(i).push({ x: seg.x1, y: seg.y1 }, { x: seg.x2, y: seg.y2 });
-        }
+    const cells = voronoiCells(tris, pts, w, h);
+    if (cells.length === 0) break;
+    const newPts = pts.map((p) => {
+      let bestCell = null, bestDist = Infinity;
+      for (const cell of cells) {
+        const cx = cell.reduce((sum, v) => sum + v.x, 0) / cell.length;
+        const cy = cell.reduce((sum, v) => sum + v.y, 0) / cell.length;
+        const dx = p.x - cx, dy = p.y - cy;
+        const dist = dx * dx + dy * dy;
+        if (dist < bestDist) { bestDist = dist; bestCell = cell; }
       }
-    }
-    pts = pts.map((p, i) => {
-      const cp = cellPts.get(i);
-      if (!cp || cp.length < 2) return p;
-      const cx = cp.reduce((s, pt) => s + pt.x, 0) / cp.length;
-      const cy = cp.reduce((s, pt) => s + pt.y, 0) / cp.length;
-      return { x: cx, y: cy };
+      if (!bestCell) return p;
+      return {
+        x: bestCell.reduce((sum, v) => sum + v.x, 0) / bestCell.length,
+        y: bestCell.reduce((sum, v) => sum + v.y, 0) / bestCell.length,
+      };
     });
+    pts = newPts;
   }
   return pts;
 }
@@ -192,11 +225,11 @@ export function voronoiRuntime(params, inputs) {
       paths.push(p);
     }
   } else {
-    const segs = voronoiFromDelaunay(tris, points, w, h);
-    for (const seg of segs) {
+    const cells = voronoiCells(tris, points, w, h);
+    for (const cell of cells) {
       const p = new paper.Path();
-      p.add(new paper.Point(seg.x1, seg.y1));
-      p.add(new paper.Point(seg.x2, seg.y2));
+      for (const v of cell) p.add(new paper.Point(v.x, v.y));
+      p.closePath();
       paths.push(p);
     }
   }
