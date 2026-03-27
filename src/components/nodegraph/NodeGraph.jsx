@@ -420,11 +420,11 @@ export default function NodeGraph() {
             pointerEvents: 'none',
           }}
         >
-          <div style={{ position: 'relative', maxHeight: '70%', aspectRatio: '612 / 792' }}>
+          <div style={{ position: 'relative', width: '100%', maxWidth: 756 }}>
             <img
               src={`${import.meta.env.BASE_URL}start1.svg`}
               alt="Click the red triangle or right-click to start"
-              style={{ height: '100%', objectFit: 'contain' }}
+              style={{ width: '100%', objectFit: 'contain' }}
               draggable={false}
             />
             <div
