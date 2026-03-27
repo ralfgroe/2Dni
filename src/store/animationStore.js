@@ -1,5 +1,11 @@
 import { create } from 'zustand';
 
+export const RESOLUTION_PRESETS = [
+  { id: '720p',  label: '720p',  width: 1280,  height: 720 },
+  { id: '1080p', label: 'HD 1080p', width: 1920, height: 1080 },
+  { id: '4k',    label: '4K',    width: 3840,  height: 2160 },
+];
+
 export const useAnimationStore = create((set, get) => ({
   enabled: false,
   duration: 120,
@@ -8,11 +14,20 @@ export const useAnimationStore = create((set, get) => ({
   playing: false,
   loop: true,
   keyframes: {},
+  resolution: '1080p',
+  showCameraFrame: true,
 
   _rafId: null,
   _lastTime: null,
 
   toggleEnabled: () => set((s) => ({ enabled: !s.enabled })),
+  setResolution: (resolution) => set({ resolution }),
+  setShowCameraFrame: (show) => set({ showCameraFrame: show }),
+
+  getResolution: () => {
+    const { resolution } = get();
+    return RESOLUTION_PRESETS.find((p) => p.id === resolution) || RESOLUTION_PRESETS[1];
+  },
 
   setDuration: (duration) => set({ duration: Math.max(1, Math.round(duration)) }),
   setFps: (fps) => set({ fps: Math.max(1, Math.min(60, Math.round(fps))) }),
@@ -163,6 +178,7 @@ export const useAnimationStore = create((set, get) => ({
     fps: state.fps ?? 30,
     loop: state.loop ?? true,
     keyframes: state.keyframes ?? {},
+    resolution: state.resolution ?? '1080p',
     currentFrame: 0,
     playing: false,
   }),

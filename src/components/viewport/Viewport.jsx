@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { useGraphStore } from '../../store/graphStore';
 import { useNodeRegistryStore } from '../../store/nodeRegistryStore';
 import { useViewportStore } from '../../store/viewportStore';
-import { useAnimationStore } from '../../store/animationStore';
+import { useAnimationStore, RESOLUTION_PRESETS } from '../../store/animationStore';
 import { evaluateGraph } from '../../utils/evaluateGraph';
 import { resolveAllNodesAtFrame } from '../../utils/interpolation';
 import { renderGeometry } from '../../utils/svgRenderer';
@@ -11,6 +11,7 @@ import CornerPickOverlay from './CornerPickOverlay';
 import FreeCurveOverlay from './FreeCurveOverlay';
 import BezierOverlay from './BezierOverlay';
 import PointTransformOverlay from './PointTransformOverlay';
+import Timeline from '../timeline/Timeline';
 
 export default function Viewport() {
   const svgRef = useRef(null);
@@ -41,6 +42,26 @@ export default function Viewport() {
   const animEnabled = useAnimationStore((s) => s.enabled);
   const currentFrame = useAnimationStore((s) => s.currentFrame);
   const allKeyframes = useAnimationStore((s) => s.keyframes);
+  const showCameraFrame = useAnimationStore((s) => s.showCameraFrame);
+  const resolution = useAnimationStore((s) => s.resolution);
+
+  const cameraRect = useMemo(() => {
+    if (!animEnabled || !showCameraFrame) return null;
+    const preset = RESOLUTION_PRESETS.find((p) => p.id === resolution) || RESOLUTION_PRESETS[1];
+    const aspect = preset.width / preset.height;
+    const cx = viewBox.x + viewBox.w / 2;
+    const cy = viewBox.y + viewBox.h / 2;
+    const vbAspect = viewBox.w / viewBox.h;
+    let fw, fh;
+    if (vbAspect > aspect) {
+      fh = viewBox.h * 0.85;
+      fw = fh * aspect;
+    } else {
+      fw = viewBox.w * 0.85;
+      fh = fw / aspect;
+    }
+    return { x: cx - fw / 2, y: cy - fh / 2, w: fw, h: fh };
+  }, [animEnabled, showCameraFrame, resolution, viewBox]);
 
   const animatedNodes = useMemo(() => {
     if (!animEnabled || Object.keys(allKeyframes).length === 0) return nodes;
@@ -235,14 +256,17 @@ export default function Viewport() {
   const gridSize = 50;
 
   return (
-    <div className="relative h-full w-full bg-bg-primary">
+    <div className="flex h-full w-full flex-col">
+      <div className="relative flex-1 w-full bg-bg-primary" style={{ minHeight: 0 }}>
       <button
         onClick={() => setShowGrid((v) => !v)}
-        className="absolute top-2 left-2 z-10 rounded border border-border-primary bg-bg-secondary text-[10px] text-text-secondary hover:bg-bg-tertiary"
-        style={{ padding: '8px 20px' }}
+        className="absolute top-2 left-2 z-10 flex items-center gap-1 rounded border border-border-primary bg-bg-secondary text-[10px] text-text-secondary hover:bg-bg-tertiary"
+        style={{ padding: '2px 8px', height: 22 }}
         title="Toggle grid"
       >
-        {showGrid ? 'Grid: On' : 'Grid: Off'}
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1" opacity={showGrid ? 1 : 0.4}>
+          <path d="M0 3.3h10M0 6.6h10M3.3 0v10M6.6 0v10"/>
+        </svg>
       </button>
 
       <div className="absolute bottom-3 left-3 z-10 flex flex-col overflow-hidden rounded-lg border border-border-primary bg-white shadow-sm"
@@ -274,6 +298,7 @@ export default function Viewport() {
       </div>
 
       <svg
+        id="viewport-svg"
         ref={svgRef}
         className="h-full w-full"
         viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
@@ -429,6 +454,27 @@ export default function Viewport() {
             results={results}
           />
         )}
+
+        {/* Camera frame overlay */}
+        {cameraRect && (
+          <g style={{ pointerEvents: 'none' }}>
+            <rect
+              x={cameraRect.x} y={cameraRect.y}
+              width={cameraRect.w} height={cameraRect.h}
+              fill="none" stroke="#ef4444" strokeWidth={viewBox.w * 0.002}
+              strokeDasharray={`${viewBox.w * 0.008} ${viewBox.w * 0.004}`}
+              opacity={0.8}
+            />
+            <rect x={viewBox.x} y={viewBox.y} width={viewBox.w} height={cameraRect.y - viewBox.y}
+              fill="black" opacity={0.08} />
+            <rect x={viewBox.x} y={cameraRect.y + cameraRect.h} width={viewBox.w} height={viewBox.y + viewBox.h - cameraRect.y - cameraRect.h}
+              fill="black" opacity={0.08} />
+            <rect x={viewBox.x} y={cameraRect.y} width={cameraRect.x - viewBox.x} height={cameraRect.h}
+              fill="black" opacity={0.08} />
+            <rect x={cameraRect.x + cameraRect.w} y={cameraRect.y} width={viewBox.x + viewBox.w - cameraRect.x - cameraRect.w} height={cameraRect.h}
+              fill="black" opacity={0.08} />
+          </g>
+        )}
       </svg>
 
       {showSplash && nodes.length === 0 && (
@@ -450,6 +496,9 @@ export default function Viewport() {
         </div>
       )}
 
+      </div>
+
+      {animEnabled && <Timeline />}
     </div>
   );
 }

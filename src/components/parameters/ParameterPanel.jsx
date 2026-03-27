@@ -3,7 +3,7 @@ import { useGraphStore } from '../../store/graphStore';
 import { useNodeRegistryStore } from '../../store/nodeRegistryStore';
 import { useAnimationStore } from '../../store/animationStore';
 import { evaluateGraph } from '../../utils/evaluateGraph';
-import { resolveAllNodesAtFrame } from '../../utils/interpolation';
+import { resolveAllNodesAtFrame, interpolateValue } from '../../utils/interpolation';
 import { exportSVG, exportPNG, exportOBJ, exportGEO } from '../../utils/exportUtils';
 import { extractPoints } from '../../utils/geometryPoints';
 import WrangleChat from './WrangleChat';
@@ -254,49 +254,71 @@ function ParameterRow({ paramDef, value, nodeId, onPresetChange }) {
   const animEnabled = useAnimationStore((s) => s.enabled);
   const currentFrame = useAnimationStore((s) => s.currentFrame);
   const setKeyframe = useAnimationStore((s) => s.setKeyframe);
-  const hasKeyframes = useAnimationStore((s) => s.hasKeyframes);
+  const allKeyframes = useAnimationStore((s) => s.keyframes);
 
   const isKeyframeable = paramDef.type === 'number';
-  const hasKf = isKeyframeable && hasKeyframes(nodeId, paramDef.id);
+  const paramKfs = allKeyframes[nodeId]?.[paramDef.id];
+  const hasKf = isKeyframeable && paramKfs && Object.keys(paramKfs).length > 0;
+  const hasKfAtFrame = hasKf && paramKfs[currentFrame] != null;
+
+  const displayValue = useMemo(() => {
+    if (!hasKf || !paramKfs) return value;
+    const interpolated = interpolateValue(paramKfs, currentFrame);
+    return interpolated !== undefined ? interpolated : value;
+  }, [hasKf, paramKfs, currentFrame, value]);
 
   const handleChange = (newValue) => {
     if (onPresetChange) {
       onPresetChange(newValue);
-    } else {
-      updateNodeParams(nodeId, { [paramDef.id]: newValue });
+      return;
     }
+    if (animEnabled && hasKf) {
+      setKeyframe(nodeId, paramDef.id, currentFrame, newValue);
+    }
+    updateNodeParams(nodeId, { [paramDef.id]: newValue });
   };
 
   const handleSetKeyframe = (e) => {
     e.stopPropagation();
-    setKeyframe(nodeId, paramDef.id, currentFrame, value ?? paramDef.default);
+    const val = displayValue ?? value ?? paramDef.default;
+    setKeyframe(nodeId, paramDef.id, currentFrame, val);
   };
 
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-1">
-        <label className="flex-1 text-[11px] font-medium text-text-secondary">
+        <label
+          className="flex-1 text-[11px] font-medium"
+          style={{ color: hasKfAtFrame ? '#16a34a' : hasKf ? '#65a30d' : 'var(--text-secondary)' }}
+        >
           {paramDef.label}
         </label>
         {animEnabled && isKeyframeable && (
           <button
             onClick={handleSetKeyframe}
-            title={hasKf ? `Keyframed - Click to set keyframe at frame ${currentFrame}` : `Set keyframe at frame ${currentFrame}`}
-            className="flex h-4 w-4 items-center justify-center rounded hover:bg-bg-tertiary"
+            title={
+              hasKfAtFrame
+                ? `Keyframe set at frame ${currentFrame} — click to update`
+                : hasKf
+                ? `Animated — click to add keyframe at frame ${currentFrame}`
+                : `Set keyframe at frame ${currentFrame}`
+            }
+            className="flex items-center justify-center rounded hover:bg-bg-tertiary"
+            style={{ width: 16, height: 16 }}
           >
-            <svg width="8" height="8" viewBox="0 0 10 10">
+            <svg width="10" height="10" viewBox="0 0 10 10">
               <rect
-                x="1" y="1" width="8" height="8" rx="1"
+                x="2" y="2" width="6" height="6" rx="0.5"
                 transform="rotate(45 5 5)"
-                fill={hasKf ? '#f59e0b' : 'none'}
-                stroke={hasKf ? '#b45309' : 'var(--text-muted)'}
+                fill={hasKfAtFrame ? '#16a34a' : hasKf ? '#65a30d' : 'none'}
+                stroke={hasKfAtFrame ? '#15803d' : hasKf ? '#4d7c0f' : 'var(--text-muted)'}
                 strokeWidth="1"
               />
             </svg>
           </button>
         )}
       </div>
-      <ParameterInput paramDef={paramDef} value={value} onChange={handleChange} />
+      <ParameterInput paramDef={paramDef} value={isKeyframeable ? displayValue : value} onChange={handleChange} />
     </div>
   );
 }

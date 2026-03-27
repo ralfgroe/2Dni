@@ -1,13 +1,12 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
-import { useAnimationStore } from '../../store/animationStore';
+import { useAnimationStore, RESOLUTION_PRESETS } from '../../store/animationStore';
 import { useGraphStore } from '../../store/graphStore';
 import { useNodeRegistryStore } from '../../store/nodeRegistryStore';
 import { EASING_OPTIONS } from '../../utils/interpolation';
-import { exportAnimatedWebM } from '../../utils/animatedExport';
+import { exportAnimatedMP4 } from '../../utils/animatedExport';
 
 export default function Timeline() {
   const enabled = useAnimationStore((s) => s.enabled);
-  const toggleEnabled = useAnimationStore((s) => s.toggleEnabled);
   const duration = useAnimationStore((s) => s.duration);
   const fps = useAnimationStore((s) => s.fps);
   const currentFrame = useAnimationStore((s) => s.currentFrame);
@@ -20,67 +19,58 @@ export default function Timeline() {
   const play = useAnimationStore((s) => s.play);
   const pause = useAnimationStore((s) => s.pause);
   const stop = useAnimationStore((s) => s.stop);
-  const stepForward = useAnimationStore((s) => s.stepForward);
-  const stepBackward = useAnimationStore((s) => s.stepBackward);
   const goToStart = useAnimationStore((s) => s.goToStart);
   const goToEnd = useAnimationStore((s) => s.goToEnd);
   const allKeyframes = useAnimationStore((s) => s.keyframes);
   const removeKeyframe = useAnimationStore((s) => s.removeKeyframe);
   const setKeyframeEasing = useAnimationStore((s) => s.setKeyframeEasing);
   const removeAllKeyframes = useAnimationStore((s) => s.removeAllKeyframes);
-  const getAnimatedTracks = useAnimationStore((s) => s.getAnimatedTracks);
-
-  const nodes = useGraphStore((s) => s.nodes);
-  const definitions = useNodeRegistryStore((s) => s.definitions);
+  const resolution = useAnimationStore((s) => s.resolution);
+  const setResolution = useAnimationStore((s) => s.setResolution);
+  const getResolution = useAnimationStore((s) => s.getResolution);
+  const showCameraFrame = useAnimationStore((s) => s.showCameraFrame);
+  const setShowCameraFrame = useAnimationStore((s) => s.setShowCameraFrame);
 
   const [contextMenu, setContextMenu] = useState(null);
-  const [collapsed, setCollapsed] = useState({});
   const [exporting, setExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
-  const trackAreaRef = useRef(null);
+  const [editingField, setEditingField] = useState(null);
+  const scrubberRef = useRef(null);
 
-  const tracks = useMemo(() => getAnimatedTracks(), [allKeyframes]);
-
-  const nodeLabels = useMemo(() => {
-    const map = {};
-    for (const n of nodes) {
-      const def = definitions[n.data.definitionId];
-      map[n.id] = def ? `${def.label} (${n.id})` : n.id;
-    }
-    return map;
-  }, [nodes, definitions]);
-
-  const paramLabels = useMemo(() => {
-    const map = {};
-    for (const n of nodes) {
-      const def = definitions[n.data.definitionId];
-      if (!def) continue;
-      map[n.id] = {};
-      for (const p of def.parameters || []) {
-        map[n.id][p.id] = p.label || p.id;
+  const allKeyframeFrames = useMemo(() => {
+    const frameSet = new Set();
+    for (const nodeKfs of Object.values(allKeyframes)) {
+      for (const paramKfs of Object.values(nodeKfs)) {
+        for (const f of Object.keys(paramKfs)) frameSet.add(Number(f));
       }
     }
-    return map;
-  }, [nodes, definitions]);
+    return [...frameSet].sort((a, b) => a - b);
+  }, [allKeyframes]);
 
-  const groupedTracks = useMemo(() => {
-    const groups = {};
-    for (const t of tracks) {
-      if (!groups[t.nodeId]) groups[t.nodeId] = [];
-      groups[t.nodeId].push(t);
+  const keyframeDetails = useMemo(() => {
+    const details = {};
+    for (const [nodeId, nodeKfs] of Object.entries(allKeyframes)) {
+      for (const [paramId, paramKfs] of Object.entries(nodeKfs)) {
+        for (const f of Object.keys(paramKfs)) {
+          const fn = Number(f);
+          if (!details[fn]) details[fn] = [];
+          details[fn].push({ nodeId, paramId, ...paramKfs[f] });
+        }
+      }
     }
-    return groups;
-  }, [tracks]);
+    return details;
+  }, [allKeyframes]);
 
   const handleScrub = useCallback((e) => {
-    const area = trackAreaRef.current;
-    if (!area) return;
-    const rect = area.getBoundingClientRect();
+    const bar = scrubberRef.current;
+    if (!bar) return;
+    const rect = bar.getBoundingClientRect();
     const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     setCurrentFrame(Math.round(x * duration));
   }, [duration, setCurrentFrame]);
 
   const handleScrubDown = useCallback((e) => {
+    if (e.button !== 0) return;
     handleScrub(e);
     const onMove = (ev) => handleScrub(ev);
     const onUp = () => {
@@ -91,11 +81,13 @@ export default function Timeline() {
     window.addEventListener('mouseup', onUp);
   }, [handleScrub]);
 
-  const handleKeyframeContextMenu = useCallback((e, nodeId, paramId, frame) => {
+  const handleKeyframeContextMenu = useCallback((e, frame) => {
     e.preventDefault();
     e.stopPropagation();
-    setContextMenu({ x: e.clientX, y: e.clientY, nodeId, paramId, frame });
-  }, []);
+    const details = keyframeDetails[frame];
+    if (!details || details.length === 0) return;
+    setContextMenu({ x: e.clientX, y: e.clientY, frame, details });
+  }, [keyframeDetails]);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -116,272 +108,344 @@ export default function Timeline() {
     return () => window.removeEventListener('keydown', handler);
   }, [enabled, playing, play, pause]);
 
-  if (!enabled) {
-    return (
-      <div className="flex h-full items-center justify-center bg-bg-primary border-t border-border-primary">
-        <button
-          onClick={toggleEnabled}
-          className="flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-xs font-medium text-white hover:bg-accent-hover transition-colors"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-          </svg>
-          Enable Animation Timeline
-        </button>
-      </div>
-    );
-  }
+  if (!enabled) return null;
 
-  const timeText = `${(currentFrame / fps).toFixed(1)}s`;
-  const totalTimeText = `${(duration / fps).toFixed(1)}s`;
+  const pct = duration > 0 ? (currentFrame / duration) * 100 : 0;
+  const hasKeys = allKeyframeFrames.length > 0;
+
+  const handleExport = async () => {
+    try {
+      const gNodes = useGraphStore.getState().nodes;
+      const gEdges = useGraphStore.getState().edges;
+      const gDisplay = useGraphStore.getState().displayNodeId;
+      const defs = useNodeRegistryStore.getState().definitions;
+      const res = getResolution();
+
+      const svgEl = document.getElementById('viewport-svg');
+      let camViewBox;
+      if (svgEl) {
+        const vbAttr = svgEl.getAttribute('viewBox');
+        if (vbAttr) {
+          const vb = vbAttr.split(' ').map(Number);
+          const vbx = vb[0], vby = vb[1], vbw = vb[2], vbh = vb[3];
+          const aspect = res.width / res.height;
+          const vbAspect = vbw / vbh;
+          let fw, fh;
+          if (vbAspect > aspect) { fh = vbh * 0.85; fw = fh * aspect; }
+          else { fw = vbw * 0.85; fh = fw / aspect; }
+          const cx = vbx + vbw / 2, cy = vby + vbh / 2;
+          camViewBox = { x: cx - fw / 2, y: cy - fh / 2, w: fw, h: fh };
+        }
+      }
+      if (!camViewBox) {
+        const aspect = res.width / res.height;
+        const hw = 400, hh = hw / aspect;
+        camViewBox = { x: -hw, y: -hh, w: hw * 2, h: hh * 2 };
+      }
+
+      setExporting(true);
+      await exportAnimatedMP4(
+        gNodes, gEdges, defs, gDisplay,
+        allKeyframes, duration, fps,
+        res.width, res.height, camViewBox,
+        (f, total) => setExportProgress(f / total)
+      );
+    } catch (e) {
+      console.error('Export failed:', e);
+      alert('Export failed: ' + (e.message || e));
+    } finally {
+      setExporting(false);
+      setExportProgress(0);
+    }
+  };
 
   return (
-    <div className="flex h-full flex-col bg-bg-primary border-t border-border-primary select-none" style={{ minHeight: 0 }}>
-      {/* Transport bar */}
-      <div className="flex shrink-0 items-center gap-1 border-b border-border-primary px-3" style={{ height: 32 }}>
-        <button onClick={goToStart} title="Go to start" className="tl-btn"><SkipBackIcon /></button>
-        <button onClick={stepBackward} title="Step back" className="tl-btn"><StepBackIcon /></button>
-        {playing
-          ? <button onClick={pause} title="Pause" className="tl-btn tl-btn-accent"><PauseIcon /></button>
-          : <button onClick={play} title="Play" className="tl-btn tl-btn-accent"><PlayIcon /></button>
-        }
-        <button onClick={stop} title="Stop" className="tl-btn"><StopIcon /></button>
-        <button onClick={stepForward} title="Step forward" className="tl-btn"><StepFwdIcon /></button>
-        <button onClick={goToEnd} title="Go to end" className="tl-btn"><SkipFwdIcon /></button>
-
-        <div className="mx-2 h-4 w-px bg-border-primary" />
-
-        <span className="text-[10px] text-text-secondary font-mono tabular-nums" style={{ minWidth: 90 }}>
-          {currentFrame} / {duration} &middot; {timeText}
-        </span>
-
-        <div className="mx-2 h-4 w-px bg-border-primary" />
-
-        <label className="flex items-center gap-1 text-[10px] text-text-muted">
-          Dur
-          <input
-            type="number"
-            value={duration}
-            onChange={(e) => setDuration(parseInt(e.target.value) || 120)}
-            className="w-12 rounded border border-border-primary bg-bg-secondary px-1 py-0.5 text-[10px] text-text-primary outline-none"
-          />
-        </label>
-
-        <label className="flex items-center gap-1 text-[10px] text-text-muted">
-          FPS
-          <input
-            type="number"
-            value={fps}
-            onChange={(e) => setFps(parseInt(e.target.value) || 30)}
-            className="w-10 rounded border border-border-primary bg-bg-secondary px-1 py-0.5 text-[10px] text-text-primary outline-none"
-          />
-        </label>
-
-        <button
-          onClick={() => setLoop(!loop)}
-          title={loop ? 'Loop: On' : 'Loop: Off'}
-          className={`tl-btn ${loop ? 'text-accent' : ''}`}
-        >
-          <LoopIcon />
+    <div className="playbar" style={{ height: 32, flexShrink: 0 }}>
+      {/* Transport controls */}
+      <div className="pb-group">
+        <button onClick={goToStart} title="Go to start (Home)" className="pb-btn"><SkipBackIcon /></button>
+        <button onClick={() => playing ? pause() : play()} title={playing ? 'Pause (Space)' : 'Play (Space)'} className="pb-btn pb-play">
+          {playing ? <PauseIcon /> : <PlayIcon />}
         </button>
-
-        <div className="flex-1" />
-
-        {exporting ? (
-          <span className="text-[10px] text-accent font-medium">
-            Exporting... {Math.round(exportProgress * 100)}%
-          </span>
-        ) : (
-          <button
-            onClick={async () => {
-              const gNodes = useGraphStore.getState().nodes;
-              const gEdges = useGraphStore.getState().edges;
-              const gDisplay = useGraphStore.getState().displayNodeId;
-              const defs = useNodeRegistryStore.getState().definitions;
-              setExporting(true);
-              try {
-                await exportAnimatedWebM(
-                  gNodes, gEdges, defs, gDisplay,
-                  allKeyframes, duration, fps,
-                  1280, 720,
-                  (f, total) => setExportProgress(f / total)
-                );
-              } catch (e) {
-                console.error('Export failed:', e);
-              }
-              setExporting(false);
-              setExportProgress(0);
-            }}
-            disabled={tracks.length === 0}
-            className="text-[10px] text-text-secondary hover:text-accent disabled:opacity-30"
-            title="Export animation as WebM"
-          >
-            Export WebM
-          </button>
-        )}
-
-        <span className="text-[10px] text-text-muted">{totalTimeText}</span>
-
-        <button
-          onClick={toggleEnabled}
-          title="Disable timeline"
-          className="tl-btn text-text-muted hover:text-red-400"
-        >
-          <svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" strokeWidth="1.5"/></svg>
-        </button>
+        <button onClick={stop} title="Stop" className="pb-btn"><StopIcon /></button>
+        <button onClick={goToEnd} title="Go to end (End)" className="pb-btn"><SkipFwdIcon /></button>
       </div>
 
-      {/* Track area */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden" style={{ minHeight: 0 }}>
-        {tracks.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-[11px] text-text-muted">
-            No keyframes yet. Select a node and click the diamond next to a slider to add one.
-          </div>
-        ) : (
-          <div className="flex flex-col">
-            {Object.entries(groupedTracks).map(([nodeId, nodeTracks]) => (
-              <div key={nodeId}>
-                <div
-                  className="flex items-center gap-1 px-3 py-1 text-[10px] font-semibold text-text-secondary bg-bg-secondary cursor-pointer hover:bg-bg-tertiary"
-                  onClick={() => setCollapsed((c) => ({ ...c, [nodeId]: !c[nodeId] }))}
-                >
-                  <span style={{ transform: collapsed[nodeId] ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}>
-                    &#9662;
-                  </span>
-                  {nodeLabels[nodeId] || nodeId}
-                  <span className="text-text-muted font-normal ml-1">({nodeTracks.length} tracks)</span>
-                </div>
+      <div className="pb-sep" />
 
-                {!collapsed[nodeId] && nodeTracks.map(({ paramId, frames }) => (
-                  <div key={`${nodeId}_${paramId}`} className="flex items-center" style={{ height: 24 }}>
-                    <div className="shrink-0 truncate text-[10px] text-text-muted pl-6 pr-2" style={{ width: 140 }}>
-                      {paramLabels[nodeId]?.[paramId] || paramId}
-                    </div>
-                    <div
-                      ref={trackAreaRef}
-                      className="relative flex-1 h-full cursor-pointer"
-                      onMouseDown={handleScrubDown}
-                    >
-                      <div className="absolute inset-0 border-b border-border-primary" style={{ opacity: 0.3 }} />
+      {/* Frame range: start frame */}
+      <FrameField value={0} readOnly width={28} />
 
-                      {Object.entries(frames).map(([frameStr, kf]) => {
-                        const f = Number(frameStr);
-                        const pct = duration > 0 ? (f / duration) * 100 : 0;
-                        return (
-                          <div
-                            key={f}
-                            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 cursor-pointer"
-                            style={{ left: `${pct}%` }}
-                            onContextMenu={(e) => handleKeyframeContextMenu(e, nodeId, paramId, f)}
-                            title={`Frame ${f}: ${kf.value.toFixed?.(2) ?? kf.value} (${kf.easing})`}
-                          >
-                            <svg width="10" height="10" viewBox="0 0 10 10">
-                              <rect x="1" y="1" width="8" height="8" rx="1" transform="rotate(45 5 5)" fill="#f59e0b" stroke="#b45309" strokeWidth="0.8" />
-                            </svg>
-                          </div>
-                        );
-                      })}
-
-                      {/* Playhead indicator */}
-                      <div
-                        className="absolute top-0 bottom-0 w-px bg-accent"
-                        style={{ left: `${duration > 0 ? (currentFrame / duration) * 100 : 0}%`, pointerEvents: 'none' }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Scrubber bar along bottom */}
+      {/* Scrubber */}
       <div
-        className="shrink-0 relative cursor-pointer bg-bg-secondary border-t border-border-primary"
-        style={{ height: 16 }}
+        ref={scrubberRef}
+        className="pb-scrubber"
         onMouseDown={handleScrubDown}
       >
-        {/* Frame ticks */}
-        <FrameTicks duration={duration} fps={fps} />
+        {/* Tick marks */}
+        <ScrubberTicks duration={duration} fps={fps} />
+
+        {/* Keyframe diamonds */}
+        {allKeyframeFrames.map((f) => {
+          const x = duration > 0 ? (f / duration) * 100 : 0;
+          return (
+            <div
+              key={f}
+              className="pb-kf"
+              style={{ left: `${x}%` }}
+              onContextMenu={(e) => handleKeyframeContextMenu(e, f)}
+              title={`Frame ${f} — ${(keyframeDetails[f] || []).length} keyframe(s)`}
+            />
+          );
+        })}
 
         {/* Playhead */}
-        <div
-          className="absolute top-0 bottom-0 w-0.5 bg-accent"
-          style={{ left: `${duration > 0 ? (currentFrame / duration) * 100 : 0}%` }}
-        >
-          <div className="absolute -top-0.5 left-1/2 -translate-x-1/2 w-2 h-2 bg-accent rounded-sm rotate-45" />
+        <div className="pb-playhead" style={{ left: `${pct}%` }}>
+          <div className="pb-playhead-flag" />
+          <div className="pb-playhead-line" />
         </div>
       </div>
 
-      {/* Context menu */}
+      {/* Frame range: end frame */}
+      <FrameField
+        value={duration}
+        onChange={(v) => setDuration(v)}
+        width={36}
+        title="Duration (frames)"
+      />
+
+      <div className="pb-sep" />
+
+      {/* Current frame */}
+      <FrameField
+        value={currentFrame}
+        onChange={(v) => setCurrentFrame(v)}
+        width={36}
+        highlight
+        title="Current frame"
+      />
+
+      <div className="pb-sep" />
+
+      {/* FPS */}
+      <span className="pb-label">FPS</span>
+      <FrameField value={fps} onChange={(v) => setFps(v)} width={28} title="Frames per second" />
+
+      {/* Loop */}
+      <button
+        onClick={() => setLoop(!loop)}
+        title={loop ? 'Loop: On' : 'Loop: Off'}
+        className={`pb-btn ${loop ? 'pb-active' : ''}`}
+      >
+        <LoopIcon />
+      </button>
+
+      <div className="pb-sep" />
+
+      {/* Resolution */}
+      <select
+        value={resolution}
+        onChange={(e) => setResolution(e.target.value)}
+        title="Export resolution"
+        style={{
+          height: 18, fontSize: 9, borderRadius: 2, padding: '0 2px',
+          background: 'var(--bg-primary)', color: 'var(--text-secondary)',
+          border: '1px solid var(--border-primary)', outline: 'none',
+          cursor: 'pointer', flexShrink: 0,
+        }}
+      >
+        {RESOLUTION_PRESETS.map((p) => (
+          <option key={p.id} value={p.id}>{p.label}</option>
+        ))}
+      </select>
+
+      {/* Camera frame toggle */}
+      <button
+        onClick={() => setShowCameraFrame(!showCameraFrame)}
+        title={showCameraFrame ? 'Hide camera frame' : 'Show camera frame'}
+        className={`pb-btn ${showCameraFrame ? 'pb-active' : ''}`}
+      >
+        <CameraIcon />
+      </button>
+
+      {/* Export */}
+      {exporting ? (
+        <span className="pb-label" style={{ color: 'var(--accent)' }}>
+          {Math.round(exportProgress * 100)}%
+        </span>
+      ) : (
+        <button
+          onClick={handleExport}
+          className="pb-btn"
+          title="Export animation as MP4"
+        >
+          <ExportIcon />
+        </button>
+      )}
+
+      {/* Context menu for keyframe editing */}
       {contextMenu && (
         <div
-          className="fixed z-50 rounded-lg border border-border-primary bg-bg-primary shadow-lg py-1"
-          style={{ left: contextMenu.x, top: contextMenu.y, minWidth: 160 }}
+          className="fixed z-[9999] rounded border border-border-primary bg-bg-primary shadow-lg py-1"
+          style={{ left: contextMenu.x, top: contextMenu.y - 10, minWidth: 180, transform: 'translateY(-100%)' }}
         >
-          <div className="px-3 py-1 text-[10px] text-text-muted border-b border-border-primary">
-            Frame {contextMenu.frame}
+          <div className="px-3 py-1 text-[10px] font-semibold text-text-secondary border-b border-border-primary">
+            Frame {contextMenu.frame} — {contextMenu.details.length} key(s)
           </div>
-          <div className="px-3 py-1 text-[10px] text-text-muted">Easing:</div>
+          <div className="px-3 py-1 text-[9px] text-text-muted uppercase tracking-wide">Easing</div>
           {EASING_OPTIONS.map((opt) => (
             <button
               key={opt.id}
               className="block w-full text-left px-3 py-1 text-[11px] text-text-primary hover:bg-bg-tertiary"
               onClick={() => {
-                setKeyframeEasing(contextMenu.nodeId, contextMenu.paramId, contextMenu.frame, opt.id);
+                for (const d of contextMenu.details) {
+                  setKeyframeEasing(d.nodeId, d.paramId, contextMenu.frame, opt.id);
+                }
                 setContextMenu(null);
               }}
             >
               {opt.label}
-              {allKeyframes[contextMenu.nodeId]?.[contextMenu.paramId]?.[contextMenu.frame]?.easing === opt.id && ' *'}
             </button>
           ))}
           <div className="border-t border-border-primary mt-1 pt-1">
             <button
               className="block w-full text-left px-3 py-1 text-[11px] text-red-400 hover:bg-bg-tertiary"
               onClick={() => {
-                removeKeyframe(contextMenu.nodeId, contextMenu.paramId, contextMenu.frame);
+                for (const d of contextMenu.details) {
+                  removeKeyframe(d.nodeId, d.paramId, contextMenu.frame);
+                }
                 setContextMenu(null);
               }}
             >
-              Delete Keyframe
-            </button>
-            <button
-              className="block w-full text-left px-3 py-1 text-[11px] text-red-400 hover:bg-bg-tertiary"
-              onClick={() => {
-                removeAllKeyframes(contextMenu.nodeId, contextMenu.paramId);
-                setContextMenu(null);
-              }}
-            >
-              Delete All Keyframes
+              Delete keyframe(s) at frame {contextMenu.frame}
             </button>
           </div>
         </div>
       )}
 
       <style>{`
-        .tl-btn {
-          display: flex; align-items: center; justify-content: center;
-          width: 22px; height: 22px; border-radius: 4px;
-          color: var(--text-secondary); transition: background 0.1s;
+        .playbar {
+          display: flex;
+          align-items: center;
+          gap: 2px;
+          padding: 0 6px;
+          background: var(--bg-secondary);
+          border-top: 1px solid var(--border-primary);
+          user-select: none;
+          font-size: 10px;
         }
-        .tl-btn:hover { background: var(--bg-tertiary); }
-        .tl-btn-accent { color: var(--accent); }
+        .pb-group { display: flex; align-items: center; gap: 1px; }
+        .pb-sep { width: 1px; height: 16px; background: var(--border-primary); margin: 0 4px; flex-shrink: 0; }
+        .pb-btn {
+          display: flex; align-items: center; justify-content: center;
+          width: 20px; height: 20px; border-radius: 3px; flex-shrink: 0;
+          color: var(--text-muted); transition: all 0.1s;
+          background: none; border: none; cursor: pointer; padding: 0;
+        }
+        .pb-btn:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+        .pb-play { color: var(--text-primary); }
+        .pb-play:hover { color: var(--accent); }
+        .pb-active { color: var(--accent) !important; }
+        .pb-label { color: var(--text-muted); font-size: 9px; letter-spacing: 0.03em; flex-shrink: 0; }
+
+        .pb-scrubber {
+          flex: 1; height: 20px; position: relative; cursor: pointer;
+          background: var(--bg-primary); border-radius: 3px;
+          border: 1px solid var(--border-primary);
+          overflow: hidden; min-width: 60px;
+        }
+        .pb-kf {
+          position: absolute; top: 50%; width: 6px; height: 6px;
+          transform: translate(-50%, -50%) rotate(45deg);
+          background: #f59e0b; border: 1px solid #b45309;
+          z-index: 2; cursor: context-menu;
+        }
+        .pb-playhead {
+          position: absolute; top: 0; bottom: 0; z-index: 3; pointer-events: none;
+          transform: translateX(-50%);
+        }
+        .pb-playhead-flag {
+          width: 8px; height: 6px; background: var(--accent);
+          clip-path: polygon(0 0, 100% 0, 50% 100%);
+          margin-left: -3px;
+        }
+        .pb-playhead-line {
+          width: 2px; background: var(--accent);
+          position: absolute; top: 6px; bottom: 0; left: -0.5px;
+        }
       `}</style>
     </div>
   );
 }
 
-function FrameTicks({ duration, fps }) {
+function FrameField({ value, onChange, readOnly, width = 32, highlight, title }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+
+  if (readOnly || !onChange) {
+    return (
+      <span
+        className="pb-label"
+        style={{ minWidth: width, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}
+        title={title}
+      >
+        {value}
+      </span>
+    );
+  }
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        type="number"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => { onChange(parseInt(draft) || 0); setEditing(false); }}
+        onKeyDown={(e) => { if (e.key === 'Enter') { onChange(parseInt(draft) || 0); setEditing(false); } if (e.key === 'Escape') setEditing(false); }}
+        style={{
+          width, height: 18, border: '1px solid var(--accent)', borderRadius: 2,
+          background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: 10,
+          textAlign: 'center', outline: 'none', padding: 0,
+          fontVariantNumeric: 'tabular-nums',
+        }}
+      />
+    );
+  }
+
+  return (
+    <span
+      onClick={() => { setDraft(String(value)); setEditing(true); }}
+      style={{
+        minWidth: width, textAlign: 'center', cursor: 'text', borderRadius: 2,
+        padding: '1px 2px', fontVariantNumeric: 'tabular-nums',
+        background: highlight ? 'var(--bg-primary)' : 'transparent',
+        border: highlight ? '1px solid var(--border-primary)' : '1px solid transparent',
+        color: highlight ? 'var(--text-primary)' : 'var(--text-muted)',
+        fontSize: 10,
+      }}
+      title={title}
+    >
+      {value}
+    </span>
+  );
+}
+
+function ScrubberTicks({ duration, fps }) {
   const ticks = [];
-  const majorEvery = fps;
-  for (let f = 0; f <= duration; f += majorEvery) {
-    const pct = duration > 0 ? (f / duration) * 100 : 0;
+  if (duration <= 0) return null;
+  const step = Math.max(fps, 1);
+  for (let f = 0; f <= duration; f += step) {
+    const pct = (f / duration) * 100;
     ticks.push(
-      <div key={f} className="absolute top-0 bottom-0 flex flex-col items-center" style={{ left: `${pct}%` }}>
-        <div className="w-px h-full bg-border-primary" style={{ opacity: 0.5 }} />
-        <span className="absolute bottom-0 text-[7px] text-text-muted" style={{ transform: 'translateX(-50%)' }}>
+      <div key={f} style={{
+        position: 'absolute', left: `${pct}%`, top: 0, bottom: 0, width: 1,
+        background: 'var(--border-primary)', opacity: 0.4,
+      }}>
+        <span style={{
+          position: 'absolute', bottom: 1, left: 2,
+          fontSize: 7, color: 'var(--text-muted)', lineHeight: 1,
+        }}>
           {f}
         </span>
       </div>
@@ -391,32 +455,41 @@ function FrameTicks({ duration, fps }) {
 }
 
 function PlayIcon() {
-  return <svg width="12" height="12" viewBox="0 0 12 12"><polygon points="2,0 12,6 2,12" fill="currentColor"/></svg>;
+  return <svg width="10" height="10" viewBox="0 0 10 10"><polygon points="1,0 10,5 1,10" fill="currentColor"/></svg>;
 }
 function PauseIcon() {
-  return <svg width="12" height="12" viewBox="0 0 12 12"><rect x="1" y="1" width="3" height="10" fill="currentColor"/><rect x="7" y="1" width="3" height="10" fill="currentColor"/></svg>;
+  return <svg width="10" height="10" viewBox="0 0 10 10"><rect x="1" y="0" width="3" height="10" rx="0.5" fill="currentColor"/><rect x="6" y="0" width="3" height="10" rx="0.5" fill="currentColor"/></svg>;
 }
 function StopIcon() {
-  return <svg width="10" height="10" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" rx="1" fill="currentColor"/></svg>;
-}
-function StepBackIcon() {
-  return <svg width="12" height="12" viewBox="0 0 12 12"><rect x="1" y="2" width="2" height="8" fill="currentColor"/><polygon points="11,2 5,6 11,10" fill="currentColor"/></svg>;
-}
-function StepFwdIcon() {
-  return <svg width="12" height="12" viewBox="0 0 12 12"><polygon points="1,2 7,6 1,10" fill="currentColor"/><rect x="9" y="2" width="2" height="8" fill="currentColor"/></svg>;
+  return <svg width="8" height="8" viewBox="0 0 8 8"><rect x="0" y="0" width="8" height="8" rx="1" fill="currentColor"/></svg>;
 }
 function SkipBackIcon() {
-  return <svg width="12" height="12" viewBox="0 0 12 12"><rect x="0" y="2" width="2" height="8" fill="currentColor"/><polygon points="7,2 2,6 7,10" fill="currentColor"/><polygon points="12,2 7,6 12,10" fill="currentColor"/></svg>;
+  return <svg width="10" height="10" viewBox="0 0 10 10"><rect x="0" y="1" width="1.5" height="8" fill="currentColor"/><polygon points="9,1 3,5 9,9" fill="currentColor"/></svg>;
 }
 function SkipFwdIcon() {
-  return <svg width="12" height="12" viewBox="0 0 12 12"><polygon points="0,2 5,6 0,10" fill="currentColor"/><polygon points="5,2 10,6 5,10" fill="currentColor"/><rect x="10" y="2" width="2" height="8" fill="currentColor"/></svg>;
+  return <svg width="10" height="10" viewBox="0 0 10 10"><polygon points="1,1 7,5 1,9" fill="currentColor"/><rect x="8.5" y="1" width="1.5" height="8" fill="currentColor"/></svg>;
 }
 function LoopIcon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3">
+    <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
       <path d="M1 7.5a4.5 4.5 0 0 0 8 1M11 4.5a4.5 4.5 0 0 0-8-1"/>
       <polyline points="9,10 9,8 11,8.5" fill="currentColor" stroke="none"/>
       <polyline points="3,2 3,4 1,3.5" fill="currentColor" stroke="none"/>
+    </svg>
+  );
+}
+function ExportIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2">
+      <path d="M5 1v5M3 4l2 2 2-2M1 7v1.5a.5.5 0 00.5.5h7a.5.5 0 00.5-.5V7"/>
+    </svg>
+  );
+}
+function CameraIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1">
+      <rect x="1" y="2" width="8" height="6" rx="0.5"/>
+      <rect x="2.5" y="3.5" width="5" height="3" rx="0.3" strokeDasharray="1 0.5"/>
     </svg>
   );
 }

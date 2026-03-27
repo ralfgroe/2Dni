@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { saveProject, loadProject } from '../../utils/projectIO';
+import { useAnimationStore } from '../../store/animationStore';
 import AiSettingsModal from './AiSettingsModal';
 
 export default function Toolbar() {
   const [showAiSettings, setShowAiSettings] = useState(false);
+  const animEnabled = useAnimationStore((s) => s.enabled);
+  const toggleEnabled = useAnimationStore((s) => s.toggleEnabled);
 
   return (
     <div className="flex shrink-0 items-center justify-between border-b border-border-primary bg-bg-secondary" style={{ height: '36px', paddingLeft: '16px', paddingRight: '40px' }}>
@@ -32,6 +35,13 @@ export default function Toolbar() {
       </div>
 
       <div className="flex items-center gap-2">
+        <ToolbarButton onClick={toggleEnabled} title={animEnabled ? 'Hide Animation Timeline' : 'Show Animation Timeline'}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+          Animate
+          {animEnabled && <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />}
+        </ToolbarButton>
         <ToolbarButton onClick={() => setShowAiSettings(true)} title="AI Model Settings">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 2a4 4 0 0 1 4 4c0 1.95-1.4 3.57-3.25 3.92L12 22" />

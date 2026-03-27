@@ -17,6 +17,7 @@ export function saveProject() {
       fps,
       loop,
       keyframes,
+      resolution: useAnimationStore.getState().resolution,
     },
   };
 

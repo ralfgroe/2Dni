@@ -6,7 +6,6 @@ import Toolbar from './components/ui/Toolbar';
 import Viewport from './components/viewport/Viewport';
 import NodeGraph from './components/nodegraph/NodeGraph';
 import ParameterPanel from './components/parameters/ParameterPanel';
-import Timeline from './components/timeline/Timeline';
 import './App.css';
 
 function ResizeHandle({ direction = 'horizontal' }) {
@@ -53,31 +52,21 @@ export default function App() {
     <div className="flex h-full flex-col">
       <Toolbar />
 
-      <Group direction="vertical" autoSaveId="2dni-layout-v">
-        <Panel defaultSize={80} min={40}>
-          <Group direction="horizontal" autoSaveId="2dni-layout-h">
-            <Panel defaultSize={40} min={20}>
-              <Viewport />
-            </Panel>
-
-            <ResizeHandle direction="horizontal" />
-
-            <Panel defaultSize={35} min={15}>
-              <NodeGraph />
-            </Panel>
-
-            <ResizeHandle direction="horizontal" />
-
-            <Panel defaultSize={25} min={12}>
-              <ParameterPanel />
-            </Panel>
-          </Group>
+      <Group direction="horizontal" autoSaveId="2dni-layout-h2">
+        <Panel defaultSize={40} min={20}>
+          <Viewport />
         </Panel>
 
-        <ResizeHandle direction="vertical" />
+        <ResizeHandle direction="horizontal" />
 
-        <Panel defaultSize={20} min={5} collapsible={true}>
-          <Timeline />
+        <Panel defaultSize={35} min={15}>
+          <NodeGraph />
+        </Panel>
+
+        <ResizeHandle direction="horizontal" />
+
+        <Panel defaultSize={25} min={12}>
+          <ParameterPanel />
         </Panel>
       </Group>
     </div>

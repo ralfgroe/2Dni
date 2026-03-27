@@ -1,14 +1,14 @@
 import { evaluateGraph } from './evaluateGraph';
 import { resolveAllNodesAtFrame } from './interpolation';
 
-function renderFrameToSVGString(nodes, edges, definitions, displayNodeId, allKeyframes, frame, width, height) {
+function renderFrameToSVGString(nodes, edges, definitions, displayNodeId, allKeyframes, frame, width, height, viewBox) {
   const animated = resolveAllNodesAtFrame(nodes, allKeyframes, frame);
   const results = evaluateGraph(animated, edges, definitions, displayNodeId);
 
   const nodesWithDownstream = new Set();
   for (const edge of edges) nodesWithDownstream.add(edge.source);
 
-  let geoToRender = [];
+  const geoToRender = [];
 
   if (displayNodeId) {
     let geo = results.get(displayNodeId);
@@ -32,40 +32,10 @@ function renderFrameToSVGString(nodes, edges, definitions, displayNodeId, allKey
     }
   }
 
-  let minX = -width / 2, minY = -height / 2;
-  let vw = width, vh = height;
+  const geoSvgParts = geoToRender.map((geo) => geoToSvgString(geo));
 
-  if (geoToRender.length > 0) {
-    let bMinX = Infinity, bMinY = Infinity, bMaxX = -Infinity, bMaxY = -Infinity;
-    for (const g of geoToRender) {
-      const b = g.bounds;
-      if (b) {
-        bMinX = Math.min(bMinX, b.x);
-        bMinY = Math.min(bMinY, b.y);
-        bMaxX = Math.max(bMaxX, b.x + b.width);
-        bMaxY = Math.max(bMaxY, b.y + b.height);
-      }
-    }
-    if (bMinX < Infinity) {
-      const pad = 40;
-      const geoW = bMaxX - bMinX + pad * 2;
-      const geoH = bMaxY - bMinY + pad * 2;
-      const aspect = width / height;
-      vw = Math.max(geoW, geoH * aspect);
-      vh = vw / aspect;
-      const cx = (bMinX + bMaxX) / 2;
-      const cy = (bMinY + bMaxY) / 2;
-      minX = cx - vw / 2;
-      minY = cy - vh / 2;
-    }
-  }
-
-  const geoSvgParts = geoToRender.map((geo, i) => {
-    return geoToSvgString(geo);
-  });
-
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="${minX} ${minY} ${vw} ${vh}">
-  <rect x="${minX}" y="${minY}" width="${vw}" height="${vh}" fill="white"/>
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}">
+  <rect x="${viewBox.x}" y="${viewBox.y}" width="${viewBox.w}" height="${viewBox.h}" fill="white"/>
   ${geoSvgParts.join('\n  ')}
 </svg>`;
 }
@@ -74,151 +44,114 @@ function geoToSvgString(geo) {
   if (!geo) return '';
   switch (geo.type) {
     case 'rect':
-      return `<rect x="${geo.x}" y="${geo.y}" width="${geo.width}" height="${geo.height}" fill="${geo.fill || '#fff'}" stroke="${geo.stroke || '#000'}" stroke-width="${geo.strokeWidth ?? 1}" />`;
+      return `<rect x="${geo.x}" y="${geo.y}" width="${geo.width}" height="${geo.height}" fill="${geo.fill || '#fff'}" stroke="${geo.stroke || '#000'}" stroke-width="${geo.strokeWidth ?? 1}" opacity="${geo.opacity ?? 1}" />`;
     case 'roundedRect': {
       const corners = geo.corners || [0, 0, 0, 0];
       const r = corners[0] || geo.rx || 0;
-      return `<rect x="${geo.x}" y="${geo.y}" width="${geo.width}" height="${geo.height}" rx="${r}" fill="${geo.fill || '#fff'}" stroke="${geo.stroke || '#000'}" stroke-width="${geo.strokeWidth ?? 1}" />`;
+      return `<rect x="${geo.x}" y="${geo.y}" width="${geo.width}" height="${geo.height}" rx="${r}" fill="${geo.fill || '#fff'}" stroke="${geo.stroke || '#000'}" stroke-width="${geo.strokeWidth ?? 1}" opacity="${geo.opacity ?? 1}" />`;
     }
     case 'ellipse':
-      return `<ellipse cx="${(geo.x || 0) + (geo.width || 0) / 2}" cy="${(geo.y || 0) + (geo.height || 0) / 2}" rx="${(geo.width || 0) / 2}" ry="${(geo.height || 0) / 2}" fill="${geo.fill || '#fff'}" stroke="${geo.stroke || '#000'}" stroke-width="${geo.strokeWidth ?? 1}" />`;
+      return `<ellipse cx="${(geo.x || 0) + (geo.width || 0) / 2}" cy="${(geo.y || 0) + (geo.height || 0) / 2}" rx="${(geo.width || 0) / 2}" ry="${(geo.height || 0) / 2}" fill="${geo.fill || '#fff'}" stroke="${geo.stroke || '#000'}" stroke-width="${geo.strokeWidth ?? 1}" opacity="${geo.opacity ?? 1}" />`;
     case 'booleanResult':
-      return `<path d="${geo.pathData}" fill="${geo.fill || 'none'}" stroke="${geo.stroke || '#000'}" stroke-width="${geo.strokeWidth ?? 1}" />`;
+      return `<path d="${geo.pathData}" fill="${geo.fill || 'none'}" stroke="${geo.stroke || '#000'}" stroke-width="${geo.strokeWidth ?? 1}" opacity="${geo.opacity ?? 1}" />`;
     case 'group':
     case 'boolean':
-      return `<g>${(geo.children || []).map(geoToSvgString).join('')}</g>`;
+      return `<g opacity="${geo.opacity ?? 1}">${(geo.children || []).map(geoToSvgString).join('')}</g>`;
     case 'line':
-      return `<line x1="${geo.x1}" y1="${geo.y1}" x2="${geo.x2}" y2="${geo.y2}" stroke="${geo.stroke || '#000'}" stroke-width="${geo.strokeWidth ?? 1}" />`;
+      return `<line x1="${geo.x1}" y1="${geo.y1}" x2="${geo.x2}" y2="${geo.y2}" stroke="${geo.stroke || '#000'}" stroke-width="${geo.strokeWidth ?? 1}" opacity="${geo.opacity ?? 1}" />`;
+    case 'text':
+      return `<text x="${geo.x || 0}" y="${geo.y || 0}" font-family="${geo.fontFamily || 'sans-serif'}" font-size="${geo.fontSize || 24}" fill="${geo.fill || '#000'}" opacity="${geo.opacity ?? 1}">${geo.content || ''}</text>`;
     default:
       return '';
   }
 }
 
 function svgStringToCanvas(svgString, width, height) {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const img = new Image();
     const blob = new Blob([svgString], { type: 'image/svg+xml' });
     const url = URL.createObjectURL(blob);
     img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = 'white';
-      ctx.fillRect(0, 0, width, height);
-      ctx.drawImage(img, 0, 0, width, height);
-      URL.revokeObjectURL(url);
-      resolve(canvas);
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+        URL.revokeObjectURL(url);
+        resolve(canvas);
+      } catch (err) {
+        URL.revokeObjectURL(url);
+        reject(err);
+      }
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      resolve(null);
+      reject(new Error('Failed to render SVG frame to image'));
     };
     img.src = url;
   });
 }
 
-export async function exportAnimatedWebM(
+export async function exportAnimatedMP4(
   nodes, edges, definitions, displayNodeId,
   allKeyframes, duration, fps,
-  width = 1920, height = 1080,
+  width, height, viewBox,
   onProgress = () => {}
 ) {
-  const canvasEl = document.createElement('canvas');
-  canvasEl.width = width;
-  canvasEl.height = height;
-  const ctx = canvasEl.getContext('2d');
+  if (!window.HME || typeof window.HME.createH264MP4Encoder !== 'function') {
+    throw new Error('H264 encoder not loaded. Please refresh the page and try again.');
+  }
 
-  const stream = canvasEl.captureStream(0);
-  const recorder = new MediaRecorder(stream, {
-    mimeType: 'video/webm;codecs=vp9',
-    videoBitsPerSecond: 8000000,
-  });
+  const encoder = await window.HME.createH264MP4Encoder();
 
-  const chunks = [];
-  recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+  encoder.width = width;
+  encoder.height = height;
+  encoder.frameRate = fps;
+  encoder.quantizationParameter = 18;
+  encoder.initialize();
 
-  const done = new Promise((resolve) => {
-    recorder.onstop = () => {
-      const blob = new Blob(chunks, { type: 'video/webm' });
-      resolve(blob);
-    };
-  });
-
-  recorder.start();
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
 
   for (let frame = 0; frame <= duration; frame++) {
     onProgress(frame, duration);
 
     const svgStr = renderFrameToSVGString(
       nodes, edges, definitions, displayNodeId,
-      allKeyframes, frame, width, height
+      allKeyframes, frame, width, height, viewBox
     );
 
     const frameCanvas = await svgStringToCanvas(svgStr, width, height);
-    if (frameCanvas) {
-      ctx.clearRect(0, 0, width, height);
-      ctx.drawImage(frameCanvas, 0, 0);
-    }
 
-    stream.getVideoTracks()[0].requestFrame?.();
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(frameCanvas, 0, 0);
 
-    await new Promise((r) => setTimeout(r, 1000 / fps));
+    const imageData = ctx.getImageData(0, 0, width, height);
+    encoder.addFrameRgba(imageData.data);
   }
 
-  recorder.stop();
-  const blob = await done;
+  encoder.finalize();
+
+  const mp4Data = encoder.FS.readFile(encoder.outputFilename);
+  encoder.delete();
+
+  const blob = new Blob([mp4Data], { type: 'video/mp4' });
 
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'animation.webm';
+  a.download = 'animation.mp4';
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 
   return blob;
-}
-
-export async function exportAnimatedPNGSequence(
-  nodes, edges, definitions, displayNodeId,
-  allKeyframes, duration, fps,
-  width = 1920, height = 1080,
-  onProgress = () => {}
-) {
-  const frames = [];
-
-  for (let frame = 0; frame <= duration; frame++) {
-    onProgress(frame, duration);
-
-    const svgStr = renderFrameToSVGString(
-      nodes, edges, definitions, displayNodeId,
-      allKeyframes, frame, width, height
-    );
-
-    const canvas = await svgStringToCanvas(svgStr, width, height);
-    if (canvas) {
-      const blob = await new Promise((r) => canvas.toBlob(r, 'image/png'));
-      frames.push({ name: `frame_${String(frame).padStart(4, '0')}.png`, blob });
-    }
-  }
-
-  if (frames.length === 1) {
-    const url = URL.createObjectURL(frames[0].blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = frames[0].name;
-    a.click();
-    URL.revokeObjectURL(url);
-    return;
-  }
-
-  for (const f of frames) {
-    const url = URL.createObjectURL(f.blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = f.name;
-    a.click();
-    URL.revokeObjectURL(url);
-    await new Promise((r) => setTimeout(r, 50));
-  }
 }
