@@ -13,6 +13,7 @@ import { useGraphStore } from '../../store/graphStore';
 import { useNodeRegistryStore } from '../../store/nodeRegistryStore';
 import GraphNode from './GraphNode';
 import NodeSearchPalette from './NodeSearchPalette';
+import QuickStartGuide from '../viewport/QuickStartGuide';
 import { getPortColor } from '../../utils/portColors';
 
 const nodeTypes = { _custom: GraphNode };
@@ -22,6 +23,7 @@ export default function NodeGraph() {
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
   const [palette, setPalette] = useState(null);
   const [showStartup, setShowStartup] = useState(true);
+  const [showGuide, setShowGuide] = useState(false);
   const mousePos = useRef({ x: 0, y: 0 });
   const pendingConnection = useRef(null);
 
@@ -410,11 +412,11 @@ export default function NodeGraph() {
         />
       )}
 
-      {showStartup && nodes.length === 0 && (
+      {showStartup && nodes.length === 0 && !showGuide && (
         <div
           style={{
             position: 'absolute', inset: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
             transform: 'translateY(-36px)',
             pointerEvents: 'none',
           }}
@@ -450,7 +452,31 @@ export default function NodeGraph() {
               }}
             />
           </div>
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowGuide(true); }}
+            style={{
+              marginTop: 16,
+              padding: '8px 24px',
+              fontSize: 12,
+              fontWeight: 600,
+              color: '#fff',
+              background: '#4263eb',
+              border: 'none',
+              borderRadius: 6,
+              cursor: 'pointer',
+              pointerEvents: 'auto',
+              transition: 'background 0.15s',
+            }}
+            onMouseEnter={(e) => { e.target.style.background = '#3b5bdb'; }}
+            onMouseLeave={(e) => { e.target.style.background = '#4263eb'; }}
+          >
+            Quick Start Guide
+          </button>
         </div>
+      )}
+
+      {showGuide && (
+        <QuickStartGuide onClose={() => { setShowGuide(false); setShowStartup(false); }} />
       )}
     </div>
   );

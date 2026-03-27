@@ -9,7 +9,6 @@ import CornerPickOverlay from './CornerPickOverlay';
 import FreeCurveOverlay from './FreeCurveOverlay';
 import BezierOverlay from './BezierOverlay';
 import PointTransformOverlay from './PointTransformOverlay';
-import QuickStartGuide from './QuickStartGuide';
 
 export default function Viewport() {
   const svgRef = useRef(null);
@@ -18,7 +17,6 @@ export default function Viewport() {
   const panRef = useRef({ active: false, x: 0, y: 0 });
   const [showGrid, setShowGrid] = useState(true);
   const [showSplash, setShowSplash] = useState(true);
-  const [showGuide, setShowGuide] = useState(false);
   const [fontVersion, setFontVersion] = useState(0);
 
   useEffect(() => {
@@ -422,7 +420,7 @@ export default function Viewport() {
         )}
       </svg>
 
-      {showSplash && nodes.length === 0 && !showGuide && (
+      {showSplash && nodes.length === 0 && (
         <div
           style={{
             position: 'absolute', inset: 0,
@@ -438,30 +436,9 @@ export default function Viewport() {
             draggable={false}
             onClick={() => setShowSplash(false)}
           />
-          <button
-            onClick={(e) => { e.stopPropagation(); setShowGuide(true); }}
-            style={{
-              padding: '10px 28px',
-              fontSize: 13,
-              fontWeight: 600,
-              color: '#4263eb',
-              background: '#fff',
-              border: '1.5px solid #4263eb',
-              borderRadius: 8,
-              cursor: 'pointer',
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={(e) => { e.target.style.background = '#4263eb'; e.target.style.color = '#fff'; }}
-            onMouseLeave={(e) => { e.target.style.background = '#fff'; e.target.style.color = '#4263eb'; }}
-          >
-            Quick Start Guide
-          </button>
         </div>
       )}
 
-      {showGuide && (
-        <QuickStartGuide onClose={() => { setShowGuide(false); setShowSplash(false); }} />
-      )}
     </div>
   );
 }
