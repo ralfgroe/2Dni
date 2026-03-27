@@ -1,0 +1,20 @@
+{
+  "id": "noisedeform",
+  "label": "Noise Deform",
+  "category": "Transform",
+  "description": "Distorts geometry using Perlin-style noise. Turns clean geometric shapes into organic, hand-drawn forms.",
+  "inputs": [
+    { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }
+  ],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "amplitude", "label": "Amplitude", "type": "number", "default": 10, "min": 0, "max": 100 },
+    { "id": "frequency", "label": "Frequency", "type": "number", "default": 0.02, "min": 0.001, "max": 0.2 },
+    { "id": "octaves", "label": "Octaves", "type": "number", "default": 2, "min": 1, "max": 6, "step": 1 },
+    { "id": "seed", "label": "Seed", "type": "number", "default": 0, "min": 0, "max": 9999, "step": 1 },
+    { "id": "samples", "label": "Path Samples", "type": "number", "default": 100, "min": 20, "max": 500, "step": 1 }
+  ],
+  "runtime": "noisedeform"
+}

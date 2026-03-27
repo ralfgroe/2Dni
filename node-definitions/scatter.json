@@ -1,0 +1,22 @@
+{
+  "id": "scatter",
+  "label": "Scatter",
+  "category": "Transform",
+  "description": "Distributes copies of input geometry in random, grid, radial, or Poisson disk patterns within a region.",
+  "inputs": [
+    { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }
+  ],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "pattern", "label": "Pattern", "type": "select", "default": "Random", "options": ["Random", "Grid", "Radial", "Poisson Disk"] },
+    { "id": "count", "label": "Count", "type": "number", "default": 25, "min": 1, "max": 500 },
+    { "id": "width", "label": "Width", "type": "number", "default": 400, "min": 10, "max": 2000 },
+    { "id": "height", "label": "Height", "type": "number", "default": 400, "min": 10, "max": 2000 },
+    { "id": "seed", "label": "Seed", "type": "number", "default": 42, "min": 0, "max": 9999, "step": 1 },
+    { "id": "random_scale", "label": "Random Scale", "type": "number", "default": 0, "min": 0, "max": 1 },
+    { "id": "random_rotate", "label": "Random Rotate", "type": "number", "default": 0, "min": 0, "max": 360 }
+  ],
+  "runtime": "scatter"
+}

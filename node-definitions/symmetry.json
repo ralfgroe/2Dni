@@ -1,0 +1,18 @@
+{
+  "id": "symmetry",
+  "label": "Symmetry",
+  "category": "Transform",
+  "description": "Applies wallpaper symmetry group transformations to tile geometry using one of several 2D symmetry patterns (p1, p2, p4m, p6m, etc.).",
+  "inputs": [
+    { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }
+  ],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "group", "label": "Group", "type": "select", "default": "p4m", "options": ["p1", "p2", "pm", "pg", "pmm", "p4", "p4m", "p3", "p6", "p6m"] },
+    { "id": "cell_size", "label": "Cell Size", "type": "number", "default": 100, "min": 20, "max": 500 },
+    { "id": "repeats", "label": "Repeats", "type": "number", "default": 3, "min": 1, "max": 8, "step": 1 }
+  ],
+  "runtime": "symmetry"
+}

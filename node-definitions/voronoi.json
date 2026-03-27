@@ -1,0 +1,25 @@
+{
+  "id": "voronoi",
+  "label": "Voronoi",
+  "category": "Transform",
+  "description": "Generates Voronoi tessellation or Delaunay triangulation from input geometry point positions, or from random/grid seed points.",
+  "inputs": [
+    { "id": "geometry_in", "label": "Geometry In", "type": "geometry" }
+  ],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "mode", "label": "Mode", "type": "select", "default": "Voronoi", "options": ["Voronoi", "Delaunay"] },
+    { "id": "source", "label": "Source", "type": "select", "default": "Random", "options": ["Random", "Grid", "Input Points"] },
+    { "id": "count", "label": "Point Count", "type": "number", "default": 30, "min": 3, "max": 200 },
+    { "id": "seed", "label": "Seed", "type": "number", "default": 42, "min": 0, "max": 9999, "step": 1 },
+    { "id": "width", "label": "Width", "type": "number", "default": 400, "min": 50, "max": 1000 },
+    { "id": "height", "label": "Height", "type": "number", "default": 400, "min": 50, "max": 1000 },
+    { "id": "jitter", "label": "Jitter", "type": "number", "default": 0, "min": 0, "max": 100 },
+    { "id": "relax", "label": "Relax Steps", "type": "number", "default": 0, "min": 0, "max": 5, "step": 1 },
+    { "id": "stroke_color", "label": "Stroke Color", "type": "color", "default": "#000000" },
+    { "id": "stroke_width", "label": "Stroke Width", "type": "number", "default": 1, "min": 0.5, "max": 5 }
+  ],
+  "runtime": "voronoi"
+}

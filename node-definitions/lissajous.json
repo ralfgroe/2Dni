@@ -1,0 +1,23 @@
+{
+  "id": "lissajous",
+  "label": "Lissajous",
+  "category": "Geometry",
+  "description": "Generates Lissajous figures from two perpendicular sinusoidal motions. Integer frequency ratios produce closed curves; try 3:2, 5:4, or 7:6.",
+  "inputs": [],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "preset", "label": "Preset", "type": "select", "default": "Custom", "options": ["Figure-8", "Trefoil", "Pentagram", "Bowtie", "Star Knot", "Custom"] },
+    { "id": "freq_a", "label": "Frequency A", "type": "number", "default": 3, "min": 1, "max": 20 },
+    { "id": "freq_b", "label": "Frequency B", "type": "number", "default": 2, "min": 1, "max": 20 },
+    { "id": "phase", "label": "Phase", "type": "number", "default": 90, "min": 0, "max": 360 },
+    { "id": "width", "label": "Width", "type": "number", "default": 200, "min": 10, "max": 800 },
+    { "id": "height", "label": "Height", "type": "number", "default": 200, "min": 10, "max": 800 },
+    { "id": "x", "label": "X", "type": "number", "default": 0, "min": -500, "max": 500 },
+    { "id": "y", "label": "Y", "type": "number", "default": 0, "min": -500, "max": 500 },
+    { "id": "stroke_color", "label": "Stroke Color", "type": "color", "default": "#000000" },
+    { "id": "stroke_width", "label": "Stroke Width", "type": "number", "default": 1, "min": 0.5, "max": 10 }
+  ],
+  "runtime": "lissajous"
+}

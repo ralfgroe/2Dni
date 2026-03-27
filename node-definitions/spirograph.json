@@ -1,0 +1,23 @@
+{
+  "id": "spirograph",
+  "label": "Spirograph",
+  "category": "Geometry",
+  "description": "Generates hypotrochoid and epitrochoid curves — the classic Spirograph patterns. Produces mesmerizing looping curves from simple circular motion.",
+  "inputs": [],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "preset", "label": "Preset", "type": "select", "default": "Classic", "options": ["Classic", "Astroid", "Deltoid", "Rose 5-petal", "Rose 8-petal", "Tight Loops", "Custom"] },
+    { "id": "outer_radius", "label": "Outer Radius", "type": "number", "default": 120, "min": 10, "max": 500 },
+    { "id": "inner_radius", "label": "Inner Radius", "type": "number", "default": 75, "min": 1, "max": 499 },
+    { "id": "pen_offset", "label": "Pen Offset", "type": "number", "default": 50, "min": 1, "max": 400 },
+    { "id": "mode", "label": "Mode", "type": "select", "default": "Hypotrochoid", "options": ["Hypotrochoid", "Epitrochoid"] },
+    { "id": "revolutions", "label": "Revolutions", "type": "number", "default": 10, "min": 1, "max": 100 },
+    { "id": "x", "label": "X", "type": "number", "default": 0, "min": -500, "max": 500 },
+    { "id": "y", "label": "Y", "type": "number", "default": 0, "min": -500, "max": 500 },
+    { "id": "stroke_color", "label": "Stroke Color", "type": "color", "default": "#000000" },
+    { "id": "stroke_width", "label": "Stroke Width", "type": "number", "default": 1, "min": 0.5, "max": 10 }
+  ],
+  "runtime": "spirograph"
+}

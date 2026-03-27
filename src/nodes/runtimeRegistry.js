@@ -23,6 +23,18 @@ import { alignRuntime } from '../nodes/align';
 import { importRuntime } from '../nodes/import';
 import { splitRuntime } from '../nodes/split';
 import { layersRuntime } from '../nodes/layers';
+import { spirographRuntime } from '../nodes/spirograph';
+import { lissajousRuntime } from '../nodes/lissajous';
+import { phyllotaxisRuntime } from '../nodes/phyllotaxis';
+import { waveRuntime } from '../nodes/wave';
+import { lsystemRuntime } from '../nodes/lsystem';
+import { voronoiRuntime } from '../nodes/voronoi';
+import { noisedeformRuntime } from '../nodes/noisedeform';
+import { subdivideRuntime } from '../nodes/subdivide';
+import { scatterRuntime } from '../nodes/scatter';
+import { symmetryRuntime } from '../nodes/symmetry';
+import { interpolateRuntime } from '../nodes/interpolate';
+import { stippleRuntime } from '../nodes/stipple';
 
 const runtimeMap = {
   line: lineRuntime,
@@ -51,6 +63,18 @@ const runtimeMap = {
   import: importRuntime,
   split: splitRuntime,
   layers: layersRuntime,
+  spirograph: spirographRuntime,
+  lissajous: lissajousRuntime,
+  phyllotaxis: phyllotaxisRuntime,
+  wave: waveRuntime,
+  lsystem: lsystemRuntime,
+  voronoi: voronoiRuntime,
+  noisedeform: noisedeformRuntime,
+  subdivide: subdivideRuntime,
+  scatter: scatterRuntime,
+  symmetry: symmetryRuntime,
+  interpolate: interpolateRuntime,
+  stipple: stippleRuntime,
 };
 
 export function getRuntime(runtimeId) {

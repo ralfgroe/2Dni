@@ -1,0 +1,21 @@
+{
+  "id": "stipple",
+  "label": "Stipple",
+  "category": "Transform",
+  "description": "Converts filled geometry into halftone-style patterns of dots, lines, or crosshatch. Creates printmaking and engraving effects.",
+  "inputs": [
+    { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }
+  ],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "pattern", "label": "Pattern", "type": "select", "default": "Dots", "options": ["Dots", "Lines", "Crosshatch", "Concentric"] },
+    { "id": "spacing", "label": "Spacing", "type": "number", "default": 8, "min": 3, "max": 40 },
+    { "id": "min_size", "label": "Min Size", "type": "number", "default": 1, "min": 0.5, "max": 10 },
+    { "id": "max_size", "label": "Max Size", "type": "number", "default": 4, "min": 1, "max": 20 },
+    { "id": "angle", "label": "Angle", "type": "number", "default": 0, "min": 0, "max": 180 },
+    { "id": "fill_color", "label": "Fill Color", "type": "color", "default": "#000000" }
+  ],
+  "runtime": "stipple"
+}

@@ -1,0 +1,17 @@
+{
+  "id": "subdivide",
+  "label": "Subdivide",
+  "category": "Transform",
+  "description": "Applies Chaikin corner-cutting subdivision to smooth polygons and polylines into organic curves. Each iteration doubles the point count and rounds corners.",
+  "inputs": [
+    { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }
+  ],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "iterations", "label": "Iterations", "type": "number", "default": 3, "min": 1, "max": 6, "step": 1 },
+    { "id": "tension", "label": "Tension", "type": "number", "default": 0.25, "min": 0.05, "max": 0.45 }
+  ],
+  "runtime": "subdivide"
+}

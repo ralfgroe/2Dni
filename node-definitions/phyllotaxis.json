@@ -1,0 +1,23 @@
+{
+  "id": "phyllotaxis",
+  "label": "Phyllotaxis",
+  "category": "Geometry",
+  "description": "Creates sunflower-like spiral arrangements using the golden angle. Produces natural Fibonacci patterns found in sunflowers, pinecones, and shells.",
+  "inputs": [],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "count", "label": "Count", "type": "number", "default": 200, "min": 1, "max": 2000 },
+    { "id": "spread", "label": "Spread", "type": "number", "default": 8, "min": 1, "max": 30 },
+    { "id": "dot_size", "label": "Dot Size", "type": "number", "default": 3, "min": 0.5, "max": 20 },
+    { "id": "angle_offset", "label": "Angle", "type": "number", "default": 137.508, "min": 100, "max": 180 },
+    { "id": "scale_dots", "label": "Scale by Distance", "type": "boolean", "default": true },
+    { "id": "shape", "label": "Shape", "type": "select", "default": "Circle", "options": ["Circle", "Square", "Triangle"] },
+    { "id": "x", "label": "X", "type": "number", "default": 0, "min": -500, "max": 500 },
+    { "id": "y", "label": "Y", "type": "number", "default": 0, "min": -500, "max": 500 },
+    { "id": "fill_color", "label": "Fill Color", "type": "color", "default": "#000000" },
+    { "id": "stroke_width", "label": "Stroke Width", "type": "number", "default": 0, "min": 0, "max": 5 }
+  ],
+  "runtime": "phyllotaxis"
+}

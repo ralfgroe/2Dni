@@ -1,0 +1,25 @@
+{
+  "id": "lsystem",
+  "label": "L-System",
+  "category": "Geometry",
+  "description": "Generates fractal geometry from Lindenmayer system string-rewriting rules. Presets include Koch Snowflake, Sierpinski, Dragon Curve, Hilbert Curve, and fractal trees.",
+  "inputs": [],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "preset", "label": "Preset", "type": "select", "default": "Koch Snowflake", "options": ["Koch Snowflake", "Sierpinski Triangle", "Dragon Curve", "Hilbert Curve", "Fractal Plant", "Penrose", "Custom"] },
+    { "id": "iterations", "label": "Iterations", "type": "number", "default": 4, "min": 1, "max": 8, "step": 1 },
+    { "id": "length", "label": "Segment Length", "type": "number", "default": 5, "min": 1, "max": 50 },
+    { "id": "angle", "label": "Angle", "type": "number", "default": 60, "min": 1, "max": 180 },
+    { "id": "axiom", "label": "Axiom", "type": "text", "default": "F--F--F" },
+    { "id": "rule_f", "label": "Rule F", "type": "text", "default": "F+F--F+F" },
+    { "id": "rule_g", "label": "Rule G", "type": "text", "default": "" },
+    { "id": "scale", "label": "Scale", "type": "number", "default": 1, "min": 0.1, "max": 5 },
+    { "id": "x", "label": "X", "type": "number", "default": 0, "min": -500, "max": 500 },
+    { "id": "y", "label": "Y", "type": "number", "default": 0, "min": -500, "max": 500 },
+    { "id": "stroke_color", "label": "Stroke Color", "type": "color", "default": "#000000" },
+    { "id": "stroke_width", "label": "Stroke Width", "type": "number", "default": 1, "min": 0.5, "max": 5 }
+  ],
+  "runtime": "lsystem"
+}

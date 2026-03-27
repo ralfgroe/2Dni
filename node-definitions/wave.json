@@ -1,0 +1,24 @@
+{
+  "id": "wave",
+  "label": "Wave",
+  "category": "Geometry",
+  "description": "Generates sine, sawtooth, square, or triangle wave paths. Use for decorative patterns or combine with other nodes for complex effects.",
+  "inputs": [],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "wave_type", "label": "Type", "type": "select", "default": "Sine", "options": ["Sine", "Triangle", "Sawtooth", "Square"] },
+    { "id": "frequency", "label": "Frequency", "type": "number", "default": 3, "min": 0.5, "max": 20 },
+    { "id": "amplitude", "label": "Amplitude", "type": "number", "default": 50, "min": 1, "max": 300 },
+    { "id": "wavelength", "label": "Length", "type": "number", "default": 400, "min": 50, "max": 2000 },
+    { "id": "phase", "label": "Phase", "type": "number", "default": 0, "min": 0, "max": 360 },
+    { "id": "layers", "label": "Layers", "type": "number", "default": 1, "min": 1, "max": 10, "step": 1 },
+    { "id": "layer_offset", "label": "Layer Offset", "type": "number", "default": 20, "min": 0, "max": 100 },
+    { "id": "x", "label": "X", "type": "number", "default": 0, "min": -500, "max": 500 },
+    { "id": "y", "label": "Y", "type": "number", "default": 0, "min": -500, "max": 500 },
+    { "id": "stroke_color", "label": "Stroke Color", "type": "color", "default": "#000000" },
+    { "id": "stroke_width", "label": "Stroke Width", "type": "number", "default": 1, "min": 0.5, "max": 10 }
+  ],
+  "runtime": "wave"
+}
