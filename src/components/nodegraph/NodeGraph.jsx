@@ -478,7 +478,19 @@ export default function NodeGraph() {
       )}
 
       {showGuide && (
-        <QuickStartGuide onClose={() => { setShowGuide(false); setShowStartup(false); }} />
+        <QuickStartGuide onClose={() => {
+          setShowGuide(false);
+          setShowStartup(false);
+          const bounds = reactFlowWrapper.current?.getBoundingClientRect();
+          if (bounds && reactFlowInstance) {
+            const screenPos = { x: bounds.width / 2, y: bounds.height / 2 };
+            const flowPos = reactFlowInstance.screenToFlowPosition({
+              x: bounds.left + bounds.width / 2,
+              y: bounds.top + bounds.height / 2,
+            }) || { x: 0, y: 0 };
+            setPalette({ screen: screenPos, flow: flowPos, pendingConnection: null });
+          }
+        }} />
       )}
     </div>
   );
