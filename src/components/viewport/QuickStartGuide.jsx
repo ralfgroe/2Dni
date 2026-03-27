@@ -201,16 +201,21 @@ function ToolboxDiagram() {
 function ConnectionDiagram() {
   return (
     <Illust width={520} height={140}>
-      <SvgNode x={260} y={30} label="Rectangle" outputs={1} inputs={0} />
-      <SvgWire x1={260} y1={46} x2={260} y2={80} />
-      <SvgNode x={260} y={96} label="Radius" inputs={1} outputs={1} />
-      <text x={310} y={32} fontSize="8" fill="#868e96" fontFamily="system-ui">↑ input port (top)</text>
-      <text x={310} y={102} fontSize="8" fill="#868e96" fontFamily="system-ui">↓ output port (bottom)</text>
-      <g transform="translate(168, 62)">
-        <text x={0} y={0} fontSize="8" fontWeight="600" fill="#4263eb" fontFamily="system-ui">drag to connect</text>
-        <path d="M60,-3 L80,-3" fill="none" stroke="#4263eb" strokeWidth={1} markerEnd="url(#arrowBlue)" />
+      <SvgNode x={220} y={30} label="Rectangle" outputs={1} inputs={0} />
+      <SvgWire x1={220} y1={46} x2={220} y2={80} />
+      <SvgNode x={220} y={96} label="Radius" inputs={1} outputs={1} />
+      <text x={295} y={22} fontSize="9" fill="#868e96" fontFamily="system-ui">input port (top)</text>
+      <path d="M293,20 L283,16" fill="none" stroke="#adb5bd" strokeWidth={0.8} markerEnd="url(#arrowSmall)" />
+      <text x={295} y={106} fontSize="9" fill="#868e96" fontFamily="system-ui">output port (bottom)</text>
+      <path d="M293,104 L283,112" fill="none" stroke="#adb5bd" strokeWidth={0.8} markerEnd="url(#arrowSmall)" />
+      <g transform="translate(128, 62)">
+        <text x={0} y={0} fontSize="9" fontWeight="600" fill="#4263eb" fontFamily="system-ui">drag to connect</text>
+        <path d="M76,-3 L90,-3" fill="none" stroke="#4263eb" strokeWidth={1} markerEnd="url(#arrowBlue)" />
       </g>
-      <defs><marker id="arrowBlue" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#4263eb" /></marker></defs>
+      <defs>
+        <marker id="arrowBlue" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#4263eb" /></marker>
+        <marker id="arrowSmall" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><path d="M0,0 L5,2.5 L0,5" fill="#adb5bd" /></marker>
+      </defs>
     </Illust>
   );
 }
