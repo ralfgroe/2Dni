@@ -416,16 +416,15 @@ export default function NodeGraph() {
         <div
           style={{
             position: 'absolute', inset: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            transform: 'translateY(-36px)',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
             pointerEvents: 'none',
           }}
         >
-          <div style={{ position: 'relative', width: '756px' }}>
+          <div style={{ position: 'relative', maxHeight: '70%', aspectRatio: '612 / 792' }}>
             <img
               src={`${import.meta.env.BASE_URL}start1.svg`}
               alt="Click the red triangle or right-click to start"
-              style={{ width: '100%', objectFit: 'contain' }}
+              style={{ height: '100%', objectFit: 'contain' }}
               draggable={false}
             />
             <div
@@ -451,31 +450,27 @@ export default function NodeGraph() {
                 setShowStartup(false);
               }}
             />
-            <button
-              onClick={(e) => { e.stopPropagation(); setShowGuide(true); }}
-              style={{
-                position: 'absolute',
-                top: '80%',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                padding: '8px 24px',
-                fontSize: 12,
-                fontWeight: 600,
-                color: '#fff',
-                background: '#4263eb',
-                border: 'none',
-                borderRadius: 6,
-                cursor: 'pointer',
-                pointerEvents: 'auto',
-                transition: 'background 0.15s',
-                whiteSpace: 'nowrap',
-              }}
-              onMouseEnter={(e) => { e.target.style.background = '#3b5bdb'; }}
-              onMouseLeave={(e) => { e.target.style.background = '#4263eb'; }}
-            >
-              Quick Start Guide
-            </button>
           </div>
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowGuide(true); }}
+            style={{
+              marginTop: 20,
+              padding: '8px 24px',
+              fontSize: 12,
+              fontWeight: 600,
+              color: '#fff',
+              background: '#4263eb',
+              border: 'none',
+              borderRadius: 6,
+              cursor: 'pointer',
+              pointerEvents: 'auto',
+              transition: 'background 0.15s',
+            }}
+            onMouseEnter={(e) => { e.target.style.background = '#3b5bdb'; }}
+            onMouseLeave={(e) => { e.target.style.background = '#4263eb'; }}
+          >
+            Quick Start Guide
+          </button>
         </div>
       )}
 
