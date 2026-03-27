@@ -172,28 +172,27 @@ function LayoutDiagram() {
 
 function ToolboxDiagram() {
   return (
-    <Illust width={520} height={165}>
-      <rect x={160} y={8} width={200} height={150} rx={8} fill="#fff" stroke="#dee2e6" strokeWidth={1.5} />
-      <rect x={160} y={8} width={200} height={26} rx={8} fill="#f1f3f5" />
-      <rect x={160} y={26} width={200} height={8} fill="#f1f3f5" />
-      <text x={170} y={26} fontSize="10" fill="#868e96" fontFamily="system-ui">Search nodes...</text>
+    <Illust width={520} height={150}>
+      <rect x={180} y={8} width={180} height={134} rx={8} fill="#fff" stroke="#dee2e6" strokeWidth={1.5} />
+      <rect x={180} y={8} width={180} height={24} rx={8} fill="#f1f3f5" />
+      <rect x={180} y={24} width={180} height={8} fill="#f1f3f5" />
+      <text x={190} y={25} fontSize="10" fill="#868e96" fontFamily="system-ui">Search nodes...</text>
 
-      <text x={170} y={48} fontSize="8" fontWeight="700" fill="#adb5bd" fontFamily="system-ui">GEOMETRY</text>
-      <rect x={170} y={52} width={180} height={17} rx={4} fill="#4263eb" />
-      <text x={180} y={63} fontSize="10" fill="#fff" fontWeight="600" fontFamily="system-ui">Rectangle</text>
-      <text x={180} y={81} fontSize="10" fill="#495057" fontFamily="system-ui">Circle</text>
-      <text x={180} y={97} fontSize="10" fill="#495057" fontFamily="system-ui">Polygon</text>
+      <text x={190} y={48} fontSize="8" fontWeight="700" fill="#adb5bd" fontFamily="system-ui">GEOMETRY</text>
+      <rect x={190} y={53} width={160} height={18} rx={4} fill="#4263eb" />
+      <text x={200} y={66} fontSize="10" fill="#fff" fontWeight="600" fontFamily="system-ui">Rectangle</text>
+      <text x={200} y={86} fontSize="10" fill="#495057" fontFamily="system-ui">Circle</text>
+      <text x={200} y={102} fontSize="10" fill="#495057" fontFamily="system-ui">Polygon</text>
 
-      <text x={170} y={116} fontSize="8" fontWeight="700" fill="#adb5bd" fontFamily="system-ui">TRANSFORM</text>
-      <text x={180} y={132} fontSize="10" fill="#495057" fontFamily="system-ui">Boolean</text>
-      <text x={180} y={148} fontSize="10" fill="#495057" fontFamily="system-ui">Transform</text>
+      <text x={190} y={122} fontSize="8" fontWeight="700" fill="#adb5bd" fontFamily="system-ui">TRANSFORM</text>
+      <text x={200} y={138} fontSize="10" fill="#495057" fontFamily="system-ui">Boolean</text>
 
-      <g transform="translate(90, 70)">
-        <circle cx={0} cy={0} r={18} fill="#fff" stroke="#dee2e6" strokeWidth={1.5} />
+      <g transform="translate(100, 80)">
+        <circle cx={0} cy={0} r={20} fill="#fff" stroke="#dee2e6" strokeWidth={1.5} />
         <text x={0} y={4} textAnchor="middle" fontSize="16" fill="#868e96" fontFamily="system-ui">+</text>
-        <text x={0} y={18} textAnchor="middle" fontSize="7" fill="#adb5bd" fontFamily="system-ui">Right-click</text>
       </g>
-      <path d="M108,70 L155,50" fill="none" stroke="#adb5bd" strokeWidth={1} strokeDasharray="3 2" markerEnd="url(#arrowGray)" />
+      <text x={100} y={118} textAnchor="middle" fontSize="8" fill="#adb5bd" fontFamily="system-ui">Right-click</text>
+      <path d="M120,78 L175,55" fill="none" stroke="#adb5bd" strokeWidth={1} strokeDasharray="3 2" markerEnd="url(#arrowGray)" />
       <defs><marker id="arrowGray" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#adb5bd" /></marker></defs>
     </Illust>
   );
