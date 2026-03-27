@@ -452,30 +452,33 @@ export default function NodeGraph() {
               }}
             />
           </div>
-          <button
-            onClick={(e) => { e.stopPropagation(); setShowGuide(true); }}
-            style={{
-              position: 'absolute',
-              bottom: 24,
-              left: '50%',
-              transform: 'translateX(-50%)',
-              padding: '8px 24px',
-              fontSize: 12,
-              fontWeight: 600,
-              color: '#fff',
-              background: '#4263eb',
-              border: 'none',
-              borderRadius: 6,
-              cursor: 'pointer',
-              pointerEvents: 'auto',
-              transition: 'background 0.15s',
-            }}
-            onMouseEnter={(e) => { e.target.style.background = '#3b5bdb'; }}
-            onMouseLeave={(e) => { e.target.style.background = '#4263eb'; }}
-          >
-            Quick Start Guide
-          </button>
         </div>
+      )}
+
+      {showStartup && nodes.length === 0 && !showGuide && (
+        <button
+          onClick={(e) => { e.stopPropagation(); setShowGuide(true); }}
+          style={{
+            position: 'absolute',
+            bottom: 48,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            padding: '8px 24px',
+            fontSize: 12,
+            fontWeight: 600,
+            color: '#fff',
+            background: '#4263eb',
+            border: 'none',
+            borderRadius: 6,
+            cursor: 'pointer',
+            zIndex: 5,
+            transition: 'background 0.15s',
+          }}
+          onMouseEnter={(e) => { e.target.style.background = '#3b5bdb'; }}
+          onMouseLeave={(e) => { e.target.style.background = '#4263eb'; }}
+        >
+          Quick Start Guide
+        </button>
       )}
 
       {showGuide && (
