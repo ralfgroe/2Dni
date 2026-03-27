@@ -416,7 +416,7 @@ export default function NodeGraph() {
         <div
           style={{
             position: 'absolute', inset: 0,
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
             transform: 'translateY(-36px)',
             pointerEvents: 'none',
           }}
@@ -455,7 +455,10 @@ export default function NodeGraph() {
           <button
             onClick={(e) => { e.stopPropagation(); setShowGuide(true); }}
             style={{
-              marginTop: 16,
+              position: 'absolute',
+              bottom: 24,
+              left: '50%',
+              transform: 'translateX(-50%)',
               padding: '8px 24px',
               fontSize: 12,
               fontWeight: 600,
