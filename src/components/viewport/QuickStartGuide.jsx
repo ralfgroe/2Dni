@@ -204,10 +204,10 @@ function ConnectionDiagram() {
       <SvgNode x={220} y={30} label="Rectangle" outputs={1} inputs={0} />
       <SvgWire x1={220} y1={46} x2={220} y2={80} />
       <SvgNode x={220} y={96} label="Radius" inputs={1} outputs={1} />
-      <text x={300} y={82} fontSize="9" fill="#868e96" fontFamily="system-ui">input port (top)</text>
-      <path d="M298,80 L225,80" fill="none" stroke="#adb5bd" strokeWidth={0.8} markerEnd="url(#arrowSmall)" />
-      <text x={300} y={118} fontSize="9" fill="#868e96" fontFamily="system-ui">output port (bottom)</text>
-      <path d="M298,116 L225,112" fill="none" stroke="#adb5bd" strokeWidth={0.8} markerEnd="url(#arrowSmall)" />
+      <text x={300} y={76} fontSize="9" fill="#868e96" fontFamily="system-ui">input port (top)</text>
+      <path d="M298,74 L288,74 Q224,74 224,77" fill="none" stroke="#adb5bd" strokeWidth={0.8} markerEnd="url(#arrowSmall)" />
+      <text x={300} y={122} fontSize="9" fill="#868e96" fontFamily="system-ui">output port (bottom)</text>
+      <path d="M298,120 L288,120 Q224,120 224,115" fill="none" stroke="#adb5bd" strokeWidth={0.8} markerEnd="url(#arrowSmall)" />
       <g transform="translate(128, 62)">
         <text x={0} y={0} fontSize="9" fontWeight="600" fill="#4263eb" fontFamily="system-ui">drag to connect</text>
         <path d="M76,-3 L90,-3" fill="none" stroke="#4263eb" strokeWidth={1} markerEnd="url(#arrowBlue)" />
