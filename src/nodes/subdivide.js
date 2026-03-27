@@ -38,7 +38,7 @@ export function subdivideRuntime(params, inputs) {
   const geo = inputs?.geometry_in;
   if (!geo) return null;
 
-  const iterations = Math.max(1, Math.min(6, Math.round(params.iterations || 3)));
+  const iterations = Math.max(1, Math.min(6, Math.round(params.iterations ?? 3)));
   const tension = Math.max(0.05, Math.min(0.45, params.tension ?? 0.25));
 
   const paperPath = geoToPaperPath(geo);

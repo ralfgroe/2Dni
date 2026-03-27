@@ -9,17 +9,17 @@ function ensurePaper() {
 export function waveRuntime(params) {
   ensurePaper();
 
-  const type = params.wave_type || 'Sine';
-  const freq = params.frequency || 3;
-  const amp = params.amplitude || 50;
-  const len = params.wavelength || 400;
-  const phaseDeg = params.phase || 0;
+  const type = params.wave_type ?? 'Sine';
+  const freq = params.frequency ?? 3;
+  const amp = params.amplitude ?? 50;
+  const len = params.wavelength ?? 400;
+  const phaseDeg = params.phase ?? 0;
   const phase = (phaseDeg * Math.PI) / 180;
-  const layers = Math.max(1, Math.min(10, Math.round(params.layers || 1)));
-  const layerOffset = params.layer_offset || 20;
-  const cx = params.x || 0;
-  const cy = params.y || 0;
-  const strokeColor = params.stroke_color || '#000000';
+  const layers = Math.max(1, Math.min(10, Math.round(params.layers ?? 1)));
+  const layerOffset = params.layer_offset ?? 20;
+  const cx = params.x ?? 0;
+  const cy = params.y ?? 0;
+  const strokeColor = params.stroke_color ?? '#000000';
   const strokeWidth = params.stroke_width ?? 1;
 
   const steps = 400;

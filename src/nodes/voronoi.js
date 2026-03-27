@@ -1,5 +1,4 @@
 import paper from 'paper';
-import { flattenGeoToPathData } from '../utils/geoPathUtils';
 
 let paperInitialized = false;
 const canvas = typeof document !== 'undefined' ? document.createElement('canvas') : null;
@@ -8,7 +7,7 @@ function ensurePaper() {
 }
 
 function seededRandom(seed) {
-  let s = seed;
+  let s = ((seed | 0) + 1) || 1;
   return () => { s = (s * 16807 + 0) % 2147483647; return s / 2147483647; };
 }
 
@@ -159,15 +158,15 @@ function lloydRelax(points, w, h, steps) {
 export function voronoiRuntime(params, inputs) {
   ensurePaper();
 
-  const mode = params.mode || 'Voronoi';
-  const source = params.source || 'Random';
-  const count = Math.max(3, Math.min(200, params.count || 30));
-  const seed = params.seed || 42;
-  const w = params.width || 400;
-  const h = params.height || 400;
-  const jitter = params.jitter || 0;
-  const relax = Math.max(0, Math.min(5, Math.round(params.relax || 0)));
-  const strokeColor = params.stroke_color || '#000000';
+  const mode = params.mode ?? 'Voronoi';
+  const source = params.source ?? 'Random';
+  const count = Math.max(3, Math.min(200, params.count ?? 30));
+  const seed = params.seed ?? 42;
+  const w = params.width ?? 400;
+  const h = params.height ?? 400;
+  const jitter = params.jitter ?? 0;
+  const relax = Math.max(0, Math.min(5, Math.round(params.relax ?? 0)));
+  const strokeColor = params.stroke_color ?? '#000000';
   const strokeWidth = params.stroke_width ?? 1;
 
   let points;

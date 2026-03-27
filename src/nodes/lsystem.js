@@ -90,27 +90,24 @@ function turtleToPath(str, angleDeg, segLen, cx, cy) {
 export function lsystemRuntime(params) {
   ensurePaper();
 
-  const presetName = params.preset || 'Koch Snowflake';
+  const presetName = params.preset ?? 'Koch Snowflake';
   const preset = PRESETS[presetName];
   const isCustom = presetName === 'Custom';
 
-  const angleDeg = isCustom ? (params.angle || 60) : (preset.angle || 60);
-  const axiom = isCustom ? (params.axiom || 'F') : preset.axiom;
-  const iterations = Math.max(1, Math.min(8, Math.round(params.iterations || 4)));
-  const segLen = (params.length || 5) * (params.scale || 1);
-  const cx = params.x || 0;
-  const cy = params.y || 0;
-  const strokeColor = params.stroke_color || '#000000';
+  const angleDeg = params.angle ?? 60;
+  const axiom = params.axiom ?? (isCustom ? 'F' : (preset?.axiom ?? 'F'));
+  const iterations = Math.max(1, Math.min(8, Math.round(params.iterations ?? 4)));
+  const segLen = (params.length ?? 5) * (params.scale ?? 1);
+  const cx = params.x ?? 0;
+  const cy = params.y ?? 0;
+  const strokeColor = params.stroke_color ?? '#000000';
   const strokeWidth = params.stroke_width ?? 1;
 
   const rules = {};
-  if (isCustom) {
-    if (params.rule_f) rules['F'] = params.rule_f;
-    if (params.rule_g) rules['G'] = params.rule_g;
-  } else {
-    if (preset.rule_f) rules['F'] = preset.rule_f;
-    if (preset.rule_g) rules['G'] = preset.rule_g;
-    if (preset.rules) Object.assign(rules, preset.rules);
+  if (params.rule_f) rules['F'] = params.rule_f;
+  if (params.rule_g) rules['G'] = params.rule_g;
+  if (!isCustom && preset?.rules) {
+    Object.assign(rules, preset.rules);
   }
 
   const str = rewrite(axiom, rules, iterations);

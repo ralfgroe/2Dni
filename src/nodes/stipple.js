@@ -13,12 +13,12 @@ export function stippleRuntime(params, inputs) {
   const geo = inputs?.geometry_in;
   if (!geo) return null;
 
-  const pattern = params.pattern || 'Dots';
-  const spacing = Math.max(3, params.spacing || 8);
-  const minSize = params.min_size || 1;
-  const maxSize = params.max_size || 4;
-  const angleDeg = params.angle || 0;
-  const fillColor = params.fill_color || '#000000';
+  const pattern = params.pattern ?? 'Dots';
+  const spacing = Math.max(3, params.spacing ?? 8);
+  const minSize = params.min_size ?? 1;
+  const maxSize = params.max_size ?? 4;
+  const angleDeg = params.angle ?? 0;
+  const fillColor = params.fill_color ?? '#000000';
 
   const srcPath = geoToPaperPath(geo);
   if (!srcPath) return geo;

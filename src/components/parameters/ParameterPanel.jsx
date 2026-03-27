@@ -51,6 +51,41 @@ export default function ParameterPanel() {
 
   const params = selectedNode.data.params;
 
+  const PRESET_MAPS = {
+    spirograph: {
+      'Classic':      { outer_radius: 120, inner_radius: 75,  pen_offset: 50 },
+      'Astroid':      { outer_radius: 120, inner_radius: 30,  pen_offset: 30 },
+      'Deltoid':      { outer_radius: 120, inner_radius: 40,  pen_offset: 40 },
+      'Rose 5-petal': { outer_radius: 120, inner_radius: 48,  pen_offset: 48 },
+      'Rose 8-petal': { outer_radius: 120, inner_radius: 45,  pen_offset: 45 },
+      'Tight Loops':  { outer_radius: 120, inner_radius: 100, pen_offset: 80 },
+    },
+    lissajous: {
+      'Figure-8':   { freq_a: 2, freq_b: 1, phase: 90 },
+      'Trefoil':    { freq_a: 3, freq_b: 2, phase: 90 },
+      'Pentagram':  { freq_a: 5, freq_b: 4, phase: 90 },
+      'Bowtie':     { freq_a: 2, freq_b: 3, phase: 0 },
+      'Star Knot':  { freq_a: 7, freq_b: 6, phase: 90 },
+    },
+    lsystem: {
+      'Koch Snowflake':      { axiom: 'F--F--F', rule_f: 'F+F--F+F', rule_g: '', angle: 60 },
+      'Sierpinski Triangle': { axiom: 'F-G-G', rule_f: 'F-G+F+G-F', rule_g: 'GG', angle: 120 },
+      'Dragon Curve':        { axiom: 'F', rule_f: 'F+G', rule_g: 'F-G', angle: 90 },
+      'Hilbert Curve':       { axiom: 'A', rule_f: '', rule_g: '', angle: 90 },
+      'Fractal Plant':       { axiom: 'X', rule_f: 'FF', rule_g: '', angle: 25 },
+      'Penrose':             { axiom: '[X]++[X]++[X]++[X]++[X]', rule_f: '', rule_g: '', angle: 36 },
+    },
+  };
+
+  const handlePresetChange = (presetValue) => {
+    const presetMap = PRESET_MAPS[definition.id];
+    if (presetMap && presetMap[presetValue]) {
+      updateNodeParams(selectedNode.id, { preset: presetValue, ...presetMap[presetValue] });
+    } else {
+      updateNodeParams(selectedNode.id, { preset: presetValue });
+    }
+  };
+
   const handleExport = () => {
     const geo = results.get(selectedNode.id);
     if (!geo) return;
@@ -170,6 +205,7 @@ export default function ParameterPanel() {
               paramDef={paramDef}
               value={params[paramDef.id]}
               nodeId={selectedNode.id}
+              onPresetChange={paramDef.id === 'preset' && PRESET_MAPS[definition.id] ? handlePresetChange : null}
             />
           );
         })}
@@ -202,11 +238,15 @@ export default function ParameterPanel() {
   );
 }
 
-function ParameterRow({ paramDef, value, nodeId }) {
+function ParameterRow({ paramDef, value, nodeId, onPresetChange }) {
   const updateNodeParams = useGraphStore((s) => s.updateNodeParams);
 
   const handleChange = (newValue) => {
-    updateNodeParams(nodeId, { [paramDef.id]: newValue });
+    if (onPresetChange) {
+      onPresetChange(newValue);
+    } else {
+      updateNodeParams(nodeId, { [paramDef.id]: newValue });
+    }
   };
 
   return (

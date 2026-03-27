@@ -29,7 +29,7 @@ export function interpolateRuntime(params, inputs) {
   if (!geoA || !geoB) return geoA || geoB || null;
 
   const blend = Math.max(0, Math.min(1, params.blend ?? 0.5));
-  const steps = Math.max(1, Math.min(20, Math.round(params.steps || 1)));
+  const steps = Math.max(1, Math.min(20, Math.round(params.steps ?? 1)));
 
   const pathA = geoToPaperPath(geoA);
   const pathB = geoToPaperPath(geoB);

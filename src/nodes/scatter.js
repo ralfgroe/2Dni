@@ -8,7 +8,7 @@ function ensurePaper() {
 }
 
 function seededRandom(seed) {
-  let s = seed | 0 || 1;
+  let s = ((seed | 0) + 1) || 1;
   return () => { s = (s * 16807 + 0) % 2147483647; return s / 2147483647; };
 }
 
@@ -74,13 +74,13 @@ export function scatterRuntime(params, inputs) {
   const geo = inputs?.geometry_in;
   if (!geo) return null;
 
-  const pattern = params.pattern || 'Random';
-  const count = Math.max(1, Math.min(500, params.count || 25));
-  const w = params.width || 400;
-  const h = params.height || 400;
-  const seed = params.seed || 42;
-  const randomScale = params.random_scale || 0;
-  const randomRotate = params.random_rotate || 0;
+  const pattern = params.pattern ?? 'Random';
+  const count = Math.max(1, Math.min(500, params.count ?? 25));
+  const w = params.width ?? 400;
+  const h = params.height ?? 400;
+  const seed = params.seed ?? 42;
+  const randomScale = params.random_scale ?? 0;
+  const randomRotate = params.random_rotate ?? 0;
 
   const rand = seededRandom(seed);
   const halfW = w / 2, halfH = h / 2;

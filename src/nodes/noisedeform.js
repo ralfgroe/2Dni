@@ -8,7 +8,7 @@ function ensurePaper() {
 }
 
 function seededRandom(seed) {
-  let s = seed | 0 || 1;
+  let s = ((seed | 0) + 1) || 1;
   return () => { s = (s * 16807 + 0) % 2147483647; return s / 2147483647; };
 }
 
@@ -71,9 +71,9 @@ export function noisedeformRuntime(params, inputs) {
 
   const amplitude = params.amplitude ?? 10;
   const frequency = params.frequency ?? 0.02;
-  const octaves = Math.max(1, Math.min(6, Math.round(params.octaves || 2)));
-  const seed = params.seed || 0;
-  const samples = Math.max(20, Math.min(500, Math.round(params.samples || 100)));
+  const octaves = Math.max(1, Math.min(6, Math.round(params.octaves ?? 2)));
+  const seed = params.seed ?? 0;
+  const samples = Math.max(20, Math.min(500, Math.round(params.samples ?? 100)));
 
   const perm = permutation(seed + 1);
   const perm2 = permutation(seed + 100);

@@ -75,9 +75,9 @@ export function symmetryRuntime(params, inputs) {
   const geo = inputs?.geometry_in;
   if (!geo) return null;
 
-  const group = params.group || 'p4m';
-  const cellSize = params.cell_size || 100;
-  const repeats = Math.max(1, Math.min(8, Math.round(params.repeats || 3)));
+  const group = params.group ?? 'p4m';
+  const cellSize = params.cell_size ?? 100;
+  const repeats = Math.max(1, Math.min(8, Math.round(params.repeats ?? 3)));
 
   const srcPath = geoToPaperPath(geo);
   if (!srcPath) return geo;

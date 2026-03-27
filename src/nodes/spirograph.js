@@ -20,15 +20,14 @@ function gcd(a, b) { a = Math.abs(Math.round(a)); b = Math.abs(Math.round(b)); w
 export function spirographRuntime(params) {
   ensurePaper();
 
-  const preset = PRESETS[params.preset];
-  const R = preset && params.preset !== 'Custom' ? preset.outer_radius : (params.outer_radius || 120);
-  const r = preset && params.preset !== 'Custom' ? preset.inner_radius : (params.inner_radius || 75);
-  const d = preset && params.preset !== 'Custom' ? preset.pen_offset : (params.pen_offset || 50);
-  const mode = params.mode || 'Hypotrochoid';
-  const revolutions = params.revolutions || 10;
-  const cx = params.x || 0;
-  const cy = params.y || 0;
-  const strokeColor = params.stroke_color || '#000000';
+  const R = params.outer_radius ?? 120;
+  const r = params.inner_radius ?? 75;
+  const d = params.pen_offset ?? 50;
+  const mode = params.mode ?? 'Hypotrochoid';
+  const revolutions = params.revolutions ?? 10;
+  const cx = params.x ?? 0;
+  const cy = params.y ?? 0;
+  const strokeColor = params.stroke_color ?? '#000000';
   const strokeWidth = params.stroke_width ?? 1;
 
   const lobes = r / gcd(R, r);

@@ -21,15 +21,15 @@ function trianglePath(cx, cy, r) {
 export function phyllotaxisRuntime(params) {
   ensurePaper();
 
-  const count = Math.min(2000, Math.max(1, params.count || 200));
-  const spread = params.spread || 8;
-  const dotSize = params.dot_size || 3;
-  const goldenAngle = (params.angle_offset || 137.508) * Math.PI / 180;
+  const count = Math.min(2000, Math.max(1, params.count ?? 200));
+  const spread = params.spread ?? 8;
+  const dotSize = params.dot_size ?? 3;
+  const goldenAngle = (params.angle_offset ?? 137.508) * Math.PI / 180;
   const scaleDots = params.scale_dots !== false;
-  const shape = params.shape || 'Circle';
-  const cx = params.x || 0;
-  const cy = params.y || 0;
-  const fillColor = params.fill_color || '#000000';
+  const shape = params.shape ?? 'Circle';
+  const cx = params.x ?? 0;
+  const cy = params.y ?? 0;
+  const fillColor = params.fill_color ?? '#000000';
   const strokeWidth = params.stroke_width ?? 0;
 
   const paths = [];

@@ -17,15 +17,14 @@ const PRESETS = {
 export function lissajousRuntime(params) {
   ensurePaper();
 
-  const preset = PRESETS[params.preset];
-  const a = preset ? preset.freq_a : (params.freq_a || 3);
-  const b = preset ? preset.freq_b : (params.freq_b || 2);
-  const delta = ((preset ? preset.phase : (params.phase || 90)) * Math.PI) / 180;
-  const w = (params.width || 200) / 2;
-  const h = (params.height || 200) / 2;
-  const cx = params.x || 0;
-  const cy = params.y || 0;
-  const strokeColor = params.stroke_color || '#000000';
+  const a = params.freq_a ?? 3;
+  const b = params.freq_b ?? 2;
+  const delta = ((params.phase ?? 90) * Math.PI) / 180;
+  const w = (params.width ?? 200) / 2;
+  const h = (params.height ?? 200) / 2;
+  const cx = params.x ?? 0;
+  const cy = params.y ?? 0;
+  const strokeColor = params.stroke_color ?? '#000000';
   const strokeWidth = params.stroke_width ?? 1;
 
   const steps = Math.max(500, a * b * 100);
