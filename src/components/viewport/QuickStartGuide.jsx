@@ -200,24 +200,24 @@ function ToolboxDiagram() {
 
 function ConnectionDiagram() {
   return (
-    <Illust width={520} height={150}>
-      <SvgNode x={220} y={30} label="Rectangle" outputs={1} inputs={0} />
-      <SvgWire x1={220} y1={46} x2={220} y2={80} />
-      <SvgNode x={220} y={96} label="Radius" inputs={1} outputs={1} />
+    <Illust width={520} height={148}>
+      <SvgNode x={190} y={28} label="Rectangle" outputs={1} inputs={0} />
+      <SvgWire x1={190} y1={44} x2={190} y2={78} />
+      <SvgNode x={190} y={94} label="Radius" inputs={1} outputs={1} />
 
-      <text x={310} y={75} fontSize="9" fill="#868e96" fontFamily="system-ui">input port (top)</text>
-      <path d="M308,72 L222,72 L222,76" fill="none" stroke="#adb5bd" strokeWidth={0.8} markerEnd="url(#arrowSmall)" />
+      {/* "drag to connect" — tight label + arrow, ends at the wire */}
+      <text x={100} y={62} fontSize="9" fontWeight="600" fill="#4263eb" fontFamily="system-ui">drag to connect</text>
+      <path d="M174,59 L186,59" fill="none" stroke="#4263eb" strokeWidth={1} markerEnd="url(#arrowBlue)" />
 
-      <text x={310} y={131} fontSize="9" fill="#868e96" fontFamily="system-ui">output port (bottom)</text>
-      <path d="M308,128 L222,128 L222,120" fill="none" stroke="#adb5bd" strokeWidth={0.8} markerEnd="url(#arrowSmall)" />
+      {/* port labels — clean horizontal lines from box edge to text, no arrowheads */}
+      <line x1={254} y1={78} x2={290} y2={78} stroke="#c5ccd3" strokeWidth={0.7} />
+      <text x={294} y={81} fontSize="9" fill="#868e96" fontFamily="system-ui">input port (top)</text>
 
-      <g transform="translate(128, 62)">
-        <text x={0} y={0} fontSize="9" fontWeight="600" fill="#4263eb" fontFamily="system-ui">drag to connect</text>
-        <path d="M76,-3 L90,-3" fill="none" stroke="#4263eb" strokeWidth={1} markerEnd="url(#arrowBlue)" />
-      </g>
+      <line x1={254} y1={110} x2={290} y2={110} stroke="#c5ccd3" strokeWidth={0.7} />
+      <text x={294} y={113} fontSize="9" fill="#868e96" fontFamily="system-ui">output port (bottom)</text>
+
       <defs>
         <marker id="arrowBlue" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#4263eb" /></marker>
-        <marker id="arrowSmall" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><path d="M0,0 L5,2.5 L0,5" fill="#adb5bd" /></marker>
       </defs>
     </Illust>
   );
