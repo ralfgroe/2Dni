@@ -18,6 +18,8 @@ export function stippleRuntime(params, inputs) {
   const minSize = params.min_size ?? 1;
   const maxSize = params.max_size ?? 4;
   const angleDeg = params.angle ?? 0;
+  const centerOffX = params.center_x ?? 0;
+  const centerOffY = params.center_y ?? 0;
   const fillColor = params.fill_color ?? '#000000';
 
   const srcPath = geoToPaperPath(geo);
@@ -28,12 +30,15 @@ export function stippleRuntime(params, inputs) {
   const angleRad = (angleDeg * Math.PI) / 180;
   const cosA = Math.cos(angleRad), sinA = Math.sin(angleRad);
 
+  const densityCenter = new paper.Point(b.center.x + centerOffX, b.center.y + centerOffY);
+
   const paths = [];
 
   if (pattern === 'Dots' || pattern === 'Concentric') {
     if (pattern === 'Concentric') {
-      const cx = b.x + b.width / 2, cy = b.y + b.height / 2;
-      const maxR = Math.sqrt(b.width * b.width + b.height * b.height) / 2;
+      const cx = densityCenter.x, cy = densityCenter.y;
+      const maxR = Math.sqrt(b.width * b.width + b.height * b.height) / 2 +
+        Math.sqrt(centerOffX * centerOffX + centerOffY * centerOffY);
       for (let r = spacing; r < maxR; r += spacing) {
         const circum = 2 * Math.PI * r;
         const n = Math.max(8, Math.round(circum / spacing));
@@ -56,7 +61,7 @@ export function stippleRuntime(params, inputs) {
           const ry = sinA * (gx - b.center.x) + cosA * (gy - b.center.y) + b.center.y;
           const pt = new paper.Point(rx, ry);
           if (srcPath.contains(pt)) {
-            const distFromCenter = pt.getDistance(b.center) / (pad / 2);
+            const distFromCenter = pt.getDistance(densityCenter) / (pad / 2);
             const sz = minSize + (maxSize - minSize) * (1 - Math.min(1, distFromCenter));
             paths.push(new paper.Path.Circle(pt, sz / 2));
           }

@@ -15,6 +15,8 @@
     { "id": "min_size", "label": "Min Size", "type": "number", "default": 1, "min": 0.5, "max": 10 },
     { "id": "max_size", "label": "Max Size", "type": "number", "default": 4, "min": 1, "max": 20 },
     { "id": "angle", "label": "Angle", "type": "number", "default": 0, "min": 0, "max": 180 },
+    { "id": "center_x", "label": "Center X", "type": "number", "default": 0, "min": -500, "max": 500 },
+    { "id": "center_y", "label": "Center Y", "type": "number", "default": 0, "min": -500, "max": 500 },
     { "id": "fill_color", "label": "Fill Color", "type": "color", "default": "#000000" }
   ],
   "runtime": "stipple"
