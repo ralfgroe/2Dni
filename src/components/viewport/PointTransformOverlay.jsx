@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useGraphStore } from '../../store/graphStore';
+import { useAnimationStore } from '../../store/animationStore';
 import paper from 'paper';
 import { geoToPaperPath } from '../../utils/geoPathUtils';
 
@@ -51,6 +52,10 @@ function extractSegmentPoints(geo, offsets, scale, scaleIndices) {
 export default function PointTransformOverlay({ nodeId, screenToSvg, edges, results }) {
   const updateNodeParams = useGraphStore((s) => s.updateNodeParams);
   const nodes = useGraphStore((s) => s.nodes);
+  const animEnabled = useAnimationStore((s) => s.enabled);
+  const currentFrame = useAnimationStore((s) => s.currentFrame);
+  const setKeyframe = useAnimationStore((s) => s.setKeyframe);
+  const allKeyframes = useAnimationStore((s) => s.keyframes);
 
   const node = nodes.find(n => n.id === nodeId);
   const params = node?.data?.params || {};
@@ -123,23 +128,44 @@ export default function PointTransformOverlay({ nodeId, screenToSvg, edges, resu
       if (!didDrag && (Math.abs(dx) > 2 || Math.abs(dy) > 2)) didDrag = true;
       if (!didDrag) return;
 
-      const latest = offsetsRef.current;
-      const newOffsets = { ...latest };
-      for (const i of dragIndices) {
-        const so = startOffsets[i];
-        newOffsets[String(i)] = [
-          Math.round((so[0] + dx) * 100) / 100,
-          Math.round((so[1] + dy) * 100) / 100,
-        ];
-      }
+      const { enabled: isAnim, currentFrame: frame, keyframes: kfs, setKeyframe: setKf } = useAnimationStore.getState();
+      const nodeKfs = kfs[nodeId] || {};
+      const hasKfX = nodeKfs.offset_x && Object.keys(nodeKfs.offset_x).length > 0;
+      const hasKfY = nodeKfs.offset_y && Object.keys(nodeKfs.offset_y).length > 0;
 
-      const updates = { point_offsets: JSON.stringify(newOffsets) };
-      if (dragIndices.length === 1) {
-        const singleOff = newOffsets[String(dragIndices[0])];
-        updates.offset_x = singleOff[0];
-        updates.offset_y = singleOff[1];
+      if (isAnim && (hasKfX || hasKfY)) {
+        const avgDx = Math.round((startOffsets[dragIndices[0]]?.[0] ?? 0 + dx) * 100) / 100;
+        const avgDy = Math.round((startOffsets[dragIndices[0]]?.[1] ?? 0 + dy) * 100) / 100;
+        let sumX = 0, sumY = 0;
+        for (const i of dragIndices) {
+          sumX += Math.round(((startOffsets[i]?.[0] ?? 0) + dx) * 100) / 100;
+          sumY += Math.round(((startOffsets[i]?.[1] ?? 0) + dy) * 100) / 100;
+        }
+        const newOffX = Math.round((sumX / dragIndices.length) * 100) / 100;
+        const newOffY = Math.round((sumY / dragIndices.length) * 100) / 100;
+
+        if (hasKfX) setKf(nodeId, 'offset_x', frame, newOffX);
+        if (hasKfY) setKf(nodeId, 'offset_y', frame, newOffY);
+        updateNodeParams(nodeId, { offset_x: newOffX, offset_y: newOffY });
+      } else {
+        const latest = offsetsRef.current;
+        const newOffsets = { ...latest };
+        for (const i of dragIndices) {
+          const so = startOffsets[i];
+          newOffsets[String(i)] = [
+            Math.round((so[0] + dx) * 100) / 100,
+            Math.round((so[1] + dy) * 100) / 100,
+          ];
+        }
+
+        const updates = { point_offsets: JSON.stringify(newOffsets) };
+        if (dragIndices.length === 1) {
+          const singleOff = newOffsets[String(dragIndices[0])];
+          updates.offset_x = singleOff[0];
+          updates.offset_y = singleOff[1];
+        }
+        updateNodeParams(nodeId, updates);
       }
-      updateNodeParams(nodeId, updates);
     };
 
     const onUp = () => {
