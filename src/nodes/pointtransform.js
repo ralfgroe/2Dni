@@ -15,16 +15,25 @@ export function pointtransformRuntime(params, inputs) {
   const inputGeo = inputs.geometry_in;
   if (!inputGeo) return null;
 
-  const offsets = (() => {
+  const storedOffsets = (() => {
     try { return JSON.parse(params.point_offsets || '{}'); }
     catch { return {}; }
   })();
 
   const scale = params.scale ?? 1;
+  const offsetX = params.offset_x ?? 0;
+  const offsetY = params.offset_y ?? 0;
   const scaleIndices = (params.scale_points || '')
     .split(',')
     .map(x => parseInt(x, 10))
     .filter(x => !isNaN(x));
+
+  const selectedSet = new Set(scaleIndices);
+
+  const offsets = { ...storedOffsets };
+  for (const idx of scaleIndices) {
+    offsets[String(idx)] = [offsetX, offsetY];
+  }
 
   const hasOffsets = Object.keys(offsets).length > 0;
   const hasScale = scale !== 1 && scaleIndices.length > 0;
