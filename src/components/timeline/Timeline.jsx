@@ -242,8 +242,8 @@ export default function Timeline() {
       <FrameField
         value={duration}
         onChange={(v) => setDuration(v)}
-        width={36}
-        title="Duration (frames)"
+        width={40}
+        title="Duration — click to edit (max 500)"
       />
 
       <div className="pb-sep" />

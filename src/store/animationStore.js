@@ -29,7 +29,7 @@ export const useAnimationStore = create((set, get) => ({
     return RESOLUTION_PRESETS.find((p) => p.id === resolution) || RESOLUTION_PRESETS[1];
   },
 
-  setDuration: (duration) => set({ duration: Math.max(1, Math.round(duration)) }),
+  setDuration: (duration) => set({ duration: Math.max(1, Math.min(500, Math.round(duration))) }),
   setFps: (fps) => set({ fps: Math.max(1, Math.min(60, Math.round(fps))) }),
   setCurrentFrame: (frame) => {
     const { duration } = get();
