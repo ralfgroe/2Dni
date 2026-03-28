@@ -140,6 +140,24 @@ export const useAnimationStore = create((set, get) => ({
     });
   },
 
+  moveKeyframesAtFrame: (fromFrame, toFrame) => {
+    const { duration } = get();
+    const clamped = Math.max(0, Math.min(duration, Math.round(toFrame)));
+    if (clamped === fromFrame) return;
+    set((s) => {
+      const kf = JSON.parse(JSON.stringify(s.keyframes));
+      for (const nodeKfs of Object.values(kf)) {
+        for (const paramKfs of Object.values(nodeKfs)) {
+          if (paramKfs[fromFrame] && !paramKfs[clamped]) {
+            paramKfs[clamped] = paramKfs[fromFrame];
+            delete paramKfs[fromFrame];
+          }
+        }
+      }
+      return { keyframes: kf };
+    });
+  },
+
   setKeyframeEasing: (nodeId, paramId, frame, easing) => {
     set((s) => {
       const kf = JSON.parse(JSON.stringify(s.keyframes));

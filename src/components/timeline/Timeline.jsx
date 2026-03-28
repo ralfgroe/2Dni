@@ -25,6 +25,7 @@ export default function Timeline() {
   const removeKeyframe = useAnimationStore((s) => s.removeKeyframe);
   const setKeyframeEasing = useAnimationStore((s) => s.setKeyframeEasing);
   const removeAllKeyframes = useAnimationStore((s) => s.removeAllKeyframes);
+  const moveKeyframesAtFrame = useAnimationStore((s) => s.moveKeyframesAtFrame);
   const resolution = useAnimationStore((s) => s.resolution);
   const setResolution = useAnimationStore((s) => s.setResolution);
   const getResolution = useAnimationStore((s) => s.getResolution);
@@ -37,6 +38,7 @@ export default function Timeline() {
   const [readyBlob, setReadyBlob] = useState(null);
   const [editingField, setEditingField] = useState(null);
   const scrubberRef = useRef(null);
+  const kfDragRef = useRef(null);
 
   const allKeyframeFrames = useMemo(() => {
     const frameSet = new Set();
@@ -81,6 +83,35 @@ export default function Timeline() {
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
   }, [handleScrub]);
+
+  const handleKfDragDown = useCallback((e, frame) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const bar = scrubberRef.current;
+    if (!bar) return;
+    kfDragRef.current = { fromFrame: frame, currentFrame: frame };
+    const onMove = (ev) => {
+      const rect = bar.getBoundingClientRect();
+      const x = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width));
+      const newFrame = Math.round(x * duration);
+      if (kfDragRef.current) kfDragRef.current.currentFrame = newFrame;
+      setCurrentFrame(newFrame);
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      if (kfDragRef.current) {
+        const { fromFrame, currentFrame: toFrame } = kfDragRef.current;
+        if (fromFrame !== toFrame) {
+          moveKeyframesAtFrame(fromFrame, toFrame);
+        }
+        kfDragRef.current = null;
+      }
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [duration, setCurrentFrame, moveKeyframesAtFrame]);
 
   const handleKeyframeContextMenu = useCallback((e, frame) => {
     e.preventDefault();
@@ -224,9 +255,10 @@ export default function Timeline() {
             <div
               key={f}
               className="pb-kf"
-              style={{ left: `${x}%` }}
+              style={{ left: `${x}%`, cursor: 'grab' }}
+              onMouseDown={(e) => handleKfDragDown(e, f)}
               onContextMenu={(e) => handleKeyframeContextMenu(e, f)}
-              title={`Frame ${f} — ${(keyframeDetails[f] || []).length} keyframe(s)`}
+              title={`Frame ${f} — drag to move, right-click to edit`}
             />
           );
         })}

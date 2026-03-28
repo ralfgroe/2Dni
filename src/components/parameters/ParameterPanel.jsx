@@ -629,8 +629,29 @@ function PointOffsetSlider({ paramDef, value, nodeId, params }) {
   const updateNodeParams = useGraphStore((s) => s.updateNodeParams);
   const beginOperation = useGraphStore((s) => s.beginOperation);
   const endOperation = useGraphStore((s) => s.endOperation);
+  const animEnabled = useAnimationStore((s) => s.enabled);
+  const currentFrame = useAnimationStore((s) => s.currentFrame);
+  const setKeyframe = useAnimationStore((s) => s.setKeyframe);
+  const setKeyframeEasing = useAnimationStore((s) => s.setKeyframeEasing);
+  const allKeyframes = useAnimationStore((s) => s.keyframes);
+
+  const isKeyframeable = paramDef.type === 'number';
+  const paramKfs = allKeyframes[nodeId]?.[paramDef.id];
+  const hasKf = isKeyframeable && paramKfs && Object.keys(paramKfs).length > 0;
+  const hasKfAtFrame = hasKf && paramKfs[currentFrame] != null;
+  const currentEasing = hasKfAtFrame ? (paramKfs[currentFrame].easing || 'easeInOut') : null;
+
+  const displayValue = useMemo(() => {
+    if (!hasKf || !paramKfs) return value;
+    const interpolated = interpolateValue(paramKfs, currentFrame);
+    return interpolated !== undefined ? interpolated : value;
+  }, [hasKf, paramKfs, currentFrame, value]);
 
   const handleChange = (newValue) => {
+    if (animEnabled && hasKf) {
+      setKeyframe(nodeId, paramDef.id, currentFrame, newValue);
+    }
+
     const offsets = (() => {
       try { return JSON.parse(params.point_offsets || '{}'); }
       catch { return {}; }
@@ -658,18 +679,55 @@ function PointOffsetSlider({ paramDef, value, nodeId, params }) {
     }
   };
 
+  const handleSetKeyframe = (e) => {
+    e.stopPropagation();
+    const val = displayValue ?? value ?? paramDef.default;
+    setKeyframe(nodeId, paramDef.id, currentFrame, val);
+  };
+
+  const sliderValue = isKeyframeable ? (displayValue ?? value ?? paramDef.default) : (value ?? paramDef.default);
+
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-[11px] font-medium text-text-secondary">
-        {paramDef.label}
-      </label>
+      <div className="flex items-center gap-1">
+        <label
+          className="flex-1 text-[11px] font-medium"
+          style={{ color: hasKfAtFrame ? '#16a34a' : hasKf ? '#65a30d' : 'var(--text-secondary)' }}
+        >
+          {paramDef.label}
+        </label>
+        {animEnabled && isKeyframeable && (
+          <button
+            onClick={handleSetKeyframe}
+            title={
+              hasKfAtFrame
+                ? `Keyframe set at frame ${currentFrame} — click to update`
+                : hasKf
+                ? `Animated — click to add keyframe at frame ${currentFrame}`
+                : `Set keyframe at frame ${currentFrame}`
+            }
+            className="flex items-center justify-center rounded hover:bg-bg-tertiary"
+            style={{ width: 16, height: 16 }}
+          >
+            <svg width="10" height="10" viewBox="0 0 10 10">
+              <rect
+                x="2" y="2" width="6" height="6" rx="0.5"
+                transform="rotate(45 5 5)"
+                fill={hasKfAtFrame ? '#16a34a' : hasKf ? '#65a30d' : 'none'}
+                stroke={hasKfAtFrame ? '#15803d' : hasKf ? '#4d7c0f' : 'var(--text-muted)'}
+                strokeWidth="1"
+              />
+            </svg>
+          </button>
+        )}
+      </div>
       <div className="flex items-center gap-2">
         <input
           type="range"
           min={paramDef.min ?? -500}
           max={paramDef.max ?? 500}
           step={0.01}
-          value={value ?? paramDef.default}
+          value={sliderValue}
           onMouseDown={beginOperation}
           onTouchStart={beginOperation}
           onMouseUp={endOperation}
@@ -681,13 +739,31 @@ function PointOffsetSlider({ paramDef, value, nodeId, params }) {
           type="number"
           min={paramDef.min}
           max={paramDef.max}
-          value={value ?? paramDef.default}
+          value={sliderValue}
           onFocus={beginOperation}
           onBlur={endOperation}
           onChange={(e) => handleChange(parseFloat(e.target.value) || 0)}
           className="w-16 rounded border border-border-primary bg-bg-primary px-2 py-1 text-xs text-text-primary outline-none focus:border-accent"
         />
       </div>
+      {animEnabled && hasKfAtFrame && (
+        <div className="flex items-center gap-1 mt-0.5">
+          <span style={{ fontSize: 9, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Easing:</span>
+          <select
+            value={currentEasing}
+            onChange={(e) => setKeyframeEasing(nodeId, paramDef.id, currentFrame, e.target.value)}
+            style={{
+              fontSize: 9, height: 18, padding: '0 3px', borderRadius: 3,
+              border: '1px solid var(--border-primary)', background: 'var(--bg-primary)',
+              color: 'var(--text-secondary)', cursor: 'pointer', outline: 'none',
+            }}
+          >
+            {EASING_OPTIONS.map((opt) => (
+              <option key={opt.id} value={opt.id}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+      )}
     </div>
   );
 }
