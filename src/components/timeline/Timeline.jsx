@@ -282,11 +282,12 @@ export default function Timeline() {
       </div>
 
       {/* Frame range: end frame */}
+      <span className="pb-label" style={{ fontSize: 8, opacity: 0.6 }}>END</span>
       <FrameField
         value={duration}
         onChange={(v) => setDuration(v)}
         width={40}
-        title="Duration — click to edit (max 500)"
+        title="Duration — click to edit, scroll to adjust (max 500)"
       />
 
       <div className="pb-sep" />
@@ -471,6 +472,13 @@ function FrameField({ value, onChange, readOnly, width = 32, highlight, title })
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
 
+  const handleWheel = useCallback((e) => {
+    if (readOnly || !onChange) return;
+    e.preventDefault();
+    const delta = e.deltaY < 0 ? 10 : -10;
+    onChange(value + delta);
+  }, [readOnly, onChange, value]);
+
   if (readOnly || !onChange) {
     return (
       <span
@@ -505,12 +513,13 @@ function FrameField({ value, onChange, readOnly, width = 32, highlight, title })
   return (
     <span
       onClick={() => { setDraft(String(value)); setEditing(true); }}
+      onWheel={handleWheel}
       style={{
         minWidth: width, textAlign: 'center', cursor: 'text', borderRadius: 2,
         padding: '1px 2px', fontVariantNumeric: 'tabular-nums',
-        background: highlight ? 'var(--bg-primary)' : 'transparent',
-        border: highlight ? '1px solid var(--border-primary)' : '1px solid transparent',
-        color: highlight ? 'var(--text-primary)' : 'var(--text-muted)',
+        background: 'var(--bg-primary)',
+        border: '1px solid var(--border-primary)',
+        color: 'var(--text-primary)',
         fontSize: 10,
       }}
       title={title}
