@@ -270,7 +270,7 @@ export default function Viewport() {
       </button>
 
       <div className="absolute bottom-3 left-3 z-10 flex flex-col overflow-hidden rounded-lg border border-border-primary bg-white shadow-sm"
-        style={{ borderRadius: 8 }}
+        style={{ borderRadius: 8, bottom: animEnabled ? 44 : 12 }}
       >
         <button
           onClick={zoomIn}
@@ -496,9 +496,13 @@ export default function Viewport() {
         </div>
       )}
 
-      </div>
+      {animEnabled && (
+        <div className="absolute bottom-0 left-0 right-0 z-10">
+          <Timeline />
+        </div>
+      )}
 
-      {animEnabled && <Timeline />}
+      </div>
     </div>
   );
 }
