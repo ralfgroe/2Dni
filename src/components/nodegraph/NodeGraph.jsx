@@ -418,7 +418,7 @@ export default function NodeGraph() {
             position: 'absolute', inset: 0,
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
             pointerEvents: 'none',
-            paddingBottom: '35%',
+            paddingBottom: '38%',
           }}
         >
           <div style={{ position: 'relative', width: '100%', maxWidth: 756 }}>
