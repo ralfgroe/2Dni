@@ -37,6 +37,7 @@ export default function Timeline() {
   const [exportProgress, setExportProgress] = useState(0);
   const [readyBlob, setReadyBlob] = useState(null);
   const [editingField, setEditingField] = useState(null);
+  const [kfDrag, setKfDrag] = useState(null);
   const scrubberRef = useRef(null);
   const kfDragRef = useRef(null);
 
@@ -91,11 +92,13 @@ export default function Timeline() {
     const bar = scrubberRef.current;
     if (!bar) return;
     kfDragRef.current = { fromFrame: frame, currentFrame: frame };
+    setKfDrag({ from: frame, to: frame });
     const onMove = (ev) => {
       const rect = bar.getBoundingClientRect();
       const x = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width));
       const newFrame = Math.round(x * duration);
       if (kfDragRef.current) kfDragRef.current.currentFrame = newFrame;
+      setKfDrag({ from: frame, to: newFrame });
       setCurrentFrame(newFrame);
     };
     const onUp = () => {
@@ -108,6 +111,7 @@ export default function Timeline() {
         }
         kfDragRef.current = null;
       }
+      setKfDrag(null);
     };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
@@ -250,15 +254,22 @@ export default function Timeline() {
 
         {/* Keyframe diamonds */}
         {allKeyframeFrames.map((f) => {
-          const x = duration > 0 ? (f / duration) * 100 : 0;
+          const isDragging = kfDrag && kfDrag.from === f;
+          const displayFrame = isDragging ? kfDrag.to : f;
+          const x = duration > 0 ? (displayFrame / duration) * 100 : 0;
           return (
             <div
               key={f}
               className="pb-kf"
-              style={{ left: `${x}%`, cursor: 'grab' }}
+              style={{
+                left: `${x}%`,
+                cursor: isDragging ? 'grabbing' : 'grab',
+                opacity: isDragging ? 0.8 : 1,
+                background: isDragging ? '#fbbf24' : undefined,
+              }}
               onMouseDown={(e) => handleKfDragDown(e, f)}
               onContextMenu={(e) => handleKeyframeContextMenu(e, f)}
-              title={`Frame ${f} — drag to move, right-click to edit`}
+              title={`Frame ${displayFrame} — drag to move, right-click to edit`}
             />
           );
         })}
@@ -425,14 +436,20 @@ export default function Timeline() {
           flex: 1; height: 20px; position: relative; cursor: pointer;
           background: var(--bg-primary); border-radius: 3px;
           border: 1px solid var(--border-primary);
-          overflow: hidden; min-width: 60px;
+          min-width: 60px;
         }
         .pb-kf {
-          position: absolute; top: 50%; width: 6px; height: 6px;
+          position: absolute; top: 50%; width: 8px; height: 8px;
           transform: translate(-50%, -50%) rotate(45deg);
           background: #f59e0b; border: 1px solid #b45309;
-          z-index: 2; cursor: context-menu;
+          z-index: 4; cursor: grab; pointer-events: auto;
         }
+        .pb-kf::before {
+          content: ''; position: absolute;
+          top: -6px; left: -6px; right: -6px; bottom: -6px;
+          cursor: grab;
+        }
+        .pb-kf:active { cursor: grabbing; }
         .pb-playhead {
           position: absolute; top: 0; bottom: 0; z-index: 3; pointer-events: none;
           transform: translateX(-50%);
