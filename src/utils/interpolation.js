@@ -11,6 +11,39 @@ export function ease(t, easingName) {
   return fn(Math.max(0, Math.min(1, t)));
 }
 
+function hexToRgb(hex) {
+  const h = hex.replace('#', '');
+  const full = h.length === 3
+    ? h[0]+h[0]+h[1]+h[1]+h[2]+h[2]
+    : h;
+  return [
+    parseInt(full.substring(0, 2), 16),
+    parseInt(full.substring(2, 4), 16),
+    parseInt(full.substring(4, 6), 16),
+  ];
+}
+
+function rgbToHex(r, g, b) {
+  const clamp = (v) => Math.max(0, Math.min(255, Math.round(v)));
+  return '#' + [clamp(r), clamp(g), clamp(b)]
+    .map(v => v.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+function isColorValue(v) {
+  return typeof v === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(v);
+}
+
+function lerpColor(c0, c1, t) {
+  const [r0, g0, b0] = hexToRgb(c0);
+  const [r1, g1, b1] = hexToRgb(c1);
+  return rgbToHex(
+    r0 + (r1 - r0) * t,
+    g0 + (g1 - g0) * t,
+    b0 + (b1 - b0) * t,
+  );
+}
+
 export function interpolateValue(paramKeyframes, frame) {
   const frameNums = Object.keys(paramKeyframes).map(Number).sort((a, b) => a - b);
   if (frameNums.length === 0) return undefined;
@@ -48,7 +81,16 @@ export function interpolateValue(paramKeyframes, frame) {
 
   const t = (frame - f0) / (f1 - f0);
   const eased = ease(t, easingName);
-  return v0 + (v1 - v0) * eased;
+
+  if (isColorValue(v0) && isColorValue(v1)) {
+    return lerpColor(v0, v1, eased);
+  }
+
+  if (typeof v0 === 'number' && typeof v1 === 'number') {
+    return v0 + (v1 - v0) * eased;
+  }
+
+  return v0;
 }
 
 export function resolveParamsAtFrame(nodeParams, nodeKeyframes, frame) {

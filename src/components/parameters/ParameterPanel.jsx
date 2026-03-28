@@ -257,7 +257,7 @@ function ParameterRow({ paramDef, value, nodeId, onPresetChange }) {
   const setKeyframeEasing = useAnimationStore((s) => s.setKeyframeEasing);
   const allKeyframes = useAnimationStore((s) => s.keyframes);
 
-  const isKeyframeable = paramDef.type === 'number';
+  const isKeyframeable = paramDef.type === 'number' || paramDef.type === 'color';
   const paramKfs = allKeyframes[nodeId]?.[paramDef.id];
   const hasKf = isKeyframeable && paramKfs && Object.keys(paramKfs).length > 0;
   const hasKfAtFrame = hasKf && paramKfs[currentFrame] != null;
