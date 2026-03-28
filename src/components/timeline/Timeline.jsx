@@ -227,7 +227,7 @@ export default function Timeline() {
   };
 
   return (
-    <div className="playbar" style={{ height: 32, flexShrink: 0 }}>
+    <div className="playbar" style={{ height: 36, flexShrink: 0 }}>
       {/* Transport controls */}
       <div className="pb-group">
         <button onClick={goToStart} title="Go to start (Home)" className="pb-btn"><SkipBackIcon /></button>
@@ -414,7 +414,6 @@ export default function Timeline() {
           gap: 2px;
           padding: 0 6px;
           background: var(--bg-secondary);
-          border-top: 1px solid var(--border-primary);
           user-select: none;
           font-size: 10px;
         }
@@ -433,7 +432,7 @@ export default function Timeline() {
         .pb-label { color: var(--text-muted); font-size: 9px; letter-spacing: 0.03em; flex-shrink: 0; }
 
         .pb-scrubber {
-          flex: 1; height: 20px; position: relative; cursor: pointer;
+          flex: 1; height: 24px; position: relative; cursor: pointer;
           background: var(--bg-primary); border-radius: 3px;
           border: 1px solid var(--border-primary);
           min-width: 60px;

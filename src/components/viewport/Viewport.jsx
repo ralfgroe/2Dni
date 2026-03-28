@@ -269,8 +269,8 @@ export default function Viewport() {
         </svg>
       </button>
 
-      <div className="absolute bottom-3 left-3 z-10 flex flex-col overflow-hidden rounded-lg border border-border-primary bg-white shadow-sm"
-        style={{ borderRadius: 8, bottom: animEnabled ? 44 : 12 }}
+      <div className="absolute left-3 z-10 flex flex-col overflow-hidden rounded-lg border border-border-primary bg-white shadow-sm"
+        style={{ borderRadius: 8, bottom: 12 }}
       >
         <button
           onClick={zoomIn}
@@ -496,13 +496,13 @@ export default function Viewport() {
         </div>
       )}
 
+      </div>
+
       {animEnabled && (
-        <div className="absolute bottom-0 left-0 right-0 z-10">
+        <div style={{ flexShrink: 0, borderTop: '1px solid var(--border-primary)' }}>
           <Timeline />
         </div>
       )}
-
-      </div>
     </div>
   );
 }
