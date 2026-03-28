@@ -3,7 +3,7 @@ import { useGraphStore } from '../../store/graphStore';
 import { useNodeRegistryStore } from '../../store/nodeRegistryStore';
 import { useAnimationStore } from '../../store/animationStore';
 import { evaluateGraph } from '../../utils/evaluateGraph';
-import { resolveAllNodesAtFrame, interpolateValue } from '../../utils/interpolation';
+import { resolveAllNodesAtFrame, interpolateValue, EASING_OPTIONS } from '../../utils/interpolation';
 import { exportSVG, exportPNG, exportOBJ, exportGEO } from '../../utils/exportUtils';
 import { extractPoints } from '../../utils/geometryPoints';
 import WrangleChat from './WrangleChat';
@@ -254,12 +254,14 @@ function ParameterRow({ paramDef, value, nodeId, onPresetChange }) {
   const animEnabled = useAnimationStore((s) => s.enabled);
   const currentFrame = useAnimationStore((s) => s.currentFrame);
   const setKeyframe = useAnimationStore((s) => s.setKeyframe);
+  const setKeyframeEasing = useAnimationStore((s) => s.setKeyframeEasing);
   const allKeyframes = useAnimationStore((s) => s.keyframes);
 
   const isKeyframeable = paramDef.type === 'number';
   const paramKfs = allKeyframes[nodeId]?.[paramDef.id];
   const hasKf = isKeyframeable && paramKfs && Object.keys(paramKfs).length > 0;
   const hasKfAtFrame = hasKf && paramKfs[currentFrame] != null;
+  const currentEasing = hasKfAtFrame ? (paramKfs[currentFrame].easing || 'easeInOut') : null;
 
   const displayValue = useMemo(() => {
     if (!hasKf || !paramKfs) return value;
@@ -319,6 +321,30 @@ function ParameterRow({ paramDef, value, nodeId, onPresetChange }) {
         )}
       </div>
       <ParameterInput paramDef={paramDef} value={isKeyframeable ? displayValue : value} onChange={handleChange} />
+      {animEnabled && hasKfAtFrame && (
+        <div className="flex items-center gap-1 mt-0.5">
+          <span style={{ fontSize: 9, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Easing:</span>
+          <select
+            value={currentEasing}
+            onChange={(e) => setKeyframeEasing(nodeId, paramDef.id, currentFrame, e.target.value)}
+            style={{
+              fontSize: 9,
+              height: 18,
+              padding: '0 3px',
+              borderRadius: 3,
+              border: '1px solid var(--border-primary)',
+              background: 'var(--bg-primary)',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+              outline: 'none',
+            }}
+          >
+            {EASING_OPTIONS.map((opt) => (
+              <option key={opt.id} value={opt.id}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+      )}
     </div>
   );
 }
