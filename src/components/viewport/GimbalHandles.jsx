@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useGraphStore } from '../../store/graphStore';
+import { useAnimationStore } from '../../store/animationStore';
 
 const HANDLE_SIZE = 8;
 const HANDLE_COLOR = '#4263eb';
@@ -49,6 +50,20 @@ export default function GimbalHandles({ geometry, node, definition, screenToSvg,
 }
 
 function applyDrag(type, dx, dy, startParams, nodeId, defId, updateNodeParams) {
+  const { enabled: animEnabled, currentFrame, keyframes, setKeyframe } = useAnimationStore.getState();
+  const nodeKfs = keyframes[nodeId] || {};
+
+  const applyParam = (params) => {
+    updateNodeParams(nodeId, params);
+    if (animEnabled) {
+      for (const [paramId, val] of Object.entries(params)) {
+        if (nodeKfs[paramId] && Object.keys(nodeKfs[paramId]).length > 0) {
+          setKeyframe(nodeId, paramId, currentFrame, val);
+        }
+      }
+    }
+  };
+
   if (defId === 'line') {
     if (type === 'endpoint') {
       const startLen = startParams.length || 200;
@@ -57,37 +72,37 @@ function applyDrag(type, dx, dy, startParams, nodeId, defId, updateNodeParams) {
       const ey = startLen * Math.sin(startAngle) + dy;
       const newLen = Math.max(1, Math.sqrt(ex * ex + ey * ey));
       const newAngle = (Math.atan2(ey, ex) * 180) / Math.PI;
-      updateNodeParams(nodeId, { length: Math.round(newLen), angle: Math.round(newAngle * 10) / 10 });
+      applyParam({ length: Math.round(newLen), angle: Math.round(newAngle * 10) / 10 });
     }
   } else if (defId === 'rectangle') {
     if (type === 'move') {
-      updateNodeParams(nodeId, {
+      applyParam({
         x: Math.round(startParams.x + dx),
         y: Math.round(startParams.y + dy),
       });
     } else if (type === 'resize-br') {
-      updateNodeParams(nodeId, {
+      applyParam({
         width: Math.max(1, Math.round(startParams.width + dx)),
         height: Math.max(1, Math.round(startParams.height + dy)),
       });
     } else if (type === 'resize-r') {
-      updateNodeParams(nodeId, {
+      applyParam({
         width: Math.max(1, Math.round(startParams.width + dx)),
       });
     } else if (type === 'resize-b') {
-      updateNodeParams(nodeId, {
+      applyParam({
         height: Math.max(1, Math.round(startParams.height + dy)),
       });
     }
   } else if (defId === 'transform') {
     if (type === 'translate') {
-      updateNodeParams(nodeId, {
+      applyParam({
         translate_x: Math.round(startParams.translate_x + dx),
         translate_y: Math.round(startParams.translate_y + dy),
       });
     }
     if (type === 'pivot') {
-      updateNodeParams(nodeId, {
+      applyParam({
         pivot_x: Math.round((startParams.pivot_x || 0) + dx),
         pivot_y: Math.round((startParams.pivot_y || 0) + dy),
       });
@@ -95,7 +110,7 @@ function applyDrag(type, dx, dy, startParams, nodeId, defId, updateNodeParams) {
   } else {
     if (type === 'move') {
       if (startParams.x !== undefined) {
-        updateNodeParams(nodeId, {
+        applyParam({
           x: Math.round((startParams.x || 0) + dx),
           y: Math.round((startParams.y || 0) + dy),
         });
