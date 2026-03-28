@@ -650,6 +650,8 @@ function PointOffsetSlider({ paramDef, value, nodeId, params }) {
   const handleChange = (newValue) => {
     if (animEnabled && hasKf) {
       setKeyframe(nodeId, paramDef.id, currentFrame, newValue);
+      updateNodeParams(nodeId, { [paramDef.id]: newValue });
+      return;
     }
 
     const offsets = (() => {
@@ -683,9 +685,21 @@ function PointOffsetSlider({ paramDef, value, nodeId, params }) {
     e.stopPropagation();
     const val = displayValue ?? value ?? paramDef.default;
     setKeyframe(nodeId, paramDef.id, currentFrame, val);
-  };
 
-  const sliderValue = isKeyframeable ? (displayValue ?? value ?? paramDef.default) : (value ?? paramDef.default);
+    const selectedIndices = (params.scale_points || '')
+      .split(',')
+      .map(x => x.trim())
+      .filter(Boolean);
+    if (selectedIndices.length > 0) {
+      const stored = (() => {
+        try { return JSON.parse(params.point_offsets || '{}'); }
+        catch { return {}; }
+      })();
+      const cleaned = { ...stored };
+      for (const idx of selectedIndices) delete cleaned[idx];
+      updateNodeParams(nodeId, { point_offsets: JSON.stringify(cleaned) });
+    }
+  };  const sliderValue = isKeyframeable ? (displayValue ?? value ?? paramDef.default) : (value ?? paramDef.default);
 
   return (
     <div className="flex flex-col gap-1">

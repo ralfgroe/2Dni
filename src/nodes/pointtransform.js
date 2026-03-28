@@ -23,16 +23,24 @@ export function pointtransformRuntime(params, inputs) {
   const scale = params.scale ?? 1;
   const offsetX = params.offset_x ?? 0;
   const offsetY = params.offset_y ?? 0;
-  const scaleIndices = (params.scale_points || '')
+  const selectedStr = params.scale_points || '';
+  const scaleIndices = selectedStr
     .split(',')
     .map(x => parseInt(x, 10))
     .filter(x => !isNaN(x));
 
-  const selectedSet = new Set(scaleIndices);
+  const selectedSet = new Set(scaleIndices.map(String));
 
-  const offsets = { ...storedOffsets };
-  for (const idx of scaleIndices) {
-    offsets[String(idx)] = [offsetX, offsetY];
+  const offsets = {};
+  for (const [k, v] of Object.entries(storedOffsets)) {
+    if (!selectedSet.has(k)) {
+      offsets[k] = v;
+    }
+  }
+  if (scaleIndices.length > 0 && (offsetX !== 0 || offsetY !== 0)) {
+    for (const idx of scaleIndices) {
+      offsets[String(idx)] = [offsetX, offsetY];
+    }
   }
 
   const hasOffsets = Object.keys(offsets).length > 0;
