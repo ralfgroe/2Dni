@@ -227,146 +227,134 @@ export default function Timeline() {
   };
 
   return (
-    <div className="playbar" style={{ height: 36, flexShrink: 0 }}>
-      {/* Transport controls */}
-      <div className="pb-group">
-        <button onClick={goToStart} title="Go to start (Home)" className="pb-btn"><SkipBackIcon /></button>
-        <button onClick={() => playing ? pause() : play()} title={playing ? 'Pause (Space)' : 'Play (Space)'} className="pb-btn pb-play">
-          {playing ? <PauseIcon /> : <PlayIcon />}
-        </button>
-        <button onClick={stop} title="Stop" className="pb-btn"><StopIcon /></button>
-        <button onClick={goToEnd} title="Go to end (End)" className="pb-btn"><SkipFwdIcon /></button>
-      </div>
+    <div className="playbar-wrap">
+      {/* Row 1: Full-width scrubber */}
+      <div className="pb-scrubber-row">
+        <span className="pb-label" style={{ fontSize: 8, minWidth: 20, textAlign: 'right' }}>0</span>
+        <div
+          ref={scrubberRef}
+          className="pb-scrubber"
+          onMouseDown={handleScrubDown}
+        >
+          <ScrubberTicks duration={duration} fps={fps} />
 
-      <div className="pb-sep" />
+          {allKeyframeFrames.map((f) => {
+            const isDragging = kfDrag && kfDrag.from === f;
+            const displayFrame = isDragging ? kfDrag.to : f;
+            const x = duration > 0 ? (displayFrame / duration) * 100 : 0;
+            return (
+              <div
+                key={f}
+                className="pb-kf"
+                style={{
+                  left: `${x}%`,
+                  cursor: isDragging ? 'grabbing' : 'grab',
+                  opacity: isDragging ? 0.8 : 1,
+                  background: isDragging ? '#fbbf24' : undefined,
+                }}
+                onMouseDown={(e) => handleKfDragDown(e, f)}
+                onContextMenu={(e) => handleKeyframeContextMenu(e, f)}
+                title={`Frame ${displayFrame} — drag to move, right-click to edit`}
+              />
+            );
+          })}
 
-      {/* Frame range: start frame */}
-      <FrameField value={0} readOnly width={28} />
-
-      {/* Scrubber */}
-      <div
-        ref={scrubberRef}
-        className="pb-scrubber"
-        onMouseDown={handleScrubDown}
-      >
-        {/* Tick marks */}
-        <ScrubberTicks duration={duration} fps={fps} />
-
-        {/* Keyframe diamonds */}
-        {allKeyframeFrames.map((f) => {
-          const isDragging = kfDrag && kfDrag.from === f;
-          const displayFrame = isDragging ? kfDrag.to : f;
-          const x = duration > 0 ? (displayFrame / duration) * 100 : 0;
-          return (
-            <div
-              key={f}
-              className="pb-kf"
-              style={{
-                left: `${x}%`,
-                cursor: isDragging ? 'grabbing' : 'grab',
-                opacity: isDragging ? 0.8 : 1,
-                background: isDragging ? '#fbbf24' : undefined,
-              }}
-              onMouseDown={(e) => handleKfDragDown(e, f)}
-              onContextMenu={(e) => handleKeyframeContextMenu(e, f)}
-              title={`Frame ${displayFrame} — drag to move, right-click to edit`}
-            />
-          );
-        })}
-
-        {/* Playhead */}
-        <div className="pb-playhead" style={{ left: `${pct}%` }}>
-          <div className="pb-playhead-flag" />
-          <div className="pb-playhead-line" />
+          <div className="pb-playhead" style={{ left: `${pct}%` }}>
+            <div className="pb-playhead-flag" />
+            <div className="pb-playhead-line" />
+          </div>
         </div>
+        <FrameField
+          value={duration}
+          onChange={(v) => setDuration(v)}
+          width={40}
+          title="Duration — click to edit, scroll to adjust (max 500)"
+        />
       </div>
 
-      {/* Frame range: end frame */}
-      <span className="pb-label" style={{ fontSize: 8, opacity: 0.6 }}>END</span>
-      <FrameField
-        value={duration}
-        onChange={(v) => setDuration(v)}
-        width={40}
-        title="Duration — click to edit, scroll to adjust (max 500)"
-      />
+      {/* Row 2: Transport controls and settings */}
+      <div className="pb-controls-row">
+        <div className="pb-group">
+          <button onClick={goToStart} title="Go to start (Home)" className="pb-btn"><SkipBackIcon /></button>
+          <button onClick={() => playing ? pause() : play()} title={playing ? 'Pause (Space)' : 'Play (Space)'} className="pb-btn pb-play">
+            {playing ? <PauseIcon /> : <PlayIcon />}
+          </button>
+          <button onClick={stop} title="Stop" className="pb-btn"><StopIcon /></button>
+          <button onClick={goToEnd} title="Go to end (End)" className="pb-btn"><SkipFwdIcon /></button>
+        </div>
 
-      <div className="pb-sep" />
+        <div className="pb-sep" />
 
-      {/* Current frame */}
-      <FrameField
-        value={currentFrame}
-        onChange={(v) => setCurrentFrame(v)}
-        width={36}
-        highlight
-        title="Current frame"
-      />
+        <span className="pb-label" style={{ fontSize: 8 }}>Frame</span>
+        <FrameField
+          value={currentFrame}
+          onChange={(v) => setCurrentFrame(v)}
+          width={36}
+          title="Current frame"
+        />
 
-      <div className="pb-sep" />
+        <div className="pb-sep" />
 
-      {/* FPS */}
-      <span className="pb-label">FPS</span>
-      <FrameField value={fps} onChange={(v) => setFps(v)} width={28} title="Frames per second" />
+        <span className="pb-label">FPS</span>
+        <FrameField value={fps} onChange={(v) => setFps(v)} width={28} title="Frames per second" />
 
-      {/* Loop */}
-      <button
-        onClick={() => setLoop(!loop)}
-        title={loop ? 'Loop: On' : 'Loop: Off'}
-        className={`pb-btn ${loop ? 'pb-active' : ''}`}
-      >
-        <LoopIcon />
-      </button>
-
-      <div className="pb-sep" />
-
-      {/* Resolution */}
-      <select
-        value={resolution}
-        onChange={(e) => setResolution(e.target.value)}
-        title="Export resolution"
-        style={{
-          height: 18, fontSize: 9, borderRadius: 2, padding: '0 2px',
-          background: 'var(--bg-primary)', color: 'var(--text-secondary)',
-          border: '1px solid var(--border-primary)', outline: 'none',
-          cursor: 'pointer', flexShrink: 0,
-        }}
-      >
-        {RESOLUTION_PRESETS.map((p) => (
-          <option key={p.id} value={p.id}>{p.label}</option>
-        ))}
-      </select>
-
-      {/* Camera frame toggle */}
-      <button
-        onClick={() => setShowCameraFrame(!showCameraFrame)}
-        title={showCameraFrame ? 'Hide camera frame' : 'Show camera frame'}
-        className={`pb-btn ${showCameraFrame ? 'pb-active' : ''}`}
-      >
-        <CameraIcon />
-      </button>
-
-      {/* Export */}
-      {readyBlob ? (
         <button
-          onClick={handleSaveFile}
-          className="pb-btn"
-          title="Save animation.mp4"
-          style={{ color: 'var(--accent)', fontWeight: 700, width: 'auto', padding: '0 6px', fontSize: 9 }}
+          onClick={() => setLoop(!loop)}
+          title={loop ? 'Loop: On' : 'Loop: Off'}
+          className={`pb-btn ${loop ? 'pb-active' : ''}`}
         >
-          Save
+          <LoopIcon />
         </button>
-      ) : exporting ? (
-        <span className="pb-label" style={{ color: 'var(--accent)' }}>
-          {Math.round(exportProgress * 100)}%
-        </span>
-      ) : (
+
+        <div style={{ flex: 1 }} />
+
+        <select
+          value={resolution}
+          onChange={(e) => setResolution(e.target.value)}
+          title="Export resolution"
+          style={{
+            height: 18, fontSize: 9, borderRadius: 2, padding: '0 2px',
+            background: 'var(--bg-primary)', color: 'var(--text-secondary)',
+            border: '1px solid var(--border-primary)', outline: 'none',
+            cursor: 'pointer', flexShrink: 0,
+          }}
+        >
+          {RESOLUTION_PRESETS.map((p) => (
+            <option key={p.id} value={p.id}>{p.label}</option>
+          ))}
+        </select>
+
         <button
-          onClick={handleExport}
-          className="pb-btn"
-          title="Export animation as MP4"
+          onClick={() => setShowCameraFrame(!showCameraFrame)}
+          title={showCameraFrame ? 'Hide camera frame' : 'Show camera frame'}
+          className={`pb-btn ${showCameraFrame ? 'pb-active' : ''}`}
         >
-          <ExportIcon />
+          <CameraIcon />
         </button>
-      )}
+
+        {readyBlob ? (
+          <button
+            onClick={handleSaveFile}
+            className="pb-btn"
+            title="Save animation.mp4"
+            style={{ color: 'var(--accent)', fontWeight: 700, width: 'auto', padding: '0 6px', fontSize: 9 }}
+          >
+            Save
+          </button>
+        ) : exporting ? (
+          <span className="pb-label" style={{ color: 'var(--accent)' }}>
+            {Math.round(exportProgress * 100)}%
+          </span>
+        ) : (
+          <button
+            onClick={handleExport}
+            className="pb-btn"
+            title="Export animation as MP4"
+          >
+            <ExportIcon />
+          </button>
+        )}
+      </div>
 
       {/* Context menu for keyframe editing */}
       {contextMenu && (
@@ -409,14 +397,24 @@ export default function Timeline() {
       )}
 
       <style>{`
-        .playbar {
+        .playbar-wrap {
           display: flex;
-          align-items: center;
-          gap: 2px;
-          padding: 0 6px;
+          flex-direction: column;
           background: var(--bg-secondary);
           user-select: none;
           font-size: 10px;
+        }
+        .pb-scrubber-row {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          padding: 4px 8px 2px 8px;
+        }
+        .pb-controls-row {
+          display: flex;
+          align-items: center;
+          gap: 2px;
+          padding: 0 8px 4px 8px;
         }
         .pb-group { display: flex; align-items: center; gap: 1px; }
         .pb-sep { width: 1px; height: 16px; background: var(--border-primary); margin: 0 4px; flex-shrink: 0; }
@@ -433,7 +431,7 @@ export default function Timeline() {
         .pb-label { color: var(--text-muted); font-size: 9px; letter-spacing: 0.03em; flex-shrink: 0; }
 
         .pb-scrubber {
-          flex: 1; height: 24px; position: relative; cursor: pointer;
+          flex: 1; height: 22px; position: relative; cursor: pointer;
           background: var(--bg-primary); border-radius: 3px;
           border: 1px solid var(--border-primary);
           min-width: 60px;
