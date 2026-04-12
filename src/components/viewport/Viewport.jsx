@@ -123,6 +123,31 @@ export default function Viewport() {
       : null;
   });
 
+  const prevExportNodeRef = useRef(null);
+  useEffect(() => {
+    if (!exportFrameRect || cameraRect) {
+      prevExportNodeRef.current = null;
+      return;
+    }
+    const key = selectedNode?.id;
+    if (key && key !== prevExportNodeRef.current) {
+      prevExportNodeRef.current = key;
+      const pad = 1.15;
+      const fw = exportFrameRect.w * pad;
+      const fh = exportFrameRect.h * pad;
+      const svg = svgRef.current;
+      if (svg) {
+        const rect = svg.getBoundingClientRect();
+        const aspect = rect.width / rect.height;
+        const vw = Math.max(fw, fh * aspect);
+        const vh = vw / aspect;
+        const cx = exportFrameRect.x + exportFrameRect.w / 2;
+        const cy = exportFrameRect.y + exportFrameRect.h / 2;
+        setViewBox({ x: cx - vw / 2, y: cy - vh / 2, w: vw, h: vh });
+      }
+    }
+  }, [exportFrameRect, cameraRect, selectedNode]);
+
   const screenToSvg = useCallback(
     (clientX, clientY) => {
       const svg = svgRef.current;
@@ -586,39 +611,47 @@ export default function Viewport() {
         )}
 
         {/* Export preview frame overlay */}
-        {exportFrameRect && !cameraRect && (
+        {exportFrameRect && !cameraRect && (() => {
+          const fr = exportFrameRect;
+          const vl = viewBox.x, vt = viewBox.y, vr = viewBox.x + viewBox.w, vb = viewBox.y + viewBox.h;
+          const fl = fr.x, ft = fr.y, fRight = fr.x + fr.w, fb = fr.y + fr.h;
+          const clampedTop = Math.max(0, Math.min(ft, vb) - vt);
+          const clampedBot = Math.max(0, vb - Math.max(fb, vt));
+          const midT = Math.max(ft, vt);
+          const midB = Math.min(fb, vb);
+          const midH = Math.max(0, midB - midT);
+          const clampedLeft = Math.max(0, Math.min(fl, vr) - vl);
+          const clampedRight = Math.max(0, vr - Math.max(fRight, vl));
+          return (
           <g>
             <rect
-              x={exportFrameRect.x} y={exportFrameRect.y}
-              width={exportFrameRect.w} height={exportFrameRect.h}
+              x={fr.x} y={fr.y}
+              width={fr.w} height={fr.h}
               fill="transparent"
               style={{ cursor: 'grab' }}
               onMouseDown={handleExportFrameDown}
             />
             <g style={{ pointerEvents: 'none' }}>
               <rect
-                x={exportFrameRect.x} y={exportFrameRect.y}
-                width={exportFrameRect.w} height={exportFrameRect.h}
+                x={fr.x} y={fr.y}
+                width={fr.w} height={fr.h}
                 fill="none" stroke="#ef4444" strokeWidth={viewBox.w * 0.002}
                 opacity={0.9}
               />
-              <rect x={viewBox.x} y={viewBox.y} width={viewBox.w} height={exportFrameRect.y - viewBox.y}
-                fill="black" opacity={0.08} />
-              <rect x={viewBox.x} y={exportFrameRect.y + exportFrameRect.h} width={viewBox.w} height={viewBox.y + viewBox.h - exportFrameRect.y - exportFrameRect.h}
-                fill="black" opacity={0.08} />
-              <rect x={viewBox.x} y={exportFrameRect.y} width={exportFrameRect.x - viewBox.x} height={exportFrameRect.h}
-                fill="black" opacity={0.08} />
-              <rect x={exportFrameRect.x + exportFrameRect.w} y={exportFrameRect.y} width={viewBox.x + viewBox.w - exportFrameRect.x - exportFrameRect.w} height={exportFrameRect.h}
-                fill="black" opacity={0.08} />
+              {clampedTop > 0 && <rect x={vl} y={vt} width={viewBox.w} height={clampedTop} fill="black" opacity={0.08} />}
+              {clampedBot > 0 && <rect x={vl} y={Math.max(fb, vt)} width={viewBox.w} height={clampedBot} fill="black" opacity={0.08} />}
+              {midH > 0 && clampedLeft > 0 && <rect x={vl} y={midT} width={clampedLeft} height={midH} fill="black" opacity={0.08} />}
+              {midH > 0 && clampedRight > 0 && <rect x={Math.max(fRight, vl)} y={midT} width={clampedRight} height={midH} fill="black" opacity={0.08} />}
               <text
-                x={exportFrameRect.x + exportFrameRect.w / 2}
-                y={exportFrameRect.y - viewBox.h * 0.012}
+                x={fr.x + fr.w / 2}
+                y={fr.y - viewBox.h * 0.012}
                 textAnchor="middle"
                 fill="#ef4444" fontSize={viewBox.h * 0.022} opacity={0.7}
-              >{exportFrameRect.canvasW} x {exportFrameRect.canvasH}</text>
+              >{fr.canvasW} x {fr.canvasH}</text>
             </g>
           </g>
-        )}
+          );
+        })()}
       </svg>
 
       {showSplash && nodes.length === 0 && (
