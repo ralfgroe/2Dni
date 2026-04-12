@@ -2,7 +2,7 @@
   "id": "scatter",
   "label": "Scatter",
   "category": "Transform",
-  "description": "Distributes copies of input geometry in random, grid, radial, or Poisson disk patterns within a region.",
+  "description": "Distributes copies of input geometry in various patterns: random, grid, hex, radial, sunflower, or Poisson disk.",
   "inputs": [
     { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }
   ],
@@ -10,13 +10,16 @@
     { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
   ],
   "parameters": [
-    { "id": "pattern", "label": "Pattern", "type": "select", "default": "Random", "options": ["Random", "Grid", "Radial", "Poisson Disk"] },
+    { "id": "pattern", "label": "Pattern", "type": "select", "default": "Random", "options": ["Random", "Grid", "Hex", "Radial", "Sunflower", "Poisson Disk"] },
     { "id": "count", "label": "Count", "type": "number", "default": 25, "min": 1, "max": 500 },
     { "id": "width", "label": "Width", "type": "number", "default": 400, "min": 10, "max": 2000 },
     { "id": "height", "label": "Height", "type": "number", "default": 400, "min": 10, "max": 2000 },
+    { "id": "center_x", "label": "Center X", "type": "number", "default": 0, "min": -1000, "max": 1000 },
+    { "id": "center_y", "label": "Center Y", "type": "number", "default": 0, "min": -1000, "max": 1000 },
     { "id": "seed", "label": "Seed", "type": "number", "default": 42, "min": 0, "max": 9999, "step": 1 },
-    { "id": "random_scale", "label": "Random Scale", "type": "number", "default": 0, "min": 0, "max": 1 },
-    { "id": "random_rotate", "label": "Random Rotate", "type": "number", "default": 0, "min": 0, "max": 360 }
+    { "id": "random_scale", "label": "Random Scale", "type": "number", "default": 0, "min": 0, "max": 1, "step": 0.01 },
+    { "id": "random_rotate", "label": "Random Rotate", "type": "number", "default": 0, "min": 0, "max": 360 },
+    { "id": "scale_by_distance", "label": "Scale by Distance", "type": "number", "default": 0, "min": -1, "max": 1, "step": 0.01 }
   ],
   "runtime": "scatter"
 }

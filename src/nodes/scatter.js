@@ -68,6 +68,130 @@ function poissonDisk(w, h, radius, rand) {
   return points;
 }
 
+function generatePositions(pattern, count, w, h, rand) {
+  const halfW = w / 2, halfH = h / 2;
+
+  switch (pattern) {
+    case 'Grid': {
+      const cols = Math.ceil(Math.sqrt(count * w / h));
+      const rows = Math.ceil(count / cols);
+      const dx = w / cols, dy = h / rows;
+      const pts = [];
+      for (let r = 0; r < rows; r++)
+        for (let c = 0; c < cols; c++)
+          pts.push({ x: -halfW + dx * (c + 0.5), y: -halfH + dy * (r + 0.5) });
+      return pts;
+    }
+
+    case 'Hex': {
+      const cols = Math.ceil(Math.sqrt(count * w / h));
+      const rows = Math.ceil(count / cols);
+      const dx = w / cols;
+      const dy = h / rows;
+      const pts = [];
+      for (let r = 0; r < rows; r++) {
+        const offsetX = (r % 2) * dx * 0.5;
+        for (let c = 0; c < cols; c++) {
+          pts.push({ x: -halfW + dx * (c + 0.5) + offsetX, y: -halfH + dy * (r + 0.5) });
+        }
+      }
+      return pts;
+    }
+
+    case 'Radial': {
+      const rings = Math.ceil(Math.sqrt(count));
+      const pts = [];
+      let placed = 0;
+      for (let ring = 0; ring < rings && placed < count; ring++) {
+        const r = (ring + 1) / rings * Math.min(halfW, halfH);
+        const circumference = 2 * Math.PI * r;
+        const n = Math.max(1, Math.round(circumference / (Math.min(halfW, halfH) / rings)));
+        for (let i = 0; i < n && placed < count; i++) {
+          const a = (2 * Math.PI * i) / n;
+          pts.push({ x: r * Math.cos(a), y: r * Math.sin(a) });
+          placed++;
+        }
+      }
+      return pts;
+    }
+
+    case 'Sunflower': {
+      const golden = Math.PI * (3 - Math.sqrt(5));
+      const maxR = Math.min(halfW, halfH);
+      const pts = [];
+      for (let i = 0; i < count; i++) {
+        const r = maxR * Math.sqrt((i + 0.5) / count);
+        const theta = i * golden;
+        pts.push({ x: r * Math.cos(theta), y: r * Math.sin(theta) });
+      }
+      return pts;
+    }
+
+    case 'Poisson Disk': {
+      const radius = Math.sqrt(w * h / count) * 0.7;
+      return poissonDisk(w, h, radius, rand);
+    }
+
+    default: {
+      const pts = [];
+      for (let i = 0; i < count; i++)
+        pts.push({ x: (rand() - 0.5) * w, y: (rand() - 0.5) * h });
+      return pts;
+    }
+  }
+}
+
+function deepCloneGeo(geo) {
+  if (!geo) return null;
+  if ((geo.type === 'group' || geo.type === 'boolean') && geo.children) {
+    return { ...geo, children: geo.children.map(deepCloneGeo), bounds: geo.bounds ? { ...geo.bounds } : undefined };
+  }
+  return { ...geo, bounds: geo.bounds ? { ...geo.bounds } : undefined };
+}
+
+function transformLeafGeo(geo, fn) {
+  ensurePaper();
+  const path = geoToPaperPath(geo);
+  if (!path) return geo;
+  fn(path);
+  const pathData = path.pathData;
+  const b = path.bounds;
+  path.remove();
+  return {
+    type: 'booleanResult',
+    pathData,
+    fill: geo.fill || 'none',
+    stroke: geo.stroke || '#000000',
+    strokeWidth: geo.strokeWidth ?? 1,
+    bounds: { x: b.x, y: b.y, width: b.width, height: b.height },
+  };
+}
+
+function applyTransformToGeo(geo, fn) {
+  if (!geo) return null;
+  if ((geo.type === 'group' || geo.type === 'boolean') && geo.children) {
+    const transformed = geo.children.map((child) => applyTransformToGeo(child, fn));
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const child of transformed) {
+      if (child && child.bounds) {
+        minX = Math.min(minX, child.bounds.x);
+        minY = Math.min(minY, child.bounds.y);
+        maxX = Math.max(maxX, child.bounds.x + child.bounds.width);
+        maxY = Math.max(maxY, child.bounds.y + child.bounds.height);
+      }
+    }
+    return {
+      ...geo,
+      children: transformed,
+      bounds: {
+        x: isFinite(minX) ? minX : 0, y: isFinite(minY) ? minY : 0,
+        width: isFinite(maxX - minX) ? maxX - minX : 0, height: isFinite(maxY - minY) ? maxY - minY : 0,
+      },
+    };
+  }
+  return transformLeafGeo(geo, fn);
+}
+
 export function scatterRuntime(params, inputs) {
   ensurePaper();
 
@@ -78,78 +202,62 @@ export function scatterRuntime(params, inputs) {
   const count = Math.max(1, Math.min(500, params.count ?? 25));
   const w = params.width ?? 400;
   const h = params.height ?? 400;
+  const centerX = params.center_x ?? 0;
+  const centerY = params.center_y ?? 0;
   const seed = params.seed ?? 42;
   const randomScale = params.random_scale ?? 0;
   const randomRotate = params.random_rotate ?? 0;
+  const scaleByDist = params.scale_by_distance ?? 0;
 
   const rand = seededRandom(seed);
-  const halfW = w / 2, halfH = h / 2;
-  let positions = [];
+  const positions = generatePositions(pattern, count, w, h, rand);
 
-  switch (pattern) {
-    case 'Grid': {
-      const cols = Math.ceil(Math.sqrt(count * w / h));
-      const rows = Math.ceil(count / cols);
-      const dx = w / cols, dy = h / rows;
-      for (let r = 0; r < rows; r++)
-        for (let c = 0; c < cols; c++)
-          positions.push({ x: -halfW + dx * (c + 0.5), y: -halfH + dy * (r + 0.5) });
-      break;
-    }
-    case 'Radial': {
-      const rings = Math.ceil(Math.sqrt(count));
-      let placed = 0;
-      for (let ring = 0; ring < rings && placed < count; ring++) {
-        const r = (ring + 1) / rings * Math.min(halfW, halfH);
-        const circumference = 2 * Math.PI * r;
-        const n = Math.max(1, Math.round(circumference / (Math.min(halfW, halfH) / rings)));
-        for (let i = 0; i < n && placed < count; i++) {
-          const a = (2 * Math.PI * i) / n;
-          positions.push({ x: r * Math.cos(a), y: r * Math.sin(a) });
-          placed++;
-        }
-      }
-      break;
-    }
-    case 'Poisson Disk': {
-      const radius = Math.sqrt(w * h / count) * 0.7;
-      positions = poissonDisk(w, h, radius, rand);
-      break;
-    }
-    default:
-      for (let i = 0; i < count; i++)
-        positions.push({ x: (rand() - 0.5) * w, y: (rand() - 0.5) * h });
-  }
+  const maxDist = Math.sqrt(w * w + h * h) / 2;
+  const children = [];
 
-  const srcPath = geoToPaperPath(geo);
-  if (!srcPath) return geo;
-
-  const copies = [];
   for (const pos of positions) {
-    const copy = srcPath.clone();
-    copy.translate(new paper.Point(pos.x, pos.y));
-    if (randomRotate > 0) copy.rotate((rand() - 0.5) * randomRotate * 2);
-    if (randomScale > 0) {
-      const s = 1 + (rand() - 0.5) * randomScale * 2;
-      copy.scale(Math.max(0.1, s));
-    }
-    copies.push(copy);
+    const px = pos.x + centerX;
+    const py = pos.y + centerY;
+
+    const copy = applyTransformToGeo(deepCloneGeo(geo), (path) => {
+      path.translate(new paper.Point(px, py));
+
+      if (randomRotate > 0) {
+        path.rotate((rand() - 0.5) * randomRotate * 2, new paper.Point(px, py));
+      }
+
+      let s = 1;
+      if (randomScale > 0) s *= Math.max(0.1, 1 + (rand() - 0.5) * randomScale * 2);
+      if (scaleByDist !== 0) {
+        const dist = Math.sqrt(pos.x * pos.x + pos.y * pos.y);
+        const t = maxDist > 0 ? dist / maxDist : 0;
+        s *= Math.max(0.05, 1 - scaleByDist * t);
+      }
+      if (s !== 1) path.scale(s, new paper.Point(px, py));
+    });
+
+    if (copy) children.push(copy);
   }
-  srcPath.remove();
 
-  if (copies.length === 0) return null;
+  if (children.length === 0) return null;
 
-  const compound = new paper.CompoundPath({ children: copies });
-  const pathData = compound.pathData;
-  const bounds = compound.bounds;
-  compound.remove();
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const child of children) {
+    if (child && child.bounds) {
+      minX = Math.min(minX, child.bounds.x);
+      minY = Math.min(minY, child.bounds.y);
+      maxX = Math.max(maxX, child.bounds.x + child.bounds.width);
+      maxY = Math.max(maxY, child.bounds.y + child.bounds.height);
+    }
+  }
 
   return {
-    type: 'booleanResult',
-    pathData,
-    fill: geo.fill || 'none',
-    stroke: geo.stroke || '#000000',
-    strokeWidth: geo.strokeWidth ?? 1,
-    bounds: { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height },
+    type: 'group',
+    children,
+    transform: {},
+    bounds: {
+      x: isFinite(minX) ? minX : 0, y: isFinite(minY) ? minY : 0,
+      width: isFinite(maxX - minX) ? maxX - minX : 0, height: isFinite(maxY - minY) ? maxY - minY : 0,
+    },
   };
 }
