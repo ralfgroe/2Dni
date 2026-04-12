@@ -257,6 +257,127 @@ function chunkArray(arr, size) {
 }
 
 /* ========================================
+   Geometry bounding-box (for centering exports)
+   ======================================== */
+
+function mergeBox(a, b) {
+  if (!a) return b;
+  if (!b) return a;
+  return {
+    minX: Math.min(a.minX, b.minX),
+    minY: Math.min(a.minY, b.minY),
+    maxX: Math.max(a.maxX, b.maxX),
+    maxY: Math.max(a.maxY, b.maxY),
+  };
+}
+
+export function computeGeoBounds(geo) {
+  if (!geo) return null;
+
+  if (geo.bounds && geo.type !== 'group' && geo.type !== 'boolean' && geo.type !== 'export') {
+    const b = geo.bounds;
+    return { minX: b.x, minY: b.y, maxX: b.x + b.width, maxY: b.y + b.height };
+  }
+
+  switch (geo.type) {
+    case 'line':
+      return {
+        minX: Math.min(geo.x1, geo.x2),
+        minY: Math.min(geo.y1, geo.y2),
+        maxX: Math.max(geo.x1, geo.x2),
+        maxY: Math.max(geo.y1, geo.y2),
+      };
+
+    case 'rect':
+    case 'roundedRect':
+    case 'image':
+      return {
+        minX: geo.x ?? 0,
+        minY: geo.y ?? 0,
+        maxX: (geo.x ?? 0) + (geo.width ?? 0),
+        maxY: (geo.y ?? 0) + (geo.height ?? 0),
+      };
+
+    case 'ellipse':
+      return {
+        minX: (geo.cx ?? 0) - (geo.rx ?? 0),
+        minY: (geo.cy ?? 0) - (geo.ry ?? 0),
+        maxX: (geo.cx ?? 0) + (geo.rx ?? 0),
+        maxY: (geo.cy ?? 0) + (geo.ry ?? 0),
+      };
+
+    case 'arc':
+    case 'booleanResult': {
+      const pp = geo.pathData ? geoToPaperPath(geo) : null;
+      if (!pp) return null;
+      const b = pp.bounds;
+      pp.remove();
+      return { minX: b.x, minY: b.y, maxX: b.x + b.width, maxY: b.y + b.height };
+    }
+
+    case 'text': {
+      const pp = geoToPaperPath(geo);
+      if (!pp) {
+        const w = (geo.fontSize ?? 16) * (geo.content?.length ?? 1) * 0.6;
+        const h = geo.fontSize ?? 16;
+        return { minX: 0, minY: 0, maxX: w, maxY: h };
+      }
+      const b = pp.bounds;
+      pp.remove();
+      return { minX: b.x, minY: b.y, maxX: b.x + b.width, maxY: b.y + b.height };
+    }
+
+    case 'group': {
+      let box = null;
+      for (const child of (geo.children || [])) {
+        box = mergeBox(box, computeGeoBounds(child));
+      }
+      if (!box) return null;
+      const t = geo.transform || {};
+      const tx = t.translate_x ?? 0;
+      const ty = t.translate_y ?? 0;
+      const sx = t.scale_x ?? 1;
+      const sy = t.scale_y ?? 1;
+      box.minX = box.minX * sx + tx;
+      box.maxX = box.maxX * sx + tx;
+      box.minY = box.minY * sy + ty;
+      box.maxY = box.maxY * sy + ty;
+      if (sx < 0) { const tmp = box.minX; box.minX = box.maxX; box.maxX = tmp; }
+      if (sy < 0) { const tmp = box.minY; box.minY = box.maxY; box.maxY = tmp; }
+      return box;
+    }
+
+    case 'boolean': {
+      let box = null;
+      for (const child of (geo.children || [])) {
+        box = mergeBox(box, computeGeoBounds(child));
+      }
+      return box;
+    }
+
+    case 'export':
+      return computeGeoBounds(geo.geometry);
+
+    default:
+      return null;
+  }
+}
+
+export function centerTranslate(geo, canvasWidth, canvasHeight, offsetX = 0, offsetY = 0, zoom = 1) {
+  const bounds = computeGeoBounds(geo);
+  if (!bounds) return { tx: canvasWidth / 2 + offsetX, ty: canvasHeight / 2 + offsetY, zoom };
+  const cx = (bounds.minX + bounds.maxX) / 2;
+  const cy = (bounds.minY + bounds.maxY) / 2;
+  return { tx: canvasWidth / 2 - cx * zoom + offsetX, ty: canvasHeight / 2 - cy * zoom + offsetY, zoom };
+}
+
+function buildTransform(geo, canvasWidth, canvasHeight, offsetX, offsetY, zoom) {
+  const { tx, ty, zoom: z } = centerTranslate(geo, canvasWidth, canvasHeight, offsetX, offsetY, zoom);
+  if (z === 1) return `translate(${tx}, ${ty})`;
+  return `translate(${tx}, ${ty}) scale(${z})`;
+}
+
+/* ========================================
    SVG Export
    ======================================== */
 
@@ -266,13 +387,17 @@ export function exportSVG(geometry, params) {
     canvasHeight = 1080,
     backgroundColor = '#ffffff',
     filename = 'export',
+    offsetX = 0,
+    offsetY = 0,
+    zoom = 1,
   } = params;
 
   const svgContent = geometryToSVGString(geometry);
+  const xform = buildTransform(geometry, canvasWidth, canvasHeight, offsetX, offsetY, zoom);
 
   const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${canvasWidth}" height="${canvasHeight}" viewBox="0 0 ${canvasWidth} ${canvasHeight}">
-  <g transform="translate(${canvasWidth / 2}, ${canvasHeight / 2})">
+  <g transform="${xform}">
     ${svgContent}
   </g>
 </svg>`;
@@ -286,38 +411,75 @@ export function exportPNG(geometry, params) {
     canvasHeight = 1080,
     backgroundColor = '#ffffff',
     filename = 'export',
+    offsetX = 0,
+    offsetY = 0,
+    zoom = 1,
   } = params;
 
   const svgContent = geometryToSVGString(geometry);
+  const xform = buildTransform(geometry, canvasWidth, canvasHeight, offsetX, offsetY, zoom);
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${canvasWidth}" height="${canvasHeight}" viewBox="0 0 ${canvasWidth} ${canvasHeight}">
   <rect width="${canvasWidth}" height="${canvasHeight}" fill="${backgroundColor}" />
-  <g transform="translate(${canvasWidth / 2}, ${canvasHeight / 2})">
+  <g transform="${xform}">
     ${svgContent}
   </g>
 </svg>`;
 
+  rasterizeAndDownload(svg, canvasWidth, canvasHeight, `${filename}.png`, 'image/png');
+}
+
+export function exportJPEG(geometry, params) {
+  const {
+    canvasWidth = 1920,
+    canvasHeight = 1080,
+    backgroundColor = '#ffffff',
+    jpegQuality = 92,
+    filename = 'export',
+    offsetX = 0,
+    offsetY = 0,
+    zoom = 1,
+  } = params;
+
+  const svgContent = geometryToSVGString(geometry);
+  const xform = buildTransform(geometry, canvasWidth, canvasHeight, offsetX, offsetY, zoom);
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${canvasWidth}" height="${canvasHeight}" viewBox="0 0 ${canvasWidth} ${canvasHeight}">
+  <rect width="${canvasWidth}" height="${canvasHeight}" fill="${backgroundColor}" />
+  <g transform="${xform}">
+    ${svgContent}
+  </g>
+</svg>`;
+
+  rasterizeAndDownload(svg, canvasWidth, canvasHeight, `${filename}.jpg`, 'image/jpeg', jpegQuality / 100);
+}
+
+function rasterizeAndDownload(svgStr, width, height, outFilename, mimeType, quality) {
   const img = new Image();
-  const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+  const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
   const url = URL.createObjectURL(blob);
 
   img.onload = () => {
     const canvas = document.createElement('canvas');
-    canvas.width = canvasWidth;
-    canvas.height = canvasHeight;
+    canvas.width = width;
+    canvas.height = height;
     const ctx = canvas.getContext('2d');
+    if (mimeType === 'image/jpeg') {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
+    }
     ctx.drawImage(img, 0, 0);
     URL.revokeObjectURL(url);
 
-    canvas.toBlob((pngBlob) => {
-      if (pngBlob) {
+    canvas.toBlob((outBlob) => {
+      if (outBlob) {
         const a = document.createElement('a');
-        a.href = URL.createObjectURL(pngBlob);
-        a.download = `${filename}.png`;
+        a.href = URL.createObjectURL(outBlob);
+        a.download = outFilename;
         a.click();
         URL.revokeObjectURL(a.href);
       }
-    }, 'image/png');
+    }, mimeType, quality);
   };
 
   img.src = url;

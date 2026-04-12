@@ -6,6 +6,7 @@ import { useAnimationStore, RESOLUTION_PRESETS } from '../../store/animationStor
 import { evaluateGraph } from '../../utils/evaluateGraph';
 import { resolveAllNodesAtFrame } from '../../utils/interpolation';
 import { renderGeometry } from '../../utils/svgRenderer';
+import { centerTranslate } from '../../utils/exportUtils';
 import GimbalHandles from './GimbalHandles';
 import CornerPickOverlay from './CornerPickOverlay';
 import FreeCurveOverlay from './FreeCurveOverlay';
@@ -21,6 +22,8 @@ export default function Viewport() {
   const [showGrid, setShowGrid] = useState(true);
   const [showSplash, setShowSplash] = useState(true);
   const [fontVersion, setFontVersion] = useState(0);
+  const exportPanRef = useRef({ active: false, x: 0, y: 0 });
+  const exportFrameRef = useRef(null);
 
   useEffect(() => {
     const handler = () => setFontVersion((v) => v + 1);
@@ -37,6 +40,7 @@ export default function Viewport() {
   const selectedNodeId = useGraphStore((s) => s.selectedNodeId);
   const displayNodeId = useGraphStore((s) => s.displayNodeId);
   const selectNode = useGraphStore((s) => s.selectNode);
+  const updateNodeParams = useGraphStore((s) => s.updateNodeParams);
   const definitions = useNodeRegistryStore((s) => s.definitions);
 
   const animEnabled = useAnimationStore((s) => s.enabled);
@@ -81,6 +85,43 @@ export default function Viewport() {
   const selectedDef = selectedNode
     ? definitions[selectedNode.data.definitionId]
     : null;
+
+  const exportFrameRect = useMemo(() => {
+    if (!selectedNode) return null;
+    const def = definitions[selectedNode.data.definitionId];
+    if (!def || def.id !== 'export') return null;
+    const p = selectedNode.data.params || {};
+    const fmt = p.format ?? 'svg';
+    if (fmt === 'obj' || fmt === 'geo') return null;
+
+    const res = p.resolution ?? 'hd';
+    let ew, eh;
+    if (res === 'hd') { ew = 1920; eh = 1080; }
+    else if (res === '4k') { ew = 3840; eh = 2160; }
+    else { ew = p.canvas_width ?? 1920; eh = p.canvas_height ?? 1080; }
+
+    const offsetX = p.offset_x ?? 0;
+    const offsetY = p.offset_y ?? 0;
+    const zoom = p.zoom ?? 1;
+
+    const geo = results.get(selectedNode.id);
+    const sourceGeo = geo && geo.geometry ? geo.geometry : geo;
+
+    const { tx, ty, zoom: z } = centerTranslate(sourceGeo, ew, eh, offsetX, offsetY, zoom);
+
+    const worldX = (0 - tx) / z;
+    const worldY = (0 - ty) / z;
+    const worldW = ew / z;
+    const worldH = eh / z;
+
+    return { x: worldX, y: worldY, w: worldW, h: worldH, canvasW: ew, canvasH: eh };
+  }, [selectedNode, definitions, results]);
+
+  useEffect(() => {
+    exportFrameRef.current = exportFrameRect && !cameraRect
+      ? { rect: exportFrameRect, nodeId: selectedNode?.id, params: selectedNode?.data?.params }
+      : null;
+  });
 
   const screenToSvg = useCallback(
     (clientX, clientY) => {
@@ -138,6 +179,29 @@ export default function Viewport() {
       if (!svg) return;
       const ctm = svg.getScreenCTM();
       if (!ctm) return;
+
+      const ef = exportFrameRef.current;
+      if (ef) {
+        const inv = ctm.inverse();
+        const mx = inv.a * e.clientX + inv.c * e.clientY + inv.e;
+        const my = inv.b * e.clientX + inv.d * e.clientY + inv.f;
+        const fr = ef.rect;
+        if (mx >= fr.x && mx <= fr.x + fr.w && my >= fr.y && my <= fr.y + fr.h) {
+          const isPinch = e.ctrlKey || e.metaKey;
+          const isDiscrete = e.deltaY !== 0 && e.deltaY % 1 === 0 && Math.abs(e.deltaY) >= 50;
+          const isMouseWheel = !isPinch && isDiscrete;
+          if (isPinch || isMouseWheel) {
+            const p = ef.params || {};
+            const oldZoom = p.zoom ?? 1;
+            const factor = isPinch
+              ? Math.pow(2, -e.deltaY * 0.01)
+              : (e.deltaY > 0 ? 0.9 : 1.1);
+            const newZoom = Math.max(0.01, Math.min(20, oldZoom * factor));
+            useGraphStore.getState().updateNodeParams(ef.nodeId, { zoom: Math.round(newZoom * 100) / 100 });
+            return;
+          }
+        }
+      }
 
       const isPinch = e.ctrlKey || e.metaKey;
       const hasHorizontal = Math.abs(e.deltaX) > 0;
@@ -252,6 +316,51 @@ export default function Viewport() {
       setViewBox({ x: minX - padding, y: minY - padding, w, h });
     }
   }, [results]);
+
+  const isExportFrameActive = exportFrameRect && !cameraRect;
+
+  const handleExportFrameDown = useCallback((e) => {
+    if (!isExportFrameActive || !selectedNode) return;
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    exportPanRef.current = { active: true, x: e.clientX, y: e.clientY };
+    setIsPanning(true);
+  }, [isExportFrameActive, selectedNode]);
+
+  const handleExportFrameMove = useCallback((e) => {
+    if (!exportPanRef.current.active || !selectedNode) return;
+    const svg = svgRef.current;
+    if (!svg) return;
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return;
+    const scale = ctm.a;
+    const dx = (e.clientX - exportPanRef.current.x) / scale;
+    const dy = (e.clientY - exportPanRef.current.y) / scale;
+    exportPanRef.current.x = e.clientX;
+    exportPanRef.current.y = e.clientY;
+
+    const p = selectedNode.data.params || {};
+    const z = p.zoom ?? 1;
+    const newOffX = (p.offset_x ?? 0) - dx * z;
+    const newOffY = (p.offset_y ?? 0) - dy * z;
+    updateNodeParams(selectedNode.id, { offset_x: newOffX, offset_y: newOffY });
+  }, [selectedNode, updateNodeParams]);
+
+  const handleExportFrameUp = useCallback(() => {
+    exportPanRef.current.active = false;
+    setIsPanning(false);
+  }, []);
+
+  useEffect(() => {
+    if (!isExportFrameActive) return;
+    window.addEventListener('mousemove', handleExportFrameMove);
+    window.addEventListener('mouseup', handleExportFrameUp);
+    return () => {
+      window.removeEventListener('mousemove', handleExportFrameMove);
+      window.removeEventListener('mouseup', handleExportFrameUp);
+    };
+  }, [isExportFrameActive, handleExportFrameMove, handleExportFrameUp]);
 
   const gridSize = 50;
 
@@ -473,6 +582,41 @@ export default function Viewport() {
               fill="black" opacity={0.08} />
             <rect x={cameraRect.x + cameraRect.w} y={cameraRect.y} width={viewBox.x + viewBox.w - cameraRect.x - cameraRect.w} height={cameraRect.h}
               fill="black" opacity={0.08} />
+          </g>
+        )}
+
+        {/* Export preview frame overlay */}
+        {exportFrameRect && !cameraRect && (
+          <g>
+            <rect
+              x={exportFrameRect.x} y={exportFrameRect.y}
+              width={exportFrameRect.w} height={exportFrameRect.h}
+              fill="transparent"
+              style={{ cursor: 'grab' }}
+              onMouseDown={handleExportFrameDown}
+            />
+            <g style={{ pointerEvents: 'none' }}>
+              <rect
+                x={exportFrameRect.x} y={exportFrameRect.y}
+                width={exportFrameRect.w} height={exportFrameRect.h}
+                fill="none" stroke="#ef4444" strokeWidth={viewBox.w * 0.002}
+                opacity={0.9}
+              />
+              <rect x={viewBox.x} y={viewBox.y} width={viewBox.w} height={exportFrameRect.y - viewBox.y}
+                fill="black" opacity={0.08} />
+              <rect x={viewBox.x} y={exportFrameRect.y + exportFrameRect.h} width={viewBox.w} height={viewBox.y + viewBox.h - exportFrameRect.y - exportFrameRect.h}
+                fill="black" opacity={0.08} />
+              <rect x={viewBox.x} y={exportFrameRect.y} width={exportFrameRect.x - viewBox.x} height={exportFrameRect.h}
+                fill="black" opacity={0.08} />
+              <rect x={exportFrameRect.x + exportFrameRect.w} y={exportFrameRect.y} width={viewBox.x + viewBox.w - exportFrameRect.x - exportFrameRect.w} height={exportFrameRect.h}
+                fill="black" opacity={0.08} />
+              <text
+                x={exportFrameRect.x + exportFrameRect.w / 2}
+                y={exportFrameRect.y - viewBox.h * 0.012}
+                textAnchor="middle"
+                fill="#ef4444" fontSize={viewBox.h * 0.022} opacity={0.7}
+              >{exportFrameRect.canvasW} x {exportFrameRect.canvasH}</text>
+            </g>
           </g>
         )}
       </svg>

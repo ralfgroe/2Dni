@@ -4,7 +4,7 @@ import { useNodeRegistryStore } from '../../store/nodeRegistryStore';
 import { useAnimationStore } from '../../store/animationStore';
 import { evaluateGraph } from '../../utils/evaluateGraph';
 import { resolveAllNodesAtFrame, interpolateValue, EASING_OPTIONS } from '../../utils/interpolation';
-import { exportSVG, exportPNG, exportOBJ, exportGEO } from '../../utils/exportUtils';
+import { exportSVG, exportPNG, exportJPEG, exportOBJ, exportGEO } from '../../utils/exportUtils';
 import { extractPoints } from '../../utils/geometryPoints';
 import WrangleChat from './WrangleChat';
 
@@ -101,12 +101,20 @@ export default function ParameterPanel() {
     const geo = results.get(selectedNode.id);
     if (!geo) return;
     const sourceGeo = geo.geometry || geo;
-    const exportParams = { ...params, canvasWidth: params.canvas_width, canvasHeight: params.canvas_height, backgroundColor: params.background_color };
+    const exportParams = (() => {
+      const res = params.resolution ?? 'hd';
+      let w = params.canvas_width ?? 1920;
+      let h = params.canvas_height ?? 1080;
+      if (res === 'hd') { w = 1920; h = 1080; }
+      else if (res === '4k') { w = 3840; h = 2160; }
+      return { ...params, canvasWidth: w, canvasHeight: h, backgroundColor: params.background_color, jpegQuality: params.jpeg_quality, offsetX: params.offset_x ?? 0, offsetY: params.offset_y ?? 0, zoom: params.zoom ?? 1 };
+    })();
     switch (params.format) {
-      case 'png': exportPNG(sourceGeo, exportParams); break;
-      case 'obj': exportOBJ(sourceGeo, exportParams); break;
-      case 'geo': exportGEO(sourceGeo, exportParams); break;
-      default:    exportSVG(sourceGeo, exportParams); break;
+      case 'png':  exportPNG(sourceGeo, exportParams); break;
+      case 'jpeg': exportJPEG(sourceGeo, exportParams); break;
+      case 'obj':  exportOBJ(sourceGeo, exportParams); break;
+      case 'geo':  exportGEO(sourceGeo, exportParams); break;
+      default:     exportSVG(sourceGeo, exportParams); break;
     }
   };
 
@@ -121,6 +129,14 @@ export default function ParameterPanel() {
       {/* Parameter list */}
       <div className="flex flex-col gap-3 py-4">
         {definition.parameters.map((paramDef) => {
+          if (definition.id === 'export') {
+            const fmt = params.format ?? 'svg';
+            const isPixel = fmt === 'svg' || fmt === 'png' || fmt === 'jpeg';
+            const res = params.resolution ?? 'hd';
+            if (!isPixel && (paramDef.id === 'resolution' || paramDef.id === 'canvas_width' || paramDef.id === 'canvas_height' || paramDef.id === 'background_color' || paramDef.id === 'offset_x' || paramDef.id === 'offset_y' || paramDef.id === 'zoom')) return null;
+            if (isPixel && res !== 'custom' && (paramDef.id === 'canvas_width' || paramDef.id === 'canvas_height')) return null;
+            if (fmt !== 'jpeg' && paramDef.id === 'jpeg_quality') return null;
+          }
           if (definition.id === 'circle') {
             const separateXY = params.separate_xy;
             if (!separateXY && (paramDef.id === 'diameter_x' || paramDef.id === 'diameter_y')) return null;

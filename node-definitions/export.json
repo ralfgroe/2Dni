@@ -2,16 +2,21 @@
   "id": "export",
   "label": "Export",
   "category": "I/O",
-  "description": "Terminal node that exports the graph result as SVG, PNG, OBJ, or Houdini GEO.",
+  "description": "Terminal node that exports the graph result as SVG, PNG, JPEG, OBJ, or Houdini GEO.",
   "inputs": [
     { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }
   ],
   "outputs": [],
   "parameters": [
-    { "id": "format", "label": "Format", "type": "select", "default": "svg", "options": ["svg", "png", "obj", "geo"] },
+    { "id": "format", "label": "Format", "type": "select", "default": "svg", "options": ["svg", "png", "jpeg", "obj", "geo"] },
+    { "id": "resolution", "label": "Resolution", "type": "select", "default": "hd", "options": ["hd", "4k", "custom"] },
     { "id": "filename", "label": "Filename", "type": "text", "default": "export" },
     { "id": "canvas_width", "label": "Canvas Width", "type": "number", "default": 1920, "min": 1, "max": 16384 },
     { "id": "canvas_height", "label": "Canvas Height", "type": "number", "default": 1080, "min": 1, "max": 16384 },
+    { "id": "jpeg_quality", "label": "JPEG Quality", "type": "number", "default": 92, "min": 1, "max": 100 },
+    { "id": "offset_x", "label": "Offset X", "type": "number", "default": 0, "min": -10000, "max": 10000 },
+    { "id": "offset_y", "label": "Offset Y", "type": "number", "default": 0, "min": -10000, "max": 10000 },
+    { "id": "zoom", "label": "Zoom", "type": "number", "default": 1, "min": 0.01, "max": 20, "step": 0.01 },
     { "id": "background_color", "label": "Background", "type": "color", "default": "#ffffff" }
   ],
   "runtime": "export",
