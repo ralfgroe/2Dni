@@ -34,6 +34,70 @@ function transformPoint(x, y, finalScaleX, finalScaleY, rotate, translate_x, tra
   return { x: px, y: py };
 }
 
+function transformSingleGeo(geo, finalScaleX, finalScaleY, rotate, translate_x, translate_y, pivot_x, pivot_y) {
+  ensurePaper();
+  const path = geoToPaperPath(geo);
+  if (!path) return geo;
+
+  const pivot = new paper.Point(pivot_x, pivot_y);
+  if (finalScaleX !== 1 || finalScaleY !== 1) {
+    path.scale(finalScaleX, finalScaleY, pivot);
+  }
+  if (rotate !== 0) {
+    path.rotate(rotate, pivot);
+  }
+  if (translate_x !== 0 || translate_y !== 0) {
+    path.translate(new paper.Point(translate_x, translate_y));
+  }
+
+  const pathData = path.pathData;
+  const bounds = path.bounds;
+  path.remove();
+
+  const hasFill = geo.fill && geo.fill !== 'none';
+  return {
+    type: 'booleanResult',
+    pathData,
+    fill: hasFill ? geo.fill : 'none',
+    stroke: geo.stroke || '#000000',
+    strokeWidth: geo.strokeWidth ?? 1,
+    bounds: { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height },
+  };
+}
+
+function transformGeoRecursive(geo, finalScaleX, finalScaleY, rotate, translate_x, translate_y, pivot_x, pivot_y) {
+  if (!geo) return null;
+
+  if ((geo.type === 'group' || geo.type === 'boolean') && geo.children) {
+    const transformedChildren = geo.children.map((child) =>
+      transformGeoRecursive(child, finalScaleX, finalScaleY, rotate, translate_x, translate_y, pivot_x, pivot_y)
+    ).filter(Boolean);
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const child of transformedChildren) {
+      if (child && child.bounds) {
+        minX = Math.min(minX, child.bounds.x);
+        minY = Math.min(minY, child.bounds.y);
+        maxX = Math.max(maxX, child.bounds.x + child.bounds.width);
+        maxY = Math.max(maxY, child.bounds.y + child.bounds.height);
+      }
+    }
+    return {
+      ...geo,
+      transform: {},
+      children: transformedChildren,
+      bounds: {
+        x: isFinite(minX) ? minX : 0,
+        y: isFinite(minY) ? minY : 0,
+        width: isFinite(maxX - minX) ? maxX - minX : 0,
+        height: isFinite(maxY - minY) ? maxY - minY : 0,
+      },
+    };
+  }
+
+  return transformSingleGeo(geo, finalScaleX, finalScaleY, rotate, translate_x, translate_y, pivot_x, pivot_y);
+}
+
 export function transformRuntime(params, inputs) {
   const {
     translate_x = 0,
@@ -77,51 +141,5 @@ export function transformRuntime(params, inputs) {
     };
   }
 
-  ensurePaper();
-
-  const path = geoToPaperPath(inputGeo);
-  if (!path) {
-    const geometries = Array.isArray(inputGeo) ? inputGeo : [inputGeo];
-    return {
-      type: 'group',
-      transform: {
-        translate_x, translate_y, rotate,
-        scale_x: finalScaleX, scale_y: finalScaleY,
-        pivot_x, pivot_y,
-      },
-      children: geometries,
-      bounds: inputGeo.bounds || { x: 0, y: 0, width: 0, height: 0 },
-    };
-  }
-
-  const pivot = new paper.Point(pivot_x, pivot_y);
-  if (finalScaleX !== 1 || finalScaleY !== 1) {
-    path.scale(finalScaleX, finalScaleY, pivot);
-  }
-  if (rotate !== 0) {
-    path.rotate(rotate, pivot);
-  }
-  if (translate_x !== 0 || translate_y !== 0) {
-    path.translate(new paper.Point(translate_x, translate_y));
-  }
-
-  const pathData = path.pathData;
-  const bounds = path.bounds;
-  path.remove();
-
-  const hasFill = inputGeo.fill && inputGeo.fill !== 'none';
-
-  return {
-    type: 'booleanResult',
-    pathData,
-    fill: hasFill ? inputGeo.fill : 'none',
-    stroke: inputGeo.stroke || '#000000',
-    strokeWidth: inputGeo.strokeWidth ?? 1,
-    bounds: {
-      x: bounds.x,
-      y: bounds.y,
-      width: bounds.width,
-      height: bounds.height,
-    },
-  };
+  return transformGeoRecursive(inputGeo, finalScaleX, finalScaleY, rotate, translate_x, translate_y, pivot_x, pivot_y);
 }
