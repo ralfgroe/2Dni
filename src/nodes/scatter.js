@@ -130,7 +130,7 @@ function getGeoBoundsSize(geo) {
   return { w: b.width, h: b.height };
 }
 
-function generatePositions(pattern, count, w, h, rand, geoSize, spacing) {
+function generatePositions(pattern, count, w, h, rand, geoSize, spacing, randomRotate) {
   const halfW = w / 2, halfH = h / 2;
 
   switch (pattern) {
@@ -190,9 +190,14 @@ function generatePositions(pattern, count, w, h, rand, geoSize, spacing) {
     }
 
     case 'Poisson Disk': {
-      const geoDiag = geoSize ? Math.max(geoSize.w, geoSize.h) : 0;
-      const minRadius = geoDiag > 0
-        ? (geoDiag + spacing)
+      let geoExtent = 0;
+      if (geoSize && (geoSize.w > 0 || geoSize.h > 0)) {
+        geoExtent = randomRotate > 0
+          ? Math.sqrt(geoSize.w * geoSize.w + geoSize.h * geoSize.h)
+          : Math.max(geoSize.w, geoSize.h);
+      }
+      const minRadius = geoExtent > 0
+        ? (geoExtent + spacing)
         : Math.sqrt(w * h / count) * 0.7;
       const radius = Math.max(minRadius, 2);
       return poissonDisk(w, h, radius, rand);
@@ -219,14 +224,14 @@ function buildFieldPath(fieldGeo) {
   return path;
 }
 
-function generateFieldPositions(pattern, count, fieldPath, rand, geoSize, spacing) {
+function generateFieldPositions(pattern, count, fieldPath, rand, geoSize, spacing, randomRotate) {
   const fb = fieldPath.bounds;
   const w = fb.width;
   const h = fb.height;
   const cx = fb.center.x;
   const cy = fb.center.y;
 
-  const raw = generatePositions(pattern, count, w, h, rand, geoSize, spacing);
+  const raw = generatePositions(pattern, count, w, h, rand, geoSize, spacing, randomRotate);
 
   const shifted = raw.map(p => ({ x: p.x + cx, y: p.y + cy }));
 
@@ -334,10 +339,10 @@ export function scatterRuntime(params, inputs) {
     if (pattern === 'Random') {
       positions = generateFieldRandom(count, fieldPath, rand, count * 20);
     } else {
-      positions = generateFieldPositions(pattern, count, fieldPath, rand, geoSize, spacing);
+      positions = generateFieldPositions(pattern, count, fieldPath, rand, geoSize, spacing, randomRotate);
     }
   } else {
-    positions = generatePositions(pattern, count, w, h, rand, geoSize, spacing);
+    positions = generatePositions(pattern, count, w, h, rand, geoSize, spacing, randomRotate);
   }
 
   const scatterW = fieldPath ? fieldPath.bounds.width : w;
