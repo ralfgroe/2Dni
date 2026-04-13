@@ -117,7 +117,16 @@ function voronoiRelax(count, w, h, rand, iterations = 8) {
   return pts;
 }
 
-function generatePositions(pattern, count, w, h, rand) {
+function getGeoBoundsSize(geo) {
+  ensurePaper();
+  const path = geoToPaperPath(geo);
+  if (!path) return { w: 0, h: 0 };
+  const b = path.bounds;
+  path.remove();
+  return { w: b.width, h: b.height };
+}
+
+function generatePositions(pattern, count, w, h, rand, geoSize, spacing) {
   const halfW = w / 2, halfH = h / 2;
 
   switch (pattern) {
@@ -177,7 +186,11 @@ function generatePositions(pattern, count, w, h, rand) {
     }
 
     case 'Poisson Disk': {
-      const radius = Math.sqrt(w * h / count) * 0.7;
+      const geoDiag = geoSize ? Math.max(geoSize.w, geoSize.h) : 0;
+      const minRadius = geoDiag > 0
+        ? (geoDiag + spacing)
+        : Math.sqrt(w * h / count) * 0.7;
+      const radius = Math.max(minRadius, 2);
       return poissonDisk(w, h, radius, rand);
     }
 
@@ -202,14 +215,14 @@ function buildFieldPath(fieldGeo) {
   return path;
 }
 
-function generateFieldPositions(pattern, count, fieldPath, rand) {
+function generateFieldPositions(pattern, count, fieldPath, rand, geoSize, spacing) {
   const fb = fieldPath.bounds;
   const w = fb.width;
   const h = fb.height;
   const cx = fb.center.x;
   const cy = fb.center.y;
 
-  const raw = generatePositions(pattern, count, w, h, rand);
+  const raw = generatePositions(pattern, count, w, h, rand, geoSize, spacing);
 
   const shifted = raw.map(p => ({ x: p.x + cx, y: p.y + cy }));
 
@@ -301,7 +314,9 @@ export function scatterRuntime(params, inputs) {
   const randomScale = params.random_scale ?? 0;
   const randomRotate = params.random_rotate ?? 0;
   const scaleByDist = params.scale_by_distance ?? 0;
+  const spacing = params.spacing ?? 0;
 
+  const geoSize = getGeoBoundsSize(geo);
   const rand = seededRandom(seed);
 
   let fieldPath = null;
@@ -315,10 +330,10 @@ export function scatterRuntime(params, inputs) {
     if (pattern === 'Random') {
       positions = generateFieldRandom(count, fieldPath, rand, count * 20);
     } else {
-      positions = generateFieldPositions(pattern, count, fieldPath, rand);
+      positions = generateFieldPositions(pattern, count, fieldPath, rand, geoSize, spacing);
     }
   } else {
-    positions = generatePositions(pattern, count, w, h, rand);
+    positions = generatePositions(pattern, count, w, h, rand, geoSize, spacing);
   }
 
   const scatterW = fieldPath ? fieldPath.bounds.width : w;
