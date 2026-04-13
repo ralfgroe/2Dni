@@ -58,6 +58,7 @@ export function mirrorRuntime(params, inputs) {
     fill: hasFill ? inputGeo.fill : 'none',
     stroke: inputGeo.stroke || '#000000',
     strokeWidth: inputGeo.strokeWidth ?? 1,
+    opacity: inputGeo.opacity,
     bounds: {
       x: bounds.x,
       y: bounds.y,

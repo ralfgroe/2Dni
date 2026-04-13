@@ -148,6 +148,7 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
         <g
           key={nodeId}
           transform={transformStr}
+          opacity={geoOpacity}
           onClick={handleClick}
           className="cursor-pointer"
           filter={isSelected ? 'url(#selection-glow)' : undefined}
@@ -164,6 +165,7 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
       return (
         <g
           key={nodeId}
+          opacity={geoOpacity}
           onClick={handleClick}
           className="cursor-pointer"
           filter={isSelected ? 'url(#selection-glow)' : undefined}

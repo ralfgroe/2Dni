@@ -135,6 +135,7 @@ export function offsetRuntime(params, inputs) {
         fill: hasFill ? inputGeo.fill : 'none',
         stroke: inputGeo.stroke || workGeo.stroke || '#000000',
         strokeWidth: inputGeo.strokeWidth ?? workGeo.strokeWidth ?? 1,
+        opacity: inputGeo.opacity,
         bounds: {
           x: bounds.x,
           y: bounds.y,

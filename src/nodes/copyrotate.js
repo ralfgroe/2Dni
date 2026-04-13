@@ -37,6 +37,7 @@ function transformGeoWithPaper(geo, fn) {
     fill: geo.fill || 'none',
     stroke: geo.stroke || '#000000',
     strokeWidth: geo.strokeWidth ?? 1,
+    opacity: geo.opacity,
     bounds: { x: b.x, y: b.y, width: b.width, height: b.height },
   };
 }

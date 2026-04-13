@@ -55,6 +55,7 @@ export function booleanRuntime(params, inputs) {
       fill: geoA.fill || '#ffffff',
       stroke: geoA.stroke || '#000000',
       strokeWidth: geoA.strokeWidth ?? 1,
+      opacity: geoA.opacity,
       bounds: {
         x: bounds.x,
         y: bounds.y,

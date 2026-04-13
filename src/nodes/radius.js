@@ -96,6 +96,7 @@ export function radiusRuntime(params, inputs) {
         fill: workGeo.fill || inputGeo.fill || '#ffffff',
         stroke: workGeo.stroke || inputGeo.stroke || '#000000',
         strokeWidth: workGeo.strokeWidth ?? inputGeo.strokeWidth ?? 1,
+        opacity: inputGeo.opacity,
         bounds: {
           x: bounds.x,
           y: bounds.y,

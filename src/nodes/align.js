@@ -90,6 +90,7 @@ function translateGeo(geo, dx, dy) {
     fill: geo.fill && geo.fill !== 'none' ? geo.fill : 'none',
     stroke: geo.stroke || '#000000',
     strokeWidth: geo.strokeWidth ?? 1,
+    opacity: geo.opacity,
     bounds: {
       x: bounds.x,
       y: bounds.y,

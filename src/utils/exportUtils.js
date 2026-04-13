@@ -488,23 +488,25 @@ function rasterizeAndDownload(svgStr, width, height, outFilename, mimeType, qual
 function geometryToSVGString(geo) {
   if (!geo) return '';
 
+  const opAttr = geo.opacity != null && geo.opacity !== 1 ? ` opacity="${geo.opacity}"` : '';
+
   switch (geo.type) {
     case 'line':
-      return `<line x1="${geo.x1}" y1="${geo.y1}" x2="${geo.x2}" y2="${geo.y2}" stroke="${geo.stroke}" stroke-width="${geo.strokeWidth}" />`;
+      return `<line x1="${geo.x1}" y1="${geo.y1}" x2="${geo.x2}" y2="${geo.y2}" stroke="${geo.stroke}" stroke-width="${geo.strokeWidth}"${opAttr} />`;
 
     case 'rect':
-      return `<rect x="${geo.x}" y="${geo.y}" width="${geo.width}" height="${geo.height}" fill="${geo.fill}" stroke="${geo.stroke}" stroke-width="${geo.strokeWidth}" />`;
+      return `<rect x="${geo.x}" y="${geo.y}" width="${geo.width}" height="${geo.height}" fill="${geo.fill}" stroke="${geo.stroke}" stroke-width="${geo.strokeWidth}"${opAttr} />`;
 
     case 'ellipse':
-      return `<ellipse cx="${geo.cx}" cy="${geo.cy}" rx="${geo.rx}" ry="${geo.ry}" fill="${geo.fill}" stroke="${geo.stroke}" stroke-width="${geo.strokeWidth}" />`;
+      return `<ellipse cx="${geo.cx}" cy="${geo.cy}" rx="${geo.rx}" ry="${geo.ry}" fill="${geo.fill}" stroke="${geo.stroke}" stroke-width="${geo.strokeWidth}"${opAttr} />`;
 
     case 'arc':
-      return `<path d="${geo.pathData}" fill="${geo.fill}" stroke="${geo.stroke}" stroke-width="${geo.strokeWidth}" />`;
+      return `<path d="${geo.pathData}" fill="${geo.fill}" stroke="${geo.stroke}" stroke-width="${geo.strokeWidth}"${opAttr} />`;
 
     case 'roundedRect': {
       const corners = geo.corners || [geo.rx, geo.rx, geo.rx, geo.rx];
       const d = exportRoundedRectPath(geo.x, geo.y, geo.width, geo.height, corners);
-      return `<path d="${d}" fill="${geo.fill}" stroke="${geo.stroke}" stroke-width="${geo.strokeWidth}" />`;
+      return `<path d="${d}" fill="${geo.fill}" stroke="${geo.stroke}" stroke-width="${geo.strokeWidth}"${opAttr} />`;
     }
 
     case 'text': {
@@ -513,22 +515,22 @@ function geometryToSVGString(geo) {
       const strokeAttr = geo.stroke && geo.stroke !== 'none'
         ? ` stroke="${geo.stroke}" stroke-width="${geo.strokeWidth || 0}" paint-order="stroke"`
         : '';
-      return `<text x="0" y="${geo.fontSize}" font-family="${geo.fontFamily}" font-size="${geo.fontSize}" font-weight="${geo.fontWeight}" font-style="${geo.fontStyle || 'normal'}" letter-spacing="${geo.letterSpacing || 0}" text-anchor="${anchor}" fill="${geo.fill}"${strokeAttr}>${escapeXml(geo.content)}</text>`;
+      return `<text x="0" y="${geo.fontSize}" font-family="${geo.fontFamily}" font-size="${geo.fontSize}" font-weight="${geo.fontWeight}" font-style="${geo.fontStyle || 'normal'}" letter-spacing="${geo.letterSpacing || 0}" text-anchor="${anchor}" fill="${geo.fill}"${strokeAttr}${opAttr}>${escapeXml(geo.content)}</text>`;
     }
 
     case 'group': {
       const { translate_x = 0, translate_y = 0, rotate = 0, scale_x = 1, scale_y = 1, pivot_x = 0, pivot_y = 0 } = geo.transform || {};
       const childSvg = (geo.children || []).map(geometryToSVGString).join('\n    ');
-      return `<g transform="translate(${translate_x}, ${translate_y}) rotate(${rotate}, ${pivot_x}, ${pivot_y}) scale(${scale_x}, ${scale_y})">\n    ${childSvg}\n  </g>`;
+      return `<g transform="translate(${translate_x}, ${translate_y}) rotate(${rotate}, ${pivot_x}, ${pivot_y}) scale(${scale_x}, ${scale_y})"${opAttr}>\n    ${childSvg}\n  </g>`;
     }
 
     case 'boolean': {
       const childSvg = (geo.children || []).map(geometryToSVGString).join('\n    ');
-      return `<g>\n    ${childSvg}\n  </g>`;
+      return `<g${opAttr}>\n    ${childSvg}\n  </g>`;
     }
 
     case 'booleanResult':
-      return `<path d="${geo.pathData}" fill="${geo.fill}" stroke="${geo.stroke}" stroke-width="${geo.strokeWidth}" />`;
+      return `<path d="${geo.pathData}" fill="${geo.fill}" stroke="${geo.stroke}" stroke-width="${geo.strokeWidth}"${opAttr} />`;
 
     case 'export':
       return geometryToSVGString(geo.geometry);

@@ -23,6 +23,7 @@ function childToGeo(paperPath, srcGeo) {
     fill: srcGeo.fill || '#ffffff',
     stroke: srcGeo.stroke || '#000000',
     strokeWidth: srcGeo.strokeWidth ?? 1,
+    opacity: srcGeo.opacity,
     bounds: { x: b.x, y: b.y, width: b.width, height: b.height },
   };
 }

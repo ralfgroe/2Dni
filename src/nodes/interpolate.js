@@ -67,6 +67,7 @@ export function interpolateRuntime(params, inputs) {
     fill: blend < 0.5 ? (geoA.fill || 'none') : (geoB.fill || 'none'),
     stroke: geoA.stroke || '#000000',
     strokeWidth: geoA.strokeWidth ?? 1,
+    opacity: blend < 0.5 ? geoA.opacity : geoB.opacity,
     bounds: { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height },
   };
 }

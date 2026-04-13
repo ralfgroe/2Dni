@@ -224,6 +224,7 @@ export function fuseRuntime(params, inputs) {
     fill: 'none',
     stroke,
     strokeWidth,
+    opacity: inputGeo.opacity,
     bounds: {
       x: bounds.x,
       y: bounds.y,

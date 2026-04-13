@@ -66,6 +66,7 @@ export function subdivideRuntime(params, inputs) {
     fill: geo.fill || 'none',
     stroke: geo.stroke || '#000000',
     strokeWidth: geo.strokeWidth ?? 1,
+    opacity: geo.opacity,
     bounds: { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height },
   };
 }
