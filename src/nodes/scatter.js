@@ -29,12 +29,12 @@ function poissonDisk(w, h, radius, rand) {
   active.push(0);
   grid[gridIdx(first.x, first.y)] = 0;
 
-  while (active.length > 0 && points.length < 2000) {
+  while (active.length > 0 && points.length < 4000) {
     const idx = Math.floor(rand() * active.length);
     const pt = points[active[idx]];
     let found = false;
 
-    for (let attempt = 0; attempt < 30; attempt++) {
+    for (let attempt = 0; attempt < 60; attempt++) {
       const angle = rand() * 2 * Math.PI;
       const dist = radius + rand() * radius;
       const nx = pt.x + dist * Math.cos(angle);
@@ -314,7 +314,7 @@ export function scatterRuntime(params, inputs) {
   const fieldGeo = inputs?.scatter_field || null;
 
   const pattern = params.pattern ?? 'Random';
-  const count = Math.max(1, Math.min(1000, params.count ?? 25));
+  const count = Math.max(1, Math.min(4000, params.count ?? 25));
   const w = params.width ?? 400;
   const h = params.height ?? 400;
   const centerX = params.center_x ?? 0;
