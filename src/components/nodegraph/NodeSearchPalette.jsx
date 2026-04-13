@@ -170,6 +170,7 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
 
       <div
         ref={paletteRef}
+        data-node-palette
         className="absolute z-50 w-56 rounded-lg border border-border-primary bg-bg-panel shadow-xl"
         style={{ left: position.x, top: clampedTop }}
         onWheel={stopWheel}
@@ -196,10 +197,7 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
             overflowY: 'auto',
             scrollbarWidth: 'thin',
             scrollbarColor: '#c1c1c1 transparent',
-            willChange: 'scroll-position',
-            WebkitOverflowScrolling: 'touch',
-            contain: 'strict',
-            height: '256px',
+            overscrollBehavior: 'contain',
           }}
         >
           {Object.keys(groupedFiltered).length === 0 && (

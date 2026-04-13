@@ -334,6 +334,8 @@ export default function NodeGraph() {
     const el = reactFlowWrapper.current;
     if (!el || !reactFlowInstance) return;
     const onWheel = (e) => {
+      if (e.target.closest('[data-node-palette]')) return;
+
       const isPinch = e.ctrlKey || e.metaKey;
       if (isPinch) return;
 
