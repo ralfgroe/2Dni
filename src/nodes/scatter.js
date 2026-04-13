@@ -118,6 +118,10 @@ function voronoiRelax(count, w, h, rand, iterations = 8) {
 }
 
 function getGeoBoundsSize(geo) {
+  if (!geo) return { w: 0, h: 0 };
+  if (geo.bounds && geo.bounds.width > 0 && geo.bounds.height > 0) {
+    return { w: geo.bounds.width, h: geo.bounds.height };
+  }
   ensurePaper();
   const path = geoToPaperPath(geo);
   if (!path) return { w: 0, h: 0 };
