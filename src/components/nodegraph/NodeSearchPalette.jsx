@@ -7,9 +7,6 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
   const inputRef = useRef(null);
   const scrollRef = useRef(null);
   const paletteRef = useRef(null);
-  const trackRef = useRef(null);
-  const thumbRef = useRef(null);
-  const rafRef = useRef(null);
   const isScrollingRef = useRef(false);
   const scrollTimerRef = useRef(null);
   const [clampedTop, setClampedTop] = useState(position.y);
@@ -36,34 +33,9 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
     }
   }, [position.x, position.y]);
 
-  const syncThumb = useCallback(() => {
-    const el = scrollRef.current;
-    const track = trackRef.current;
-    const thumb = thumbRef.current;
-    if (!el || !track || !thumb) return;
-    const { scrollTop, scrollHeight, clientHeight } = el;
-    const needsScroll = scrollHeight > clientHeight;
-    track.style.display = needsScroll ? '' : 'none';
-    if (!needsScroll) return;
-    const thumbH = Math.max(24, (clientHeight / scrollHeight) * clientHeight);
-    const maxScroll = scrollHeight - clientHeight;
-    const thumbT = maxScroll > 0 ? (scrollTop / maxScroll) * (clientHeight - thumbH) : 0;
-    thumb.style.height = thumbH + 'px';
-    thumb.style.top = thumbT + 'px';
-  }, []);
-
-  const scheduleSyncThumb = useCallback(() => {
-    if (rafRef.current) return;
-    rafRef.current = requestAnimationFrame(() => {
-      rafRef.current = null;
-      syncThumb();
-    });
-  }, [syncThumb]);
-
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    syncThumb();
 
     const onScroll = () => {
       isScrollingRef.current = true;
@@ -71,45 +43,13 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
       scrollTimerRef.current = setTimeout(() => {
         isScrollingRef.current = false;
       }, 150);
-      scheduleSyncThumb();
     };
 
     el.addEventListener('scroll', onScroll, { passive: true });
-    const observer = new ResizeObserver(syncThumb);
-    observer.observe(el);
     return () => {
       el.removeEventListener('scroll', onScroll);
-      observer.disconnect();
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
       clearTimeout(scrollTimerRef.current);
     };
-  }, [syncThumb, scheduleSyncThumb]);
-
-  useEffect(() => {
-    syncThumb();
-  });
-
-  const handleThumbDrag = useCallback((e) => {
-    e.preventDefault();
-    const el = scrollRef.current;
-    if (!el) return;
-    const startY = e.clientY;
-    const startScroll = el.scrollTop;
-    const { scrollHeight, clientHeight } = el;
-    const thumbH = Math.max(24, (clientHeight / scrollHeight) * clientHeight);
-    const maxScroll = scrollHeight - clientHeight;
-    const ratio = maxScroll / (clientHeight - thumbH);
-
-    const onMove = (me) => {
-      const dy = me.clientY - startY;
-      el.scrollTop = Math.min(maxScroll, Math.max(0, startScroll + dy * ratio));
-    };
-    const onUp = () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
   }, []);
 
   const filtered = useMemo(() => {
@@ -244,83 +184,52 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
           />
         </div>
 
-        <div className="relative" style={{ maxHeight: '256px' }}>
-          <div style={{ maxHeight: '256px' }}>
-            <div
-              ref={scrollRef}
-              className="max-h-64 pb-1.5"
-              style={{
-                paddingLeft: '12px',
-                overflowY: 'auto',
-                paddingRight: '12px',
-              }}
-            >
-            {Object.keys(groupedFiltered).length === 0 && (
-              <div className="px-2 py-3 text-center text-xs text-text-muted">
-                No matching nodes
-              </div>
-            )}
+        <div
+          ref={scrollRef}
+          className="max-h-64 pb-1.5"
+          style={{
+            paddingLeft: '12px',
+            paddingRight: '6px',
+            overflowY: 'auto',
+            scrollbarWidth: 'thin',
+            scrollbarColor: '#c1c1c1 transparent',
+          }}
+        >
+          {Object.keys(groupedFiltered).length === 0 && (
+            <div className="px-2 py-3 text-center text-xs text-text-muted">
+              No matching nodes
+            </div>
+          )}
 
-            {(() => {
-              let flatIdx = 0;
-              return orderedCategories.map((cat) => (
-                <div key={cat}>
-                  <div className="pt-2 pb-1 text-[10px] font-medium uppercase tracking-wider text-text-muted" style={{ paddingLeft: '16px' }}>
-                    {cat}
-                  </div>
-                  {groupedFiltered[cat].map((def) => {
-                    const idx = flatIdx++;
-                    const isActive = idx === selectedIndex;
-                    return (
-                      <button
-                        key={def.id}
-                        data-node-btn
-                        onClick={() => onSelect(def)}
-                        onMouseEnter={() => handleMouseEnter(idx)}
-                        onMouseLeave={handleMouseLeave}
-                        className={`flex w-full items-center gap-2 rounded py-1.5 pr-4 text-left text-xs text-text-secondary transition-colors ${
-                          isActive ? 'bg-accent text-white' : ''
-                        }`}
-                        style={{ paddingLeft: '16px' }}
-                      >
-                        <span className="font-medium">{def.label}</span>
-                      </button>
-                    );
-                  })}
+          {(() => {
+            let flatIdx = 0;
+            return orderedCategories.map((cat) => (
+              <div key={cat}>
+                <div className="pt-2 pb-1 text-[10px] font-medium uppercase tracking-wider text-text-muted" style={{ paddingLeft: '16px' }}>
+                  {cat}
                 </div>
-              ));
-            })()}
-          </div>
-          </div>
-
-          <div
-            ref={trackRef}
-            style={{
-              position: 'absolute',
-              top: 0,
-              right: '2px',
-              width: '6px',
-              height: '100%',
-              borderRadius: '3px',
-              background: '#f0f0f0',
-              pointerEvents: 'none',
-            }}
-          >
-            <div
-              ref={thumbRef}
-              onMouseDown={handleThumbDrag}
-              style={{
-                position: 'absolute',
-                top: 0,
-                width: '6px',
-                height: 24,
-                borderRadius: '3px',
-                background: '#c1c1c1',
-                cursor: 'pointer',
-                pointerEvents: 'auto',
-              }}
-            />
-          </div>
+                {groupedFiltered[cat].map((def) => {
+                  const idx = flatIdx++;
+                  const isActive = idx === selectedIndex;
+                  return (
+                    <button
+                      key={def.id}
+                      data-node-btn
+                      onClick={() => onSelect(def)}
+                      onMouseEnter={() => handleMouseEnter(idx)}
+                      onMouseLeave={handleMouseLeave}
+                      className={`flex w-full items-center gap-2 rounded py-1.5 pr-4 text-left text-xs text-text-secondary transition-colors ${
+                        isActive ? 'bg-accent text-white' : ''
+                      }`}
+                      style={{ paddingLeft: '16px' }}
+                    >
+                      <span className="font-medium">{def.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ));
+          })()}
         </div>
 
         <div className="border-t border-border-primary" style={{ padding: '8px 10px 10px 12px', minHeight: '48px' }}>
