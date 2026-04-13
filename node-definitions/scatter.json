@@ -2,9 +2,10 @@
   "id": "scatter",
   "label": "Scatter",
   "category": "Transform",
-  "description": "Distributes copies of input geometry in various patterns: random, grid, hex, radial, sunflower, or Poisson disk.",
+  "description": "Distributes copies of input geometry in various patterns. Optionally accepts a shape as a scatter field to constrain where copies are placed.",
   "inputs": [
-    { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }
+    { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true },
+    { "id": "scatter_field", "label": "Scatter Field", "type": "geometry", "required": false }
   ],
   "outputs": [
     { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }

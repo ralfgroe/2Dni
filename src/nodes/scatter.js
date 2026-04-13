@@ -141,6 +141,43 @@ function generatePositions(pattern, count, w, h, rand) {
   }
 }
 
+function buildFieldPath(fieldGeo) {
+  ensurePaper();
+  const path = geoToPaperPath(fieldGeo);
+  if (!path) return null;
+  if (!path.closed) path.closePath();
+  return path;
+}
+
+function generateFieldPositions(pattern, count, fieldPath, rand) {
+  const fb = fieldPath.bounds;
+  const w = fb.width;
+  const h = fb.height;
+  const cx = fb.center.x;
+  const cy = fb.center.y;
+
+  const raw = generatePositions(pattern, count, w, h, rand);
+
+  const shifted = raw.map(p => ({ x: p.x + cx, y: p.y + cy }));
+
+  return shifted.filter(p => fieldPath.contains(new paper.Point(p.x, p.y)));
+}
+
+function generateFieldRandom(count, fieldPath, rand, maxAttempts) {
+  const fb = fieldPath.bounds;
+  const pts = [];
+  let attempts = 0;
+  while (pts.length < count && attempts < maxAttempts) {
+    const x = fb.x + rand() * fb.width;
+    const y = fb.y + rand() * fb.height;
+    attempts++;
+    if (fieldPath.contains(new paper.Point(x, y))) {
+      pts.push({ x, y });
+    }
+  }
+  return pts;
+}
+
 function deepCloneGeo(geo) {
   if (!geo) return null;
   if ((geo.type === 'group' || geo.type === 'boolean') && geo.children) {
@@ -199,6 +236,8 @@ export function scatterRuntime(params, inputs) {
   const geo = inputs?.geometry_in;
   if (!geo) return null;
 
+  const fieldGeo = inputs?.scatter_field || null;
+
   const pattern = params.pattern ?? 'Random';
   const count = Math.max(1, Math.min(500, params.count ?? 25));
   const w = params.width ?? 400;
@@ -211,14 +250,36 @@ export function scatterRuntime(params, inputs) {
   const scaleByDist = params.scale_by_distance ?? 0;
 
   const rand = seededRandom(seed);
-  const positions = generatePositions(pattern, count, w, h, rand);
 
-  const maxDist = Math.sqrt(w * w + h * h) / 2;
+  let fieldPath = null;
+  let positions;
+
+  if (fieldGeo) {
+    fieldPath = buildFieldPath(fieldGeo);
+  }
+
+  if (fieldPath) {
+    if (pattern === 'Random') {
+      positions = generateFieldRandom(count, fieldPath, rand, count * 20);
+    } else {
+      positions = generateFieldPositions(pattern, count, fieldPath, rand);
+    }
+  } else {
+    positions = generatePositions(pattern, count, w, h, rand);
+  }
+
+  const scatterW = fieldPath ? fieldPath.bounds.width : w;
+  const scatterH = fieldPath ? fieldPath.bounds.height : h;
+  const maxDist = Math.sqrt(scatterW * scatterW + scatterH * scatterH) / 2;
+
+  const fieldCx = fieldPath ? fieldPath.bounds.center.x : 0;
+  const fieldCy = fieldPath ? fieldPath.bounds.center.y : 0;
+
   const children = [];
 
   for (const pos of positions) {
-    const px = pos.x + centerX;
-    const py = pos.y + centerY;
+    const px = fieldPath ? pos.x + centerX : pos.x + centerX;
+    const py = fieldPath ? pos.y + centerY : pos.y + centerY;
 
     const copy = applyTransformToGeo(deepCloneGeo(geo), (path) => {
       path.translate(new paper.Point(px, py));
@@ -230,7 +291,9 @@ export function scatterRuntime(params, inputs) {
       let s = 1;
       if (randomScale > 0) s *= Math.max(0.1, 1 + (rand() - 0.5) * randomScale * 2);
       if (scaleByDist !== 0) {
-        const dist = Math.sqrt(pos.x * pos.x + pos.y * pos.y);
+        const dx = (fieldPath ? pos.x - fieldCx : pos.x);
+        const dy = (fieldPath ? pos.y - fieldCy : pos.y);
+        const dist = Math.sqrt(dx * dx + dy * dy);
         const t = maxDist > 0 ? dist / maxDist : 0;
         s *= Math.max(0.05, 1 - scaleByDist * t);
       }
@@ -239,6 +302,8 @@ export function scatterRuntime(params, inputs) {
 
     if (copy) children.push(copy);
   }
+
+  if (fieldPath) fieldPath.remove();
 
   if (children.length === 0) return null;
 

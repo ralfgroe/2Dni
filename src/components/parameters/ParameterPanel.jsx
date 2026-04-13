@@ -146,6 +146,10 @@ export default function ParameterPanel() {
             if (params.preset !== 'Custom' && paramDef.id === 'points') return null;
             if (!params.tile && (paramDef.id === 'grid_type' || paramDef.id === 'rings')) return null;
           }
+          if (definition.id === 'scatter') {
+            const hasField = edges.some((e) => e.target === selectedNode.id && e.targetHandle === 'scatter_field');
+            if (hasField && (paramDef.id === 'width' || paramDef.id === 'height')) return null;
+          }
           if (definition.id === 'radius' && paramDef.id === 'point_selection') {
             const sourceEdge = edges.find((e) => e.target === selectedNode.id && e.targetHandle === 'geometry_in');
             const sourceGeo = resolveEdgeResult(sourceEdge);
