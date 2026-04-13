@@ -245,15 +245,14 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
         </div>
 
         <div className="relative" style={{ maxHeight: '256px' }}>
-          <div style={{ overflow: 'hidden', maxHeight: '256px' }}>
+          <div style={{ maxHeight: '256px' }}>
             <div
               ref={scrollRef}
               className="max-h-64 pb-1.5"
               style={{
                 paddingLeft: '12px',
-                overflowY: 'scroll',
-                marginRight: '-20px',
-                paddingRight: '32px',
+                overflowY: 'auto',
+                paddingRight: '12px',
               }}
             >
             {Object.keys(groupedFiltered).length === 0 && (
