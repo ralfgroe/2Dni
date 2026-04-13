@@ -9,6 +9,7 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
   const paletteRef = useRef(null);
   const isScrollingRef = useRef(false);
   const scrollTimerRef = useRef(null);
+  const [isScrolling, setIsScrolling] = useState(false);
   const [clampedTop, setClampedTop] = useState(position.y);
   const categories = useNodeRegistryStore((s) => s.categories);
   const getDefinitionsByCategory = useNodeRegistryStore((s) => s.getDefinitionsByCategory);
@@ -39,10 +40,12 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
 
     const onScroll = () => {
       isScrollingRef.current = true;
+      setIsScrolling(true);
       clearTimeout(scrollTimerRef.current);
       scrollTimerRef.current = setTimeout(() => {
         isScrollingRef.current = false;
-      }, 150);
+        setIsScrolling(false);
+      }, 800);
     };
 
     el.addEventListener('scroll', onScroll, { passive: true });
@@ -193,6 +196,10 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
             overflowY: 'auto',
             scrollbarWidth: 'thin',
             scrollbarColor: '#c1c1c1 transparent',
+            willChange: 'scroll-position',
+            WebkitOverflowScrolling: 'touch',
+            contain: 'strict',
+            height: '256px',
           }}
         >
           {Object.keys(groupedFiltered).length === 0 && (
@@ -211,18 +218,18 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
                 {groupedFiltered[cat].map((def) => {
                   const idx = flatIdx++;
                   const isActive = idx === selectedIndex;
-                  return (
-                    <button
-                      key={def.id}
-                      data-node-btn
-                      onClick={() => onSelect(def)}
-                      onMouseEnter={() => handleMouseEnter(idx)}
-                      onMouseLeave={handleMouseLeave}
-                      className={`flex w-full items-center gap-2 rounded py-1.5 pr-4 text-left text-xs text-text-secondary transition-colors ${
-                        isActive ? 'bg-accent text-white' : ''
-                      }`}
-                      style={{ paddingLeft: '16px' }}
-                    >
+                    return (
+                      <button
+                        key={def.id}
+                        data-node-btn
+                        onClick={() => onSelect(def)}
+                        onMouseEnter={() => handleMouseEnter(idx)}
+                        onMouseLeave={handleMouseLeave}
+                        className={`flex w-full items-center gap-2 rounded py-1.5 pr-4 text-left text-xs text-text-secondary ${
+                          isActive ? 'bg-accent text-white' : ''
+                        }`}
+                        style={{ paddingLeft: '16px', pointerEvents: isScrolling ? 'none' : 'auto' }}
+                      >
                       <span className="font-medium">{def.label}</span>
                     </button>
                   );
