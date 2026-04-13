@@ -68,6 +68,55 @@ function poissonDisk(w, h, radius, rand) {
   return points;
 }
 
+function voronoiRelax(count, w, h, rand, iterations = 8) {
+  const halfW = w / 2, halfH = h / 2;
+  let pts = [];
+  for (let i = 0; i < count; i++) {
+    pts.push({ x: (rand() - 0.5) * w, y: (rand() - 0.5) * h });
+  }
+
+  const sampleRes = Math.min(200, Math.max(60, Math.ceil(Math.sqrt(count) * 4)));
+  const stepX = w / sampleRes;
+  const stepY = h / sampleRes;
+
+  for (let iter = 0; iter < iterations; iter++) {
+    const sumX = new Float64Array(count);
+    const sumY = new Float64Array(count);
+    const cellCount = new Uint32Array(count);
+
+    for (let sy = 0; sy < sampleRes; sy++) {
+      const py = -halfH + (sy + 0.5) * stepY;
+      for (let sx = 0; sx < sampleRes; sx++) {
+        const px = -halfW + (sx + 0.5) * stepX;
+
+        let bestIdx = 0;
+        let bestDist = Infinity;
+        for (let i = 0; i < count; i++) {
+          const dx = pts[i].x - px;
+          const dy = pts[i].y - py;
+          const d = dx * dx + dy * dy;
+          if (d < bestDist) { bestDist = d; bestIdx = i; }
+        }
+
+        sumX[bestIdx] += px;
+        sumY[bestIdx] += py;
+        cellCount[bestIdx]++;
+      }
+    }
+
+    for (let i = 0; i < count; i++) {
+      if (cellCount[i] > 0) {
+        pts[i] = {
+          x: Math.max(-halfW, Math.min(halfW, sumX[i] / cellCount[i])),
+          y: Math.max(-halfH, Math.min(halfH, sumY[i] / cellCount[i])),
+        };
+      }
+    }
+  }
+
+  return pts;
+}
+
 function generatePositions(pattern, count, w, h, rand) {
   const halfW = w / 2, halfH = h / 2;
 
@@ -130,6 +179,10 @@ function generatePositions(pattern, count, w, h, rand) {
     case 'Poisson Disk': {
       const radius = Math.sqrt(w * h / count) * 0.7;
       return poissonDisk(w, h, radius, rand);
+    }
+
+    case 'Voronoi': {
+      return voronoiRelax(count, w, h, rand);
     }
 
     default: {
@@ -239,7 +292,7 @@ export function scatterRuntime(params, inputs) {
   const fieldGeo = inputs?.scatter_field || null;
 
   const pattern = params.pattern ?? 'Random';
-  const count = Math.max(1, Math.min(500, params.count ?? 25));
+  const count = Math.max(1, Math.min(1000, params.count ?? 25));
   const w = params.width ?? 400;
   const h = params.height ?? 400;
   const centerX = params.center_x ?? 0;
