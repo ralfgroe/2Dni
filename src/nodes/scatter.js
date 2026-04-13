@@ -192,9 +192,7 @@ function generatePositions(pattern, count, w, h, rand, geoSize, spacing, randomR
     case 'Poisson Disk': {
       let geoExtent = 0;
       if (geoSize && (geoSize.w > 0 || geoSize.h > 0)) {
-        geoExtent = randomRotate > 0
-          ? Math.sqrt(geoSize.w * geoSize.w + geoSize.h * geoSize.h)
-          : Math.max(geoSize.w, geoSize.h);
+        geoExtent = Math.sqrt(geoSize.w * geoSize.w + geoSize.h * geoSize.h);
       }
       const minRadius = geoExtent > 0
         ? (geoExtent + spacing)
