@@ -49,11 +49,7 @@ export function radiusRuntime(params, inputs) {
 
     try {
       const result = filletPathData(workGeo.pathData, radius, point_selection);
-      if (!result) {
-        console.warn('[Radius] filletPathData returned null');
-        return inputGeo;
-      }
-      console.log('[Radius] fillet applied, pathData length:', result.pathData.length, 'has C:', result.pathData.includes('C'));
+      if (!result) return inputGeo;
 
       return {
         type: 'booleanResult',
