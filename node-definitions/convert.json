@@ -1,0 +1,16 @@
+{
+  "id": "convert",
+  "label": "Convert",
+  "category": "Transform",
+  "description": "Converts any geometry into a clean polygon path with explicit corner points. Useful as preparation for the Radius node.",
+  "inputs": [
+    { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }
+  ],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "close_path", "label": "Close Path", "type": "boolean", "default": false }
+  ],
+  "runtime": "convert"
+}

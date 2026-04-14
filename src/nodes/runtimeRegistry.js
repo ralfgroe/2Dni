@@ -35,6 +35,7 @@ import { scatterRuntime } from '../nodes/scatter';
 import { symmetryRuntime } from '../nodes/symmetry';
 import { interpolateRuntime } from '../nodes/interpolate';
 import { stippleRuntime } from '../nodes/stipple';
+import { convertRuntime } from '../nodes/convert';
 
 const runtimeMap = {
   line: lineRuntime,
@@ -75,6 +76,7 @@ const runtimeMap = {
   symmetry: symmetryRuntime,
   interpolate: interpolateRuntime,
   stipple: stippleRuntime,
+  convert: convertRuntime,
 };
 
 export function getRuntime(runtimeId) {
