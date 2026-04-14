@@ -88,10 +88,15 @@ export function waveRuntime(params) {
     allPaths.push(path);
   }
 
-  const compound = new paper.CompoundPath({ children: allPaths });
-  const pathData = compound.pathData;
-  const bounds = compound.bounds;
-  compound.remove();
+  let resultPath;
+  if (allPaths.length === 1) {
+    resultPath = allPaths[0];
+  } else {
+    resultPath = new paper.CompoundPath({ children: allPaths });
+  }
+  const pathData = resultPath.pathData;
+  const bounds = resultPath.bounds;
+  resultPath.remove();
 
   return {
     type: 'booleanResult',
