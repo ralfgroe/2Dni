@@ -148,12 +148,20 @@ export function geoToPaperPath(geo) {
 
     case 'booleanResult': {
       if (!geo.pathData) return null;
+      const single = new paper.Path(geo.pathData);
+      if (single.segments && single.segments.length > 0) {
+        const compound = new paper.CompoundPath(geo.pathData);
+        if (compound.children && compound.children.length > 1) {
+          single.remove();
+          return compound;
+        }
+        compound.remove();
+        return single;
+      }
+      single.remove();
       const compound = new paper.CompoundPath(geo.pathData);
       if (compound.children && compound.children.length > 0) return compound;
       compound.remove();
-      const single = new paper.Path(geo.pathData);
-      if (single.segments && single.segments.length > 0) return single;
-      single.remove();
       return null;
     }
 
