@@ -134,229 +134,144 @@ export function radiusRuntime(params, inputs) {
 
 const SMOOTH_ANGLE_DEG = 20;
 
-function getCornerAngle(childPath, segIndex) {
-  const curves = childPath.curves;
-  if (!curves) return 180;
-  const n = curves.length;
-  if (n < 2) return 180;
-
-  const curveIn = curves[(segIndex - 1 + n) % n];
-  const curveOut = curves[segIndex % n];
-
-  const tanIn = curveIn.getTangentAtTime(1);
-  const tanOut = curveOut.getTangentAtTime(0);
-
-  if (tanIn.length < 0.0001 || tanOut.length < 0.0001) return 180;
-
-  const dot = tanIn.dot(tanOut) / (tanIn.length * tanOut.length);
-  const clamped = Math.max(-1, Math.min(1, dot));
-  return Math.acos(clamped) * 180 / Math.PI;
+function vec(ax, ay, bx, by) {
+  return { x: bx - ax, y: by - ay };
 }
-
-function lerp(a, b, t) {
-  return a + (b - a) * t;
+function vecLen(v) {
+  return Math.sqrt(v.x * v.x + v.y * v.y);
 }
-
-function subdivideCubic(p0x, p0y, p1x, p1y, p2x, p2y, p3x, p3y, t) {
-  const q0x = lerp(p0x, p1x, t), q0y = lerp(p0y, p1y, t);
-  const q1x = lerp(p1x, p2x, t), q1y = lerp(p1y, p2y, t);
-  const q2x = lerp(p2x, p3x, t), q2y = lerp(p2y, p3y, t);
-
-  const r0x = lerp(q0x, q1x, t), r0y = lerp(q0y, q1y, t);
-  const r1x = lerp(q1x, q2x, t), r1y = lerp(q1y, q2y, t);
-
-  const sx = lerp(r0x, r1x, t), sy = lerp(r0y, r1y, t);
-
-  return {
-    first: {
-      p1: { x: p0x, y: p0y },
-      h1: { x: q0x - p0x, y: q0y - p0y },
-      h2: { x: r0x - sx, y: r0y - sy },
-      p2: { x: sx, y: sy },
-    },
-    second: {
-      p1: { x: sx, y: sy },
-      h1: { x: r1x - sx, y: r1y - sy },
-      h2: { x: q2x - p3x, y: q2y - p3y },
-      p2: { x: p3x, y: p3y },
-    },
-  };
+function vecNorm(v) {
+  const l = vecLen(v);
+  return l < 1e-9 ? { x: 0, y: 0 } : { x: v.x / l, y: v.y / l };
 }
-
-function splitPaperCurve(curve, t) {
-  const s1 = curve.segment1;
-  const s2 = curve.segment2;
-
-  const p0x = s1.point.x, p0y = s1.point.y;
-  const p1x = p0x + (s1.handleOut ? s1.handleOut.x : 0);
-  const p1y = p0y + (s1.handleOut ? s1.handleOut.y : 0);
-  const p2x = s2.point.x + (s2.handleIn ? s2.handleIn.x : 0);
-  const p2y = s2.point.y + (s2.handleIn ? s2.handleIn.y : 0);
-  const p3x = s2.point.x, p3y = s2.point.y;
-
-  return subdivideCubic(p0x, p0y, p1x, p1y, p2x, p2y, p3x, p3y, t);
-}
-
-function safeTangent(curve, time) {
-  if (time == null || isNaN(time)) return null;
-  try {
-    const t = curve.getTangentAtTime(time);
-    if (!t || t.length < 0.0001) return null;
-    return t.normalize();
-  } catch {
-    return null;
-  }
+function dotVec(a, b) {
+  return a.x * b.x + a.y * b.y;
 }
 
 function buildFilletedPath(childPath, radius, selected, globalOffset) {
   const segs = childPath.segments;
-  const curves = childPath.curves;
   const n = segs.length;
   const isClosed = childPath.closed;
 
-  const wantedOffset = new Array(n).fill(0);
-  const cornerAngles = new Array(n).fill(0);
+  const pts = segs.map(s => ({ x: s.point.x, y: s.point.y }));
 
+  const isLinear = segs.every(s => {
+    const hi = s.handleIn;
+    const ho = s.handleOut;
+    const hiZero = !hi || (Math.abs(hi.x) < 0.01 && Math.abs(hi.y) < 0.01);
+    const hoZero = !ho || (Math.abs(ho.x) < 0.01 && Math.abs(ho.y) < 0.01);
+    return hiZero && hoZero;
+  });
+
+  if (!isLinear) {
+    return buildFilletedPathCurves(childPath, radius, selected, globalOffset);
+  }
+
+  const segLens = [];
+  for (let i = 0; i < n - 1; i++) {
+    segLens.push(vecLen(vec(pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y)));
+  }
+  if (isClosed) {
+    segLens.push(vecLen(vec(pts[n - 1].x, pts[n - 1].y, pts[0].x, pts[0].y)));
+  }
+
+  const wantedOffset = new Array(n).fill(0);
   for (let i = 0; i < n; i++) {
     const gIdx = globalOffset + i;
     if (!selected.has(gIdx)) continue;
     if (!isClosed && (i === 0 || i === n - 1)) continue;
 
-    const cornerAngle = getCornerAngle(childPath, i);
-    if (cornerAngle <= SMOOTH_ANGLE_DEG) continue;
+    const prevIdx = (i - 1 + n) % n;
+    const nextIdx = (i + 1) % n;
+    const dIn = vecNorm(vec(pts[i].x, pts[i].y, pts[prevIdx].x, pts[prevIdx].y));
+    const dOut = vecNorm(vec(pts[i].x, pts[i].y, pts[nextIdx].x, pts[nextIdx].y));
+    const dot = dotVec(dIn, dOut);
+    const clamped = Math.max(-1, Math.min(1, dot));
+    const angle = Math.acos(clamped);
+    if (angle < SMOOTH_ANGLE_DEG * Math.PI / 180) continue;
 
-    const curveInIdx = (i - 1 + n) % n;
-    const curveOutIdx = i % n;
-    const curveIn = curves[curveInIdx];
-    const curveOut = curves[curveOutIdx];
-    if (!curveIn || !curveOut) continue;
+    const sinHalf = Math.sin(angle / 2);
+    if (sinHalf < 0.001) continue;
+    const maxR = Math.min(
+      isClosed ? segLens[prevIdx] : (i > 0 ? segLens[i - 1] : Infinity),
+      isClosed ? segLens[i] : (i < n - 1 ? segLens[i] : Infinity)
+    ) * 0.45;
+    const effR = Math.min(radius, maxR);
+    const offset = effR / Math.tan(angle / 2);
 
-    const curveInLen = curveIn.length;
-    const curveOutLen = curveOut.length;
-    if (curveInLen < 0.1 || curveOutLen < 0.1) continue;
-
-    const maxSingle = Math.min(curveInLen * 0.95, curveOutLen * 0.95);
-    const cornerRad = cornerAngle * Math.PI / 180;
-    const tanHalf = Math.tan(cornerRad / 2);
-    if (tanHalf < 0.001) continue;
-
-    wantedOffset[i] = Math.min(radius, maxSingle);
-    cornerAngles[i] = cornerAngle;
+    wantedOffset[i] = offset;
   }
 
-  for (let ci = 0; ci < (isClosed ? n : n - 1); ci++) {
-    const curveLen = curves[ci] ? curves[ci].length : 0;
-    if (curveLen < 0.1) continue;
-
+  const numSegs = isClosed ? n : n - 1;
+  for (let ci = 0; ci < numSegs; ci++) {
     const cornerA = ci;
     const cornerB = (ci + 1) % n;
     const oA = wantedOffset[cornerA];
     const oB = wantedOffset[cornerB];
-
     if (oA <= 0 && oB <= 0) continue;
-
-    const totalNeeded = oA + oB;
-    const available = curveLen * 0.95;
-    if (totalNeeded > available) {
-      const scale = available / totalNeeded;
-      if (oA > 0) wantedOffset[cornerA] = Math.min(wantedOffset[cornerA], oA * scale);
-      if (oB > 0) wantedOffset[cornerB] = Math.min(wantedOffset[cornerB], oB * scale);
+    const total = oA + oB;
+    const available = segLens[ci] * 0.95;
+    if (total > available) {
+      const scale = available / total;
+      if (oA > 0) wantedOffset[cornerA] = oA * scale;
+      if (oB > 0) wantedOffset[cornerB] = oB * scale;
     }
-  }
-
-  const filletData = new Array(n).fill(null);
-  for (let i = 0; i < n; i++) {
-    const offset = wantedOffset[i];
-    if (offset < 0.01) continue;
-
-    const cornerAngle = cornerAngles[i];
-    const cornerRad = cornerAngle * Math.PI / 180;
-    const tanHalf = Math.tan(cornerRad / 2);
-    const effectiveR = offset / tanHalf;
-
-    const curveInIdx = (i - 1 + n) % n;
-    const curveOutIdx = i % n;
-    const curveIn = curves[curveInIdx];
-    const curveOut = curves[curveOutIdx];
-    if (!curveIn || !curveOut) continue;
-
-    const curveInLen = curveIn.length;
-    const curveOutLen = curveOut.length;
-
-    const tIn = curveIn.getTimeAt(curveInLen - offset);
-    const tOut = curveOut.getTimeAt(offset);
-    if (tIn == null || tOut == null || isNaN(tIn) || isNaN(tOut)) continue;
-    if (tIn <= 0.0001 || tOut >= 0.9999) continue;
-
-    const tanInDir = safeTangent(curveIn, tIn);
-    const tanOutDir = safeTangent(curveOut, tOut);
-    if (!tanInDir || !tanOutDir) continue;
-
-    const splitIn = splitPaperCurve(curveIn, tIn);
-    const splitOut = splitPaperCurve(curveOut, tOut);
-
-    const handleLen = (4 / 3) * effectiveR * Math.tan(cornerRad / 4);
-
-    filletData[i] = {
-      cornerAngle, cornerRad, offset, effectiveR, handleLen,
-      splitIn, splitOut, tanInDir, tanOutDir,
-    };
   }
 
   const result = new paper.Path();
 
   for (let i = 0; i < n; i++) {
-    const seg = segs[i];
-    const fd = filletData[i];
-    const prevFd = filletData[(i - 1 + n) % n];
-    const nextFd = filletData[(i + 1) % n];
-
-    if (fd) {
-      const { splitIn, splitOut, handleLen, tanInDir, tanOutDir } = fd;
-
-      const pStart = splitIn.first.p2;
-      const pEnd = splitOut.second.p1;
-
-      const startHandleIn = splitIn.first.h2;
-      const endHandleOut = splitOut.second.h1;
-
-      result.add(new paper.Segment(
-        new paper.Point(pStart.x, pStart.y),
-        new paper.Point(startHandleIn.x, startHandleIn.y),
-        new paper.Point(tanInDir.x * handleLen, tanInDir.y * handleLen)
-      ));
-
-      result.add(new paper.Segment(
-        new paper.Point(pEnd.x, pEnd.y),
-        new paper.Point(-tanOutDir.x * handleLen, -tanOutDir.y * handleLen),
-        new paper.Point(endHandleOut.x, endHandleOut.y)
-      ));
-    } else {
-      let hIn = seg.handleIn
-        ? { x: seg.handleIn.x, y: seg.handleIn.y }
-        : { x: 0, y: 0 };
-      let hOut = seg.handleOut
-        ? { x: seg.handleOut.x, y: seg.handleOut.y }
-        : { x: 0, y: 0 };
-
-      if (prevFd) {
-        hIn = prevFd.splitOut.second.h2;
-      }
-      if (nextFd) {
-        hOut = nextFd.splitIn.first.h1;
-      }
-
-      result.add(new paper.Segment(
-        new paper.Point(seg.point.x, seg.point.y),
-        new paper.Point(hIn.x, hIn.y),
-        new paper.Point(hOut.x, hOut.y)
-      ));
+    const offset = wantedOffset[i];
+    if (offset < 0.01) {
+      result.add(new paper.Point(pts[i].x, pts[i].y));
+      continue;
     }
+
+    const prevIdx = (i - 1 + n) % n;
+    const nextIdx = (i + 1) % n;
+    const dIn = vecNorm(vec(pts[i].x, pts[i].y, pts[prevIdx].x, pts[prevIdx].y));
+    const dOut = vecNorm(vec(pts[i].x, pts[i].y, pts[nextIdx].x, pts[nextIdx].y));
+
+    const pA = { x: pts[i].x + dIn.x * offset, y: pts[i].y + dIn.y * offset };
+    const pB = { x: pts[i].x + dOut.x * offset, y: pts[i].y + dOut.y * offset };
+
+    const dot = dotVec(dIn, dOut);
+    const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
+    const effR = offset * Math.tan(angle / 2);
+    const k = (4 / 3) * Math.tan(angle / 4);
+    const hA = k * effR;
+
+    result.add(new paper.Segment(
+      new paper.Point(pA.x, pA.y),
+      null,
+      new paper.Point(-dIn.x * hA, -dIn.y * hA)
+    ));
+    result.add(new paper.Segment(
+      new paper.Point(pB.x, pB.y),
+      new paper.Point(-dOut.x * hA, -dOut.y * hA),
+      null
+    ));
   }
 
-  if (isClosed) {
-    result.closePath();
+  if (isClosed) result.closePath();
+  return result;
+}
+
+function buildFilletedPathCurves(childPath, radius, selected, globalOffset) {
+  const segs = childPath.segments;
+  const n = segs.length;
+  const isClosed = childPath.closed;
+
+  const result = new paper.Path();
+  for (let i = 0; i < n; i++) {
+    const seg = segs[i];
+    result.add(new paper.Segment(
+      new paper.Point(seg.point.x, seg.point.y),
+      seg.handleIn ? new paper.Point(seg.handleIn.x, seg.handleIn.y) : null,
+      seg.handleOut ? new paper.Point(seg.handleOut.x, seg.handleOut.y) : null
+    ));
   }
+  if (isClosed) result.closePath();
   return result;
 }
 
