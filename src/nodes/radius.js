@@ -138,6 +138,7 @@ function filletPathData(pathData, radius, pointSel) {
   if (closed) segLens.push(dist(pts[n - 1], pts[0]));
 
   const offsets = new Array(n).fill(0);
+  const angles = new Array(n).fill(0);
   for (let i = 0; i < n; i++) {
     if (!selected.has(i)) continue;
     if (!closed && (i === 0 || i === n - 1)) continue;
@@ -155,21 +156,24 @@ function filletPathData(pathData, radius, pointSel) {
 
     const segIn = closed ? segLens[(i - 1 + n) % n] : (i > 0 ? segLens[i - 1] : Infinity);
     const segOut = closed ? segLens[i] : (i < n - 1 ? segLens[i] : Infinity);
-    const maxR = Math.min(segIn, segOut) * 0.45;
-    const effR = Math.min(radius, maxR);
-    offsets[i] = effR / tanHalf;
+    const maxOffset = Math.min(segIn, segOut) * 0.45;
+    const wantedOffset = radius / tanHalf;
+    offsets[i] = Math.min(wantedOffset, maxOffset);
+    angles[i] = angle;
   }
 
-  const numEdges = closed ? n : n - 1;
-  for (let ci = 0; ci < numEdges; ci++) {
-    const a = ci, b = (ci + 1) % n;
-    if (offsets[a] <= 0 && offsets[b] <= 0) continue;
-    const total = offsets[a] + offsets[b];
-    const avail = segLens[ci] * 0.95;
-    if (total > avail) {
-      const s = avail / total;
-      if (offsets[a] > 0) offsets[a] *= s;
-      if (offsets[b] > 0) offsets[b] *= s;
+  for (let pass = 0; pass < 3; pass++) {
+    const numEdges = closed ? n : n - 1;
+    for (let ci = 0; ci < numEdges; ci++) {
+      const a = ci, b = (ci + 1) % n;
+      if (offsets[a] <= 0 && offsets[b] <= 0) continue;
+      const total = offsets[a] + offsets[b];
+      const avail = segLens[ci] * 0.95;
+      if (total > avail) {
+        const s = avail / total;
+        if (offsets[a] > 0) offsets[a] *= s;
+        if (offsets[b] > 0) offsets[b] *= s;
+      }
     }
   }
 
