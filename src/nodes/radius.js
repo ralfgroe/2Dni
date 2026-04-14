@@ -237,8 +237,9 @@ function buildFilletedPath(childPath, radius, selected, globalOffset) {
 
     const dot = dotVec(dIn, dOut);
     const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
+    const arcSweep = Math.PI - angle;
     const effR = offset * Math.tan(angle / 2);
-    const k = (4 / 3) * Math.tan(angle / 4);
+    const k = (4 / 3) * Math.tan(arcSweep / 4);
     const hA = k * effR;
 
     result.add(new paper.Segment(
