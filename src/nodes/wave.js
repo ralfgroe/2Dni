@@ -6,6 +6,32 @@ function ensurePaper() {
   if (!paperInitialized && canvas) { paper.setup(canvas); paperInitialized = true; }
 }
 
+function removeCollinearPoints(path) {
+  const EPSILON = 0.5;
+  const segs = path.segments;
+  if (segs.length < 3) return;
+
+  const toRemove = [];
+  for (let i = segs.length - 2; i >= 1; i--) {
+    const prev = segs[i - 1].point;
+    const curr = segs[i].point;
+    const next = segs[i + 1].point;
+
+    const dx1 = curr.x - prev.x;
+    const dy1 = curr.y - prev.y;
+    const dx2 = next.x - curr.x;
+    const dy2 = next.y - curr.y;
+
+    const cross = Math.abs(dx1 * dy2 - dy1 * dx2);
+    if (cross < EPSILON) {
+      toRemove.push(i);
+    }
+  }
+  for (const i of toRemove) {
+    segs[i].remove();
+  }
+}
+
 export function waveRuntime(params) {
   ensurePaper();
 
@@ -22,12 +48,13 @@ export function waveRuntime(params) {
   const strokeColor = params.stroke_color ?? '#000000';
   const strokeWidth = params.stroke_width ?? 1;
 
-  const steps = 400;
   const allPaths = [];
 
   for (let layer = 0; layer < layers; layer++) {
     const yOff = layer * layerOffset;
     const path = new paper.Path();
+
+    const steps = 400;
 
     for (let i = 0; i <= steps; i++) {
       const t = i / steps;
@@ -51,6 +78,13 @@ export function waveRuntime(params) {
 
       path.add(new paper.Point(cx + x, cy + y + yOff));
     }
+
+    if (type === 'Triangle' || type === 'Sawtooth' || type === 'Square') {
+      removeCollinearPoints(path);
+    } else {
+      path.simplify(0.5);
+    }
+
     allPaths.push(path);
   }
 
