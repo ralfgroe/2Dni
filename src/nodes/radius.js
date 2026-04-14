@@ -209,11 +209,12 @@ function buildFilletedPath(childPath, radius, selected, globalOffset) {
   const n = segs.length;
   const isClosed = childPath.closed;
 
-  const filletData = new Array(n).fill(null);
+  const wantedOffset = new Array(n).fill(0);
+  const cornerAngles = new Array(n).fill(0);
+
   for (let i = 0; i < n; i++) {
     const gIdx = globalOffset + i;
     if (!selected.has(gIdx)) continue;
-
     if (!isClosed && (i === 0 || i === n - 1)) continue;
 
     const cornerAngle = getCornerAngle(childPath, i);
@@ -223,27 +224,64 @@ function buildFilletedPath(childPath, radius, selected, globalOffset) {
     const curveOutIdx = i % n;
     const curveIn = curves[curveInIdx];
     const curveOut = curves[curveOutIdx];
-
     if (!curveIn || !curveOut) continue;
 
     const curveInLen = curveIn.length;
     const curveOutLen = curveOut.length;
     if (curveInLen < 0.1 || curveOutLen < 0.1) continue;
 
-    const maxOffset = Math.min(curveInLen * 0.95, curveOutLen * 0.95);
+    const maxSingle = Math.min(curveInLen * 0.95, curveOutLen * 0.95);
     const cornerRad = cornerAngle * Math.PI / 180;
-    const halfAngle = cornerRad / 2;
-    const tanHalf = Math.tan(halfAngle);
+    const tanHalf = Math.tan(cornerRad / 2);
     if (tanHalf < 0.001) continue;
 
-    const offset = Math.min(radius, maxOffset);
+    wantedOffset[i] = Math.min(radius, maxSingle);
+    cornerAngles[i] = cornerAngle;
+  }
+
+  for (let ci = 0; ci < (isClosed ? n : n - 1); ci++) {
+    const curveLen = curves[ci] ? curves[ci].length : 0;
+    if (curveLen < 0.1) continue;
+
+    const cornerA = ci;
+    const cornerB = (ci + 1) % n;
+    const oA = wantedOffset[cornerA];
+    const oB = wantedOffset[cornerB];
+
+    if (oA <= 0 && oB <= 0) continue;
+
+    const totalNeeded = oA + oB;
+    const available = curveLen * 0.95;
+    if (totalNeeded > available) {
+      const scale = available / totalNeeded;
+      if (oA > 0) wantedOffset[cornerA] = Math.min(wantedOffset[cornerA], oA * scale);
+      if (oB > 0) wantedOffset[cornerB] = Math.min(wantedOffset[cornerB], oB * scale);
+    }
+  }
+
+  const filletData = new Array(n).fill(null);
+  for (let i = 0; i < n; i++) {
+    const offset = wantedOffset[i];
     if (offset < 0.01) continue;
+
+    const cornerAngle = cornerAngles[i];
+    const cornerRad = cornerAngle * Math.PI / 180;
+    const tanHalf = Math.tan(cornerRad / 2);
     const effectiveR = offset / tanHalf;
+
+    const curveInIdx = (i - 1 + n) % n;
+    const curveOutIdx = i % n;
+    const curveIn = curves[curveInIdx];
+    const curveOut = curves[curveOutIdx];
+    if (!curveIn || !curveOut) continue;
+
+    const curveInLen = curveIn.length;
+    const curveOutLen = curveOut.length;
 
     const tIn = curveIn.getTimeAt(curveInLen - offset);
     const tOut = curveOut.getTimeAt(offset);
     if (tIn == null || tOut == null || isNaN(tIn) || isNaN(tOut)) continue;
-    if (tIn <= 0.001 || tIn >= 0.999 || tOut <= 0.001 || tOut >= 0.999) continue;
+    if (tIn <= 0.0001 || tOut >= 0.9999) continue;
 
     const tanInDir = safeTangent(curveIn, tIn);
     const tanOutDir = safeTangent(curveOut, tOut);
