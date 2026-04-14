@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { useGraphStore } from '../../store/graphStore';
 import { useNodeRegistryStore } from '../../store/nodeRegistryStore';
 import { useAnimationStore } from '../../store/animationStore';
@@ -340,7 +340,7 @@ function ParameterRow({ paramDef, value, nodeId, onPresetChange }) {
           </button>
         )}
       </div>
-      <ParameterInput paramDef={paramDef} value={isKeyframeable ? displayValue : value} onChange={handleChange} />
+      <ParameterInput paramDef={paramDef} value={isKeyframeable ? displayValue : value} onChange={handleChange} nodeId={nodeId} />
       {animEnabled && hasKfAtFrame && (
         <div className="flex items-center gap-1 mt-0.5">
           <span style={{ fontSize: 9, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Easing:</span>
@@ -369,7 +369,95 @@ function ParameterRow({ paramDef, value, nodeId, onPresetChange }) {
   );
 }
 
-function ParameterInput({ paramDef, value, onChange }) {
+function FontSelect({ options, value, defaultValue, onChange, nodeId, paramId }) {
+  const [open, setOpen] = useState(false);
+  const [committedValue, setCommittedValue] = useState(value ?? defaultValue);
+  const containerRef = useRef(null);
+  const listRef = useRef(null);
+  const updateNodeParams = useGraphStore((s) => s.updateNodeParams);
+
+  useEffect(() => {
+    setCommittedValue(value ?? defaultValue);
+  }, [value, defaultValue]);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClickOutside(e) {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        updateNodeParams(nodeId, { [paramId]: committedValue });
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open, committedValue, nodeId, paramId, updateNodeParams]);
+
+  useEffect(() => {
+    if (open && listRef.current) {
+      const activeEl = listRef.current.querySelector('[data-active="true"]');
+      if (activeEl) activeEl.scrollIntoView({ block: 'nearest' });
+    }
+  }, [open]);
+
+  const handleSelect = useCallback((font) => {
+    setCommittedValue(font);
+    onChange(font);
+    setOpen(false);
+  }, [onChange]);
+
+  const handleHover = useCallback((font) => {
+    updateNodeParams(nodeId, { [paramId]: font });
+  }, [nodeId, paramId, updateNodeParams]);
+
+  const handleMouseLeave = useCallback(() => {
+    updateNodeParams(nodeId, { [paramId]: committedValue });
+  }, [nodeId, paramId, committedValue, updateNodeParams]);
+
+  const current = value ?? defaultValue;
+
+  return (
+    <div ref={containerRef} className="relative w-full">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full rounded border border-border-primary bg-bg-primary px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent text-left flex items-center justify-between"
+        style={{ fontFamily: current }}
+      >
+        <span className="truncate">{current}</span>
+        <svg width="10" height="10" viewBox="0 0 10 10" className="ml-1 shrink-0 opacity-50">
+          <path d="M2 4l3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {open && (
+        <div
+          ref={listRef}
+          onMouseLeave={handleMouseLeave}
+          className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded border border-border-primary bg-bg-primary shadow-lg"
+          style={{ left: 0 }}
+        >
+          {options.map((font) => (
+            <div
+              key={font}
+              data-active={font === current ? 'true' : undefined}
+              onMouseEnter={() => handleHover(font)}
+              onClick={() => handleSelect(font)}
+              className="px-2 py-1.5 text-xs cursor-pointer hover:bg-accent hover:text-white"
+              style={{
+                fontFamily: font,
+                background: font === committedValue ? 'var(--accent)' : undefined,
+                color: font === committedValue ? 'white' : undefined,
+              }}
+            >
+              {font}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ParameterInput({ paramDef, value, onChange, nodeId }) {
   const beginOperation = useGraphStore((s) => s.beginOperation);
   const endOperation = useGraphStore((s) => s.endOperation);
 
@@ -450,6 +538,18 @@ function ParameterInput({ paramDef, value, onChange }) {
       );
 
     case 'select':
+      if (paramDef.id === 'font_family' && nodeId) {
+        return (
+          <FontSelect
+            options={paramDef.options || []}
+            value={value}
+            defaultValue={paramDef.default}
+            onChange={onChange}
+            nodeId={nodeId}
+            paramId={paramDef.id}
+          />
+        );
+      }
       return (
         <select
           value={value ?? paramDef.default}

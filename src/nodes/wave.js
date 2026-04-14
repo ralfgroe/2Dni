@@ -32,6 +32,77 @@ function removeCollinearPoints(path) {
   }
 }
 
+function buildTrianglePoints(freq, amp, len, phaseDeg, cx, cy) {
+  const pts = [];
+  const phaseNorm = (phaseDeg / 360) % 1;
+  const criticals = [];
+
+  criticals.push(0);
+  for (let k = 0; k <= Math.ceil(freq) * 2 + 1; k++) {
+    const tc = (k * 0.5 - phaseNorm) / freq;
+    if (tc > 0 && tc < 1) criticals.push(tc);
+  }
+  criticals.push(1);
+  criticals.sort((a, b) => a - b);
+
+  for (const t of criticals) {
+    const x = t * len - len / 2;
+    const y = amp * (2 * Math.abs(2 * ((freq * t + phaseNorm) % 1) - 1) - 1);
+    pts.push({ x: cx + x, y: cy + y });
+  }
+
+  const deduped = [pts[0]];
+  for (let i = 1; i < pts.length; i++) {
+    const dx = pts[i].x - deduped[deduped.length - 1].x;
+    const dy = pts[i].y - deduped[deduped.length - 1].y;
+    if (Math.sqrt(dx * dx + dy * dy) > 0.5) deduped.push(pts[i]);
+  }
+  return deduped;
+}
+
+function buildSawtoothPoints(freq, amp, len, phaseDeg, cx, cy) {
+  const pts = [];
+  const phaseNorm = (phaseDeg / 360) % 1;
+  const criticals = [0];
+
+  for (let k = 0; k <= Math.ceil(freq) + 1; k++) {
+    const tc = (k - phaseNorm) / freq;
+    if (tc > 0 && tc < 1) {
+      criticals.push(tc - 1e-9);
+      criticals.push(tc);
+    }
+  }
+  criticals.push(1);
+  criticals.sort((a, b) => a - b);
+
+  for (const t of criticals) {
+    const x = t * len - len / 2;
+    const y = amp * (2 * ((freq * t + phaseNorm) % 1) - 1);
+    pts.push({ x: cx + x, y: cy + y });
+  }
+
+  const deduped = [pts[0]];
+  for (let i = 1; i < pts.length; i++) {
+    const dx = pts[i].x - deduped[deduped.length - 1].x;
+    const dy = pts[i].y - deduped[deduped.length - 1].y;
+    if (Math.sqrt(dx * dx + dy * dy) > 0.5) deduped.push(pts[i]);
+  }
+  return deduped;
+}
+
+function buildSquarePoints(freq, amp, len, phase, cx, cy) {
+  const pts = [];
+  const steps = 400;
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const x = t * len - len / 2;
+    const angle = 2 * Math.PI * freq * t + phase;
+    const y = amp * (Math.sin(angle) >= 0 ? 1 : -1);
+    pts.push({ x: cx + x, y: cy + y });
+  }
+  return pts;
+}
+
 export function waveRuntime(params) {
   ensurePaper();
 
@@ -54,34 +125,25 @@ export function waveRuntime(params) {
     const yOff = layer * layerOffset;
     const path = new paper.Path();
 
-    const steps = 400;
-
-    for (let i = 0; i <= steps; i++) {
-      const t = i / steps;
-      const x = t * len - len / 2;
-      const angle = 2 * Math.PI * freq * t + phase + layer * 0.5;
-      let y;
-
-      switch (type) {
-        case 'Triangle':
-          y = amp * (2 * Math.abs(2 * ((freq * t + phaseDeg / 360) % 1) - 1) - 1);
-          break;
-        case 'Sawtooth':
-          y = amp * (2 * ((freq * t + phaseDeg / 360) % 1) - 1);
-          break;
-        case 'Square':
-          y = amp * (Math.sin(angle) >= 0 ? 1 : -1);
-          break;
-        default:
-          y = amp * Math.sin(angle);
-      }
-
-      path.add(new paper.Point(cx + x, cy + y + yOff));
-    }
-
-    if (type === 'Triangle' || type === 'Sawtooth' || type === 'Square') {
+    if (type === 'Triangle') {
+      const pts = buildTrianglePoints(freq, amp, len, phaseDeg, cx, cy + yOff);
+      for (const pt of pts) path.add(new paper.Point(pt.x, pt.y));
+    } else if (type === 'Sawtooth') {
+      const pts = buildSawtoothPoints(freq, amp, len, phaseDeg, cx, cy + yOff);
+      for (const pt of pts) path.add(new paper.Point(pt.x, pt.y));
+    } else if (type === 'Square') {
+      const pts = buildSquarePoints(freq, amp, len, phase + layer * 0.5, cx, cy + yOff);
+      for (const pt of pts) path.add(new paper.Point(pt.x, pt.y));
       removeCollinearPoints(path);
     } else {
+      const steps = 400;
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const x = t * len - len / 2;
+        const angle = 2 * Math.PI * freq * t + phase + layer * 0.5;
+        const y = amp * Math.sin(angle);
+        path.add(new paper.Point(cx + x, cy + y + yOff));
+      }
       path.simplify(0.5);
     }
 
