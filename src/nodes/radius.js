@@ -52,13 +52,23 @@ export function radiusRuntime(params, inputs) {
 
       let sourcePath;
       let children;
-      sourcePath = new paper.CompoundPath(inputGeo.pathData);
-      if (sourcePath.children && sourcePath.children.length > 0) {
-        children = sourcePath.children;
-      } else {
+      sourcePath = new paper.Path(inputGeo.pathData);
+      if (sourcePath.isEmpty()) {
         sourcePath.remove();
-        sourcePath = new paper.Path(inputGeo.pathData);
-        children = [sourcePath];
+        sourcePath = new paper.CompoundPath(inputGeo.pathData);
+        children = sourcePath.children && sourcePath.children.length > 0
+          ? sourcePath.children
+          : [sourcePath];
+      } else {
+        const compound = new paper.CompoundPath(inputGeo.pathData);
+        if (compound.children && compound.children.length > 1) {
+          sourcePath.remove();
+          sourcePath = compound;
+          children = compound.children;
+        } else {
+          compound.remove();
+          children = [sourcePath];
+        }
       }
 
       let totalPoints = 0;
