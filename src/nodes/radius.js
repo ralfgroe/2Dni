@@ -48,76 +48,17 @@ export function radiusRuntime(params, inputs) {
     if (radius <= 0) return inputGeo;
 
     try {
-      ensurePaper();
-
-      let sourcePath;
-      let children;
-      sourcePath = new paper.Path(inputGeo.pathData);
-      if (sourcePath.isEmpty()) {
-        sourcePath.remove();
-        sourcePath = new paper.CompoundPath(inputGeo.pathData);
-        children = sourcePath.children && sourcePath.children.length > 0
-          ? sourcePath.children
-          : [sourcePath];
-      } else {
-        const compound = new paper.CompoundPath(inputGeo.pathData);
-        if (compound.children && compound.children.length > 1) {
-          sourcePath.remove();
-          sourcePath = compound;
-          children = compound.children;
-        } else {
-          compound.remove();
-          children = [sourcePath];
-        }
-      }
-
-      let totalPoints = 0;
-      for (const child of children) {
-        if (child.segments) totalPoints += child.segments.length;
-      }
-
-      const selected = parsePointSelection(point_selection, totalPoints);
-      if (selected.size === 0) {
-        sourcePath.remove();
-        return inputGeo;
-      }
-
-      const newPaths = [];
-      let globalIdx = 0;
-
-      for (const child of children) {
-        if (!child.segments) continue;
-        const n = child.segments.length;
-        const filletedPath = buildFilletedPath(child, radius, selected, globalIdx);
-        newPaths.push(filletedPath);
-        globalIdx += n;
-      }
-
-      sourcePath.remove();
-
-      let resultPath;
-      if (newPaths.length === 1) {
-        resultPath = newPaths[0];
-      } else {
-        resultPath = new paper.CompoundPath({ children: newPaths });
-      }
-      const pathData = resultPath.pathData;
-      const bounds = resultPath.bounds;
-      resultPath.remove();
+      const result = filletPathData(inputGeo.pathData, radius, point_selection);
+      if (!result) return inputGeo;
 
       return {
         type: 'booleanResult',
-        pathData,
+        pathData: result.pathData,
         fill: workGeo.fill || inputGeo.fill || '#ffffff',
         stroke: workGeo.stroke || inputGeo.stroke || '#000000',
         strokeWidth: workGeo.strokeWidth ?? inputGeo.strokeWidth ?? 1,
         opacity: inputGeo.opacity,
-        bounds: {
-          x: bounds.x,
-          y: bounds.y,
-          width: bounds.width,
-          height: bounds.height,
-        },
+        bounds: result.bounds,
       };
     } catch (e) {
       console.error('[Radius] fillet error:', e);
@@ -134,150 +75,164 @@ export function radiusRuntime(params, inputs) {
 
 const SMOOTH_ANGLE_DEG = 20;
 
-function vec(ax, ay, bx, by) {
-  return { x: bx - ax, y: by - ay };
+function parsePathPoints(pathData) {
+  const points = [];
+  let closed = false;
+  const commands = pathData.match(/[MLHVCSQTAZmlhvcsqtaz][^MLHVCSQTAZmlhvcsqtaz]*/g);
+  if (!commands) return { points, closed };
+
+  let cx = 0, cy = 0;
+  for (const cmd of commands) {
+    const type = cmd[0];
+    const nums = cmd.slice(1).trim().match(/-?\d+(?:\.\d+)?(?:e[+-]?\d+)?/gi);
+    const vals = nums ? nums.map(Number) : [];
+
+    switch (type) {
+      case 'M':
+        for (let i = 0; i < vals.length; i += 2) { cx = vals[i]; cy = vals[i + 1]; points.push({ x: cx, y: cy }); } break;
+      case 'm':
+        for (let i = 0; i < vals.length; i += 2) { cx += vals[i]; cy += vals[i + 1]; points.push({ x: cx, y: cy }); } break;
+      case 'L':
+        for (let i = 0; i < vals.length; i += 2) { cx = vals[i]; cy = vals[i + 1]; points.push({ x: cx, y: cy }); } break;
+      case 'l':
+        for (let i = 0; i < vals.length; i += 2) { cx += vals[i]; cy += vals[i + 1]; points.push({ x: cx, y: cy }); } break;
+      case 'H': for (const v of vals) { cx = v; points.push({ x: cx, y: cy }); } break;
+      case 'h': for (const v of vals) { cx += v; points.push({ x: cx, y: cy }); } break;
+      case 'V': for (const v of vals) { cy = v; points.push({ x: cx, y: cy }); } break;
+      case 'v': for (const v of vals) { cy += v; points.push({ x: cx, y: cy }); } break;
+      case 'C':
+        for (let i = 0; i < vals.length; i += 6) { cx = vals[i + 4]; cy = vals[i + 5]; points.push({ x: cx, y: cy }); } break;
+      case 'c':
+        for (let i = 0; i < vals.length; i += 6) { cx += vals[i + 4]; cy += vals[i + 5]; points.push({ x: cx, y: cy }); } break;
+      case 'Z': case 'z': closed = true; break;
+    }
+  }
+  return { points, closed };
 }
-function vecLen(v) {
-  return Math.sqrt(v.x * v.x + v.y * v.y);
+
+function dist(a, b) {
+  return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
 }
-function vecNorm(v) {
-  const l = vecLen(v);
+function norm(v) {
+  const l = Math.sqrt(v.x * v.x + v.y * v.y);
   return l < 1e-9 ? { x: 0, y: 0 } : { x: v.x / l, y: v.y / l };
 }
-function dotVec(a, b) {
-  return a.x * b.x + a.y * b.y;
-}
 
-function buildFilletedPath(childPath, radius, selected, globalOffset) {
-  const segs = childPath.segments;
-  const n = segs.length;
-  const isClosed = childPath.closed;
+function filletPathData(pathData, radius, pointSel) {
+  const { points: rawPts, closed } = parsePathPoints(pathData);
+  if (rawPts.length < 3) return null;
 
-  const pts = segs.map(s => ({ x: s.point.x, y: s.point.y }));
-
-  const isLinear = segs.every(s => {
-    const hi = s.handleIn;
-    const ho = s.handleOut;
-    const hiZero = !hi || (Math.abs(hi.x) < 0.01 && Math.abs(hi.y) < 0.01);
-    const hoZero = !ho || (Math.abs(ho.x) < 0.01 && Math.abs(ho.y) < 0.01);
-    return hiZero && hoZero;
-  });
-
-  if (!isLinear) {
-    return buildFilletedPathCurves(childPath, radius, selected, globalOffset);
+  const pts = [];
+  pts.push(rawPts[0]);
+  for (let i = 1; i < rawPts.length; i++) {
+    if (dist(rawPts[i], pts[pts.length - 1]) > 0.5) pts.push(rawPts[i]);
   }
+  if (closed && pts.length > 2 && dist(pts[0], pts[pts.length - 1]) < 1) pts.pop();
+  if (pts.length < 3) return null;
+
+  const n = pts.length;
+  const selected = parsePointSelection(pointSel, n);
 
   const segLens = [];
-  for (let i = 0; i < n - 1; i++) {
-    segLens.push(vecLen(vec(pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y)));
-  }
-  if (isClosed) {
-    segLens.push(vecLen(vec(pts[n - 1].x, pts[n - 1].y, pts[0].x, pts[0].y)));
-  }
+  for (let i = 0; i < n - 1; i++) segLens.push(dist(pts[i], pts[i + 1]));
+  if (closed) segLens.push(dist(pts[n - 1], pts[0]));
 
-  const wantedOffset = new Array(n).fill(0);
+  const offsets = new Array(n).fill(0);
   for (let i = 0; i < n; i++) {
-    const gIdx = globalOffset + i;
-    if (!selected.has(gIdx)) continue;
-    if (!isClosed && (i === 0 || i === n - 1)) continue;
+    if (!selected.has(i)) continue;
+    if (!closed && (i === 0 || i === n - 1)) continue;
 
-    const prevIdx = (i - 1 + n) % n;
-    const nextIdx = (i + 1) % n;
-    const dIn = vecNorm(vec(pts[i].x, pts[i].y, pts[prevIdx].x, pts[prevIdx].y));
-    const dOut = vecNorm(vec(pts[i].x, pts[i].y, pts[nextIdx].x, pts[nextIdx].y));
-    const dot = dotVec(dIn, dOut);
-    const clamped = Math.max(-1, Math.min(1, dot));
-    const angle = Math.acos(clamped);
+    const prev = (i - 1 + n) % n;
+    const next = (i + 1) % n;
+    const dA = norm({ x: pts[prev].x - pts[i].x, y: pts[prev].y - pts[i].y });
+    const dB = norm({ x: pts[next].x - pts[i].x, y: pts[next].y - pts[i].y });
+    const dot = dA.x * dB.x + dA.y * dB.y;
+    const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
     if (angle < SMOOTH_ANGLE_DEG * Math.PI / 180) continue;
 
-    const sinHalf = Math.sin(angle / 2);
-    if (sinHalf < 0.001) continue;
-    const maxR = Math.min(
-      isClosed ? segLens[prevIdx] : (i > 0 ? segLens[i - 1] : Infinity),
-      isClosed ? segLens[i] : (i < n - 1 ? segLens[i] : Infinity)
-    ) * 0.45;
-    const effR = Math.min(radius, maxR);
-    const offset = effR / Math.tan(angle / 2);
+    const tanHalf = Math.tan(angle / 2);
+    if (tanHalf < 0.001) continue;
 
-    wantedOffset[i] = offset;
+    const segIn = closed ? segLens[(i - 1 + n) % n] : (i > 0 ? segLens[i - 1] : Infinity);
+    const segOut = closed ? segLens[i] : (i < n - 1 ? segLens[i] : Infinity);
+    const maxR = Math.min(segIn, segOut) * 0.45;
+    const effR = Math.min(radius, maxR);
+    offsets[i] = effR / tanHalf;
   }
 
-  const numSegs = isClosed ? n : n - 1;
-  for (let ci = 0; ci < numSegs; ci++) {
-    const cornerA = ci;
-    const cornerB = (ci + 1) % n;
-    const oA = wantedOffset[cornerA];
-    const oB = wantedOffset[cornerB];
-    if (oA <= 0 && oB <= 0) continue;
-    const total = oA + oB;
-    const available = segLens[ci] * 0.95;
-    if (total > available) {
-      const scale = available / total;
-      if (oA > 0) wantedOffset[cornerA] = oA * scale;
-      if (oB > 0) wantedOffset[cornerB] = oB * scale;
+  const numEdges = closed ? n : n - 1;
+  for (let ci = 0; ci < numEdges; ci++) {
+    const a = ci, b = (ci + 1) % n;
+    if (offsets[a] <= 0 && offsets[b] <= 0) continue;
+    const total = offsets[a] + offsets[b];
+    const avail = segLens[ci] * 0.95;
+    if (total > avail) {
+      const s = avail / total;
+      if (offsets[a] > 0) offsets[a] *= s;
+      if (offsets[b] > 0) offsets[b] *= s;
     }
   }
 
-  const result = new paper.Path();
+  let d = '';
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+  function trackBounds(x, y) {
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+  }
 
   for (let i = 0; i < n; i++) {
-    const offset = wantedOffset[i];
-    if (offset < 0.01) {
-      result.add(new paper.Point(pts[i].x, pts[i].y));
+    const off = offsets[i];
+
+    if (off < 0.01) {
+      const { x, y } = pts[i];
+      d += (i === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`);
+      trackBounds(x, y);
       continue;
     }
 
-    const prevIdx = (i - 1 + n) % n;
-    const nextIdx = (i + 1) % n;
-    const dIn = vecNorm(vec(pts[i].x, pts[i].y, pts[prevIdx].x, pts[prevIdx].y));
-    const dOut = vecNorm(vec(pts[i].x, pts[i].y, pts[nextIdx].x, pts[nextIdx].y));
+    const prev = (i - 1 + n) % n;
+    const next = (i + 1) % n;
+    const dA = norm({ x: pts[prev].x - pts[i].x, y: pts[prev].y - pts[i].y });
+    const dB = norm({ x: pts[next].x - pts[i].x, y: pts[next].y - pts[i].y });
 
-    const pA = { x: pts[i].x + dIn.x * offset, y: pts[i].y + dIn.y * offset };
-    const pB = { x: pts[i].x + dOut.x * offset, y: pts[i].y + dOut.y * offset };
+    const pA = { x: pts[i].x + dA.x * off, y: pts[i].y + dA.y * off };
+    const pB = { x: pts[i].x + dB.x * off, y: pts[i].y + dB.y * off };
 
-    const dot = dotVec(dIn, dOut);
+    const dot = dA.x * dB.x + dA.y * dB.y;
     const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
     const arcSweep = Math.PI - angle;
-    const effR = offset * Math.tan(angle / 2);
+    const effR = off * Math.tan(angle / 2);
+
     const k = (4 / 3) * Math.tan(arcSweep / 4);
-    const hA = k * effR;
+    const hLen = k * effR;
+    const hAx = -dA.x * hLen, hAy = -dA.y * hLen;
+    const hBx = -dB.x * hLen, hBy = -dB.y * hLen;
 
-    result.add(new paper.Segment(
-      new paper.Point(pA.x, pA.y),
-      null,
-      new paper.Point(-dIn.x * hA, -dIn.y * hA)
-    ));
-    result.add(new paper.Segment(
-      new paper.Point(pB.x, pB.y),
-      new paper.Point(-dOut.x * hA, -dOut.y * hA),
-      null
-    ));
+    const cp1x = pA.x + hAx, cp1y = pA.y + hAy;
+    const cp2x = pB.x + hBx, cp2y = pB.y + hBy;
+
+    d += (i === 0 ? `M ${pA.x} ${pA.y}` : ` L ${pA.x} ${pA.y}`);
+    d += ` C ${cp1x} ${cp1y} ${cp2x} ${cp2y} ${pB.x} ${pB.y}`;
+
+    trackBounds(pA.x, pA.y);
+    trackBounds(pB.x, pB.y);
+    trackBounds(cp1x, cp1y);
+    trackBounds(cp2x, cp2y);
   }
 
-  if (isClosed) result.closePath();
-  return result;
-}
+  if (closed) d += ' Z';
 
-function buildFilletedPathCurves(childPath, radius, selected, globalOffset) {
-  const segs = childPath.segments;
-  const n = segs.length;
-  const isClosed = childPath.closed;
-
-  const result = new paper.Path();
-  for (let i = 0; i < n; i++) {
-    const seg = segs[i];
-    result.add(new paper.Segment(
-      new paper.Point(seg.point.x, seg.point.y),
-      seg.handleIn ? new paper.Point(seg.handleIn.x, seg.handleIn.y) : null,
-      seg.handleOut ? new paper.Point(seg.handleOut.x, seg.handleOut.y) : null
-    ));
-  }
-  if (isClosed) result.closePath();
-  return result;
+  return {
+    pathData: d,
+    bounds: { x: minX, y: minY, width: maxX - minX, height: maxY - minY },
+  };
 }
 
 function parsePointSelection(sel, total) {
-  if (sel === '*') {
+  if (sel === '*' || !sel || sel.trim() === '') {
     const s = new Set();
     for (let i = 0; i < total; i++) s.add(i);
     return s;
