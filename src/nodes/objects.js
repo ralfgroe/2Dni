@@ -60,15 +60,17 @@ function buildShapePath(shape, size, cx, cy) {
 
 function heartPath(s, cx, cy) {
   const sc = s / 50;
-  const ox = cx, oy = cy + s * 0.1;
+  const ox = cx, oy = cy;
   return [
-    `M ${ox} ${oy + 18 * sc}`,
-    `C ${ox} ${oy + 14 * sc} ${ox - 5 * sc} ${oy + 8 * sc} ${ox - 14 * sc} ${oy + 8 * sc}`,
-    `C ${ox - 28 * sc} ${oy + 8 * sc} ${ox - 42 * sc} ${oy + 22 * sc} ${ox - 42 * sc} ${oy + 36 * sc}`,
-    `C ${ox - 42 * sc} ${oy + 60 * sc} ${ox} ${oy + 80 * sc} ${ox} ${oy + 80 * sc}`,
-    `C ${ox} ${oy + 80 * sc} ${ox + 42 * sc} ${oy + 60 * sc} ${ox + 42 * sc} ${oy + 36 * sc}`,
-    `C ${ox + 42 * sc} ${oy + 22 * sc} ${ox + 28 * sc} ${oy + 8 * sc} ${ox + 14 * sc} ${oy + 8 * sc}`,
-    `C ${ox + 5 * sc} ${oy + 8 * sc} ${ox} ${oy + 14 * sc} ${ox} ${oy + 18 * sc}`,
+    `M ${ox} ${oy + 44 * sc}`,
+    `C ${ox - 4 * sc} ${oy + 38 * sc} ${ox - 38 * sc} ${oy + 14 * sc} ${ox - 44 * sc} ${oy - 2 * sc}`,
+    `C ${ox - 48 * sc} ${oy - 14 * sc} ${ox - 46 * sc} ${oy - 30 * sc} ${ox - 36 * sc} ${oy - 38 * sc}`,
+    `C ${ox - 28 * sc} ${oy - 44 * sc} ${ox - 16 * sc} ${oy - 44 * sc} ${ox - 8 * sc} ${oy - 40 * sc}`,
+    `C ${ox - 2 * sc} ${oy - 37 * sc} ${ox} ${oy - 32 * sc} ${ox} ${oy - 28 * sc}`,
+    `C ${ox} ${oy - 32 * sc} ${ox + 2 * sc} ${oy - 37 * sc} ${ox + 8 * sc} ${oy - 40 * sc}`,
+    `C ${ox + 16 * sc} ${oy - 44 * sc} ${ox + 28 * sc} ${oy - 44 * sc} ${ox + 36 * sc} ${oy - 38 * sc}`,
+    `C ${ox + 46 * sc} ${oy - 30 * sc} ${ox + 48 * sc} ${oy - 14 * sc} ${ox + 44 * sc} ${oy - 2 * sc}`,
+    `C ${ox + 38 * sc} ${oy + 14 * sc} ${ox + 4 * sc} ${oy + 38 * sc} ${ox} ${oy + 44 * sc}`,
     'Z',
   ].join(' ');
 }
@@ -77,26 +79,32 @@ function spadePath(s, cx, cy) {
   const sc = s / 50;
   const ox = cx, oy = cy;
   return [
-    `M ${ox} ${oy - 44 * sc}`,
-    `C ${ox} ${oy - 44 * sc} ${ox - 42 * sc} ${oy - 10 * sc} ${ox - 42 * sc} ${oy + 10 * sc}`,
-    `C ${ox - 42 * sc} ${oy + 28 * sc} ${ox - 24 * sc} ${oy + 38 * sc} ${ox - 10 * sc} ${oy + 34 * sc}`,
-    `C ${ox - 16 * sc} ${oy + 42 * sc} ${ox - 8 * sc} ${oy + 48 * sc} ${ox - 8 * sc} ${oy + 48 * sc}`,
-    `L ${ox + 8 * sc} ${oy + 48 * sc}`,
-    `C ${ox + 8 * sc} ${oy + 48 * sc} ${ox + 16 * sc} ${oy + 42 * sc} ${ox + 10 * sc} ${oy + 34 * sc}`,
-    `C ${ox + 24 * sc} ${oy + 38 * sc} ${ox + 42 * sc} ${oy + 28 * sc} ${ox + 42 * sc} ${oy + 10 * sc}`,
-    `C ${ox + 42 * sc} ${oy - 10 * sc} ${ox} ${oy - 44 * sc} ${ox} ${oy - 44 * sc}`,
+    `M ${ox} ${oy - 46 * sc}`,
+    `C ${ox + 4 * sc} ${oy - 40 * sc} ${ox + 38 * sc} ${oy - 16 * sc} ${ox + 44 * sc} ${oy}`,
+    `C ${ox + 48 * sc} ${oy + 12 * sc} ${ox + 46 * sc} ${oy + 28 * sc} ${ox + 36 * sc} ${oy + 34 * sc}`,
+    `C ${ox + 28 * sc} ${oy + 39 * sc} ${ox + 18 * sc} ${oy + 36 * sc} ${ox + 12 * sc} ${oy + 30 * sc}`,
+    `C ${ox + 14 * sc} ${oy + 36 * sc} ${ox + 16 * sc} ${oy + 42 * sc} ${ox + 16 * sc} ${oy + 48 * sc}`,
+    `L ${ox - 16 * sc} ${oy + 48 * sc}`,
+    `C ${ox - 16 * sc} ${oy + 42 * sc} ${ox - 14 * sc} ${oy + 36 * sc} ${ox - 12 * sc} ${oy + 30 * sc}`,
+    `C ${ox - 18 * sc} ${oy + 36 * sc} ${ox - 28 * sc} ${oy + 39 * sc} ${ox - 36 * sc} ${oy + 34 * sc}`,
+    `C ${ox - 46 * sc} ${oy + 28 * sc} ${ox - 48 * sc} ${oy + 12 * sc} ${ox - 44 * sc} ${oy}`,
+    `C ${ox - 38 * sc} ${oy - 16 * sc} ${ox - 4 * sc} ${oy - 40 * sc} ${ox} ${oy - 46 * sc}`,
     'Z',
   ].join(' ');
 }
 
 function diamondPath(s, cx, cy) {
-  const w = s * 0.65;
-  const h = s;
+  const sc = s / 50;
+  const ox = cx, oy = cy;
+  const w = 30 * sc;
+  const h = 48 * sc;
+  const bulge = 8 * sc;
   return [
-    `M ${cx} ${cy - h}`,
-    `L ${cx + w} ${cy}`,
-    `L ${cx} ${cy + h}`,
-    `L ${cx - w} ${cy}`,
+    `M ${ox} ${oy - h}`,
+    `C ${ox + bulge} ${oy - h + bulge} ${ox + w - bulge} ${oy - bulge} ${ox + w} ${oy}`,
+    `C ${ox + w - bulge} ${oy + bulge} ${ox + bulge} ${oy + h - bulge} ${ox} ${oy + h}`,
+    `C ${ox - bulge} ${oy + h - bulge} ${ox - w + bulge} ${oy + bulge} ${ox - w} ${oy}`,
+    `C ${ox - w + bulge} ${oy - bulge} ${ox - bulge} ${oy - h + bulge} ${ox} ${oy - h}`,
     'Z',
   ].join(' ');
 }
@@ -104,34 +112,38 @@ function diamondPath(s, cx, cy) {
 function clubPath(s, cx, cy) {
   const sc = s / 50;
   const ox = cx, oy = cy;
-  const r = 16 * sc;
-  const topY = oy - 22 * sc;
-  const sideY = oy + 2 * sc;
-  const sideX = 22 * sc;
+  const r = 18 * sc;
+  const k = r * 0.5522847498;
+  const topCy = oy - 20 * sc;
+  const sideCy = oy + 6 * sc;
+  const sideOff = 20 * sc;
 
-  const circleApprox = (ccx, ccy, radius) => {
-    const k = radius * 0.5522847498;
+  function lobe(lx, ly) {
     return [
-      `M ${ccx} ${ccy - radius}`,
-      `C ${ccx + k} ${ccy - radius} ${ccx + radius} ${ccy - k} ${ccx + radius} ${ccy}`,
-      `C ${ccx + radius} ${ccy + k} ${ccx + k} ${ccy + radius} ${ccx} ${ccy + radius}`,
-      `C ${ccx - k} ${ccy + radius} ${ccx - radius} ${ccy + k} ${ccx - radius} ${ccy}`,
-      `C ${ccx - radius} ${ccy - k} ${ccx - k} ${ccy - radius} ${ccx} ${ccy - radius}`,
+      `M ${lx} ${ly - r}`,
+      `C ${lx + k} ${ly - r} ${lx + r} ${ly - k} ${lx + r} ${ly}`,
+      `C ${lx + r} ${ly + k} ${lx + k} ${ly + r} ${lx} ${ly + r}`,
+      `C ${lx - k} ${ly + r} ${lx - r} ${ly + k} ${lx - r} ${ly}`,
+      `C ${lx - r} ${ly - k} ${lx - k} ${ly - r} ${lx} ${ly - r}`,
     ].join(' ');
-  };
+  }
 
-  const topLobe = circleApprox(ox, topY, r);
-  const leftLobe = circleApprox(ox - sideX, sideY, r);
-  const rightLobe = circleApprox(ox + sideX, sideY, r);
+  const top = lobe(ox, topCy);
+  const left = lobe(ox - sideOff, sideCy);
+  const right = lobe(ox + sideOff, sideCy);
 
+  const stemTop = sideCy + 6 * sc;
+  const stemBot = oy + 48 * sc;
+  const stemW1 = 6 * sc;
+  const stemW2 = 16 * sc;
   const stem = [
-    `M ${ox - 8 * sc} ${sideY + 10 * sc}`,
-    `C ${ox - 10 * sc} ${oy + 30 * sc} ${ox - 14 * sc} ${oy + 44 * sc} ${ox - 14 * sc} ${oy + 44 * sc}`,
-    `L ${ox + 14 * sc} ${oy + 44 * sc}`,
-    `C ${ox + 14 * sc} ${oy + 44 * sc} ${ox + 10 * sc} ${oy + 30 * sc} ${ox + 8 * sc} ${sideY + 10 * sc}`,
+    `M ${ox - stemW1} ${stemTop}`,
+    `C ${ox - stemW1} ${stemTop + 10 * sc} ${ox - stemW2} ${stemBot - 6 * sc} ${ox - stemW2} ${stemBot}`,
+    `L ${ox + stemW2} ${stemBot}`,
+    `C ${ox + stemW2} ${stemBot - 6 * sc} ${ox + stemW1} ${stemTop + 10 * sc} ${ox + stemW1} ${stemTop}`,
   ].join(' ');
 
-  return `${topLobe} ${leftLobe} ${rightLobe} ${stem} Z`;
+  return `${top} ${left} ${right} ${stem} Z`;
 }
 
 function tshirtPath(s, cx, cy) {
