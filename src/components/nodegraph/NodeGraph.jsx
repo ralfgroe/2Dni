@@ -160,6 +160,10 @@ export default function NodeGraph() {
     pendingConnection.current = null;
   }, [selectNode]);
 
+  const onNodeClick = useCallback((_, node) => {
+    selectNode(node.id);
+  }, [selectNode]);
+
   const onEdgeClick = useCallback(() => {
     selectNode(null);
   }, [selectNode]);
@@ -378,6 +382,7 @@ export default function NodeGraph() {
         onConnectEnd={onConnectEnd}
         onNodeDragStop={onNodeDragStop}
         onPaneClick={onPaneClick}
+        onNodeClick={onNodeClick}
         onEdgeClick={onEdgeClick}
         onPaneContextMenu={onPaneContextMenu}
         onInit={setReactFlowInstance}

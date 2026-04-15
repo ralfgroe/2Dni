@@ -11,6 +11,7 @@ export default memo(function GraphNode({ id, data, selected }) {
   const toggleBypass = useGraphStore((s) => s.toggleBypass);
   const toggleTemplate = useGraphStore((s) => s.toggleTemplate);
   const setDisplayNode = useGraphStore((s) => s.setDisplayNode);
+  const selectNode = useGraphStore((s) => s.selectNode);
 
   const isBypassed = data.bypassed;
   const isTemplated = data.templated;
@@ -18,18 +19,21 @@ export default memo(function GraphNode({ id, data, selected }) {
 
   const handleBypassClick = useCallback((e) => {
     e.stopPropagation();
+    selectNode(id);
     toggleBypass(id);
-  }, [id, toggleBypass]);
+  }, [id, selectNode, toggleBypass]);
 
   const handleTemplateClick = useCallback((e) => {
     e.stopPropagation();
+    selectNode(id);
     toggleTemplate(id);
-  }, [id, toggleTemplate]);
+  }, [id, selectNode, toggleTemplate]);
 
   const handleDisplayClick = useCallback((e) => {
     e.stopPropagation();
+    selectNode(id);
     setDisplayNode(id);
-  }, [id, setDisplayNode]);
+  }, [id, selectNode, setDisplayNode]);
 
   if (!definition) return null;
 
