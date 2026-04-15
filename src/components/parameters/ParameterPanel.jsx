@@ -98,9 +98,36 @@ export default function ParameterPanel() {
   };
 
   const handleExport = () => {
-    const geo = results.get(selectedNode.id);
+    const fullResults = displayNodeId
+      ? evaluateGraph(animatedNodes, edges, definitions, null)
+      : results;
+
+    const geo = fullResults.get(selectedNode.id);
     if (!geo) return;
-    const sourceGeo = geo.geometry || geo;
+
+    const nodesWithDownstream = new Set();
+    for (const edge of edges) {
+      nodesWithDownstream.add(edge.source);
+    }
+    const terminalGeos = [];
+    for (const node of nodes) {
+      if (nodesWithDownstream.has(node.id)) continue;
+      const g = fullResults.get(node.id);
+      if (!g) continue;
+      if (g.type === 'export' && g.geometry) {
+        terminalGeos.push(g.geometry);
+      } else if (g.type !== 'export') {
+        terminalGeos.push(g);
+      }
+    }
+
+    let sourceGeo;
+    if (terminalGeos.length <= 1) {
+      sourceGeo = terminalGeos[0] || geo.geometry || geo;
+    } else {
+      sourceGeo = { type: 'group', children: terminalGeos, transform: {} };
+    }
+
     const exportParams = (() => {
       const res = params.resolution ?? 'hd';
       let w = params.canvas_width ?? 1920;

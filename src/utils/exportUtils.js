@@ -485,6 +485,12 @@ function rasterizeAndDownload(svgStr, width, height, outFilename, mimeType, qual
   img.src = url;
 }
 
+function sortChildrenByLayer(children) {
+  const hasLayers = children.some((c) => c && c.layer != null);
+  if (!hasLayers) return children;
+  return [...children].sort((a, b) => (a?.layer ?? 0) - (b?.layer ?? 0));
+}
+
 function geometryToSVGString(geo) {
   if (!geo) return '';
 
@@ -520,17 +526,25 @@ function geometryToSVGString(geo) {
 
     case 'group': {
       const { translate_x = 0, translate_y = 0, rotate = 0, scale_x = 1, scale_y = 1, pivot_x = 0, pivot_y = 0 } = geo.transform || {};
-      const childSvg = (geo.children || []).map(geometryToSVGString).join('\n    ');
+      const sorted = sortChildrenByLayer(geo.children || []);
+      const childSvg = sorted.map(geometryToSVGString).join('\n    ');
       return `<g transform="translate(${translate_x}, ${translate_y}) rotate(${rotate}, ${pivot_x}, ${pivot_y}) scale(${scale_x}, ${scale_y})"${opAttr}>\n    ${childSvg}\n  </g>`;
     }
 
     case 'boolean': {
-      const childSvg = (geo.children || []).map(geometryToSVGString).join('\n    ');
+      const sorted = sortChildrenByLayer(geo.children || []);
+      const childSvg = sorted.map(geometryToSVGString).join('\n    ');
       return `<g${opAttr}>\n    ${childSvg}\n  </g>`;
     }
 
     case 'booleanResult':
       return `<path d="${geo.pathData}" fill="${geo.fill}" stroke="${geo.stroke}" stroke-width="${geo.strokeWidth}"${opAttr} />`;
+
+    case 'image':
+      if (geo.dataUrl) {
+        return `<image href="${geo.dataUrl}" x="${geo.x ?? 0}" y="${geo.y ?? 0}" width="${geo.width ?? 0}" height="${geo.height ?? 0}" preserveAspectRatio="none"${opAttr} />`;
+      }
+      return '';
 
     case 'export':
       return geometryToSVGString(geo.geometry);

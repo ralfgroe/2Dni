@@ -47,9 +47,11 @@ export function loadProject() {
             alert('Not a valid 2Dni project file.');
             return resolve(false);
           }
-          const { setNodes, setEdges, setDisplayNode } = useGraphStore.getState();
+          const { setNodes, setEdges, setDisplayNode, selectNode, syncNextNodeId } = useGraphStore.getState();
+          selectNode(null);
           setNodes(project.nodes || []);
           setEdges(project.edges || []);
+          syncNextNodeId();
           if (project.displayNodeId) setDisplayNode(project.displayNodeId);
 
           if (project.animation) {

@@ -164,6 +164,16 @@ export const useGraphStore = create((rawSet, get) => {
 
   setEdges: (edges) => set({ edges }),
 
+  syncNextNodeId: () => {
+    const { nodes } = get();
+    let max = 0;
+    for (const n of nodes) {
+      const m = n.id.match(/^node_(\d+)$/);
+      if (m) max = Math.max(max, parseInt(m[1], 10));
+    }
+    nextNodeId = max + 1;
+  },
+
   getSelectedNode: () => {
     const { nodes, selectedNodeId } = get();
     return nodes.find((n) => n.id === selectedNodeId) || null;
