@@ -50,6 +50,49 @@ function extractOpenPaths(geo) {
   return result;
 }
 
+function fuseClosedPath(path, threshold) {
+  const segs = path.segments;
+  if (segs.length < 3) return path;
+
+  const merged = [segs[0]];
+  for (let i = 1; i < segs.length; i++) {
+    const prev = merged[merged.length - 1];
+    const cur = segs[i];
+    if (dist(prev.point, cur.point) <= threshold) {
+      const midX = (prev.point.x + cur.point.x) / 2;
+      const midY = (prev.point.y + cur.point.y) / 2;
+      merged[merged.length - 1] = {
+        point: { x: midX, y: midY },
+        handleIn: { ...prev.handleIn },
+        handleOut: { ...cur.handleOut },
+      };
+    } else {
+      merged.push({
+        point: { ...cur.point },
+        handleIn: { ...cur.handleIn },
+        handleOut: { ...cur.handleOut },
+      });
+    }
+  }
+
+  if (merged.length >= 2) {
+    const first = merged[0];
+    const last = merged[merged.length - 1];
+    if (dist(first.point, last.point) <= threshold) {
+      const midX = (first.point.x + last.point.x) / 2;
+      const midY = (first.point.y + last.point.y) / 2;
+      merged[0] = {
+        point: { x: midX, y: midY },
+        handleIn: { ...last.handleIn },
+        handleOut: { ...first.handleOut },
+      };
+      merged.pop();
+    }
+  }
+
+  return { segments: merged, closed: true };
+}
+
 function fuseAndJoin(paths, threshold) {
   if (paths.length === 0) return [];
   if (threshold <= 0) return paths;
@@ -57,7 +100,9 @@ function fuseAndJoin(paths, threshold) {
   const open = paths.filter(p => !p.closed);
   const closed = paths.filter(p => p.closed);
 
-  if (open.length <= 1) return paths;
+  const fusedClosed = closed.map(p => fuseClosedPath(p, threshold));
+
+  if (open.length <= 1) return [...fusedClosed, ...open];
 
   const used = new Set();
   const chains = [];
@@ -174,7 +219,7 @@ function fuseAndJoin(paths, threshold) {
     chains.push({ segments: chain, closed: isClosed });
   }
 
-  return [...closed, ...chains];
+  return [...fusedClosed, ...chains];
 }
 
 export function fuseRuntime(params, inputs) {
