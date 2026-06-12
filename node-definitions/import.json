@@ -2,7 +2,7 @@
   "id": "import",
   "label": "Import",
   "category": "I/O",
-  "description": "Import SVG or PNG files as geometry. SVG paths become editable vector geometry; PNG images are placed as raster objects.",
+  "description": "Import SVG, PNG or JPEG files as geometry. SVG paths become editable vector geometry; PNG and JPEG images are placed as raster objects.",
   "inputs": [],
   "outputs": [
     { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }

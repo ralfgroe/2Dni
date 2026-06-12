@@ -606,10 +606,10 @@ function ParameterInput({ paramDef, value, onChange, nodeId }) {
           <label
             className="flex cursor-pointer items-center justify-center rounded border border-dashed border-border-primary bg-bg-secondary px-3 py-2.5 text-[11px] font-medium text-text-secondary transition-colors hover:border-accent hover:text-accent"
           >
-            {value ? 'Replace file...' : 'Choose SVG or PNG...'}
+            {value ? 'Replace file...' : 'Choose SVG, PNG or JPEG...'}
             <input
               type="file"
-              accept=".svg,.png,image/svg+xml,image/png"
+              accept=".svg,.png,.jpg,.jpeg,image/svg+xml,image/png,image/jpeg"
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0];

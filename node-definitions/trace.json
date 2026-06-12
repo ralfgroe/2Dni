@@ -1,0 +1,22 @@
+{
+  "id": "trace",
+  "label": "Trace",
+  "category": "Transform",
+  "description": "Traces an imported PNG/JPEG/raster image into editable vector geometry, like Illustrator's Image Trace. Use the sliders to control how many colors are used, how detailed (how many control points) the paths are, remove small stray pieces, and round sharp corners.",
+  "inputs": [
+    { "id": "geometry_in", "label": "Image In", "type": "geometry", "required": true }
+  ],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "mode", "label": "Mode", "type": "select", "default": "Color", "options": ["Color", "Black & White"] },
+    { "id": "colors", "label": "Colors", "type": "number", "default": 8, "min": 2, "max": 64, "step": 1 },
+    { "id": "detail", "label": "Detail", "type": "number", "default": 50, "min": 1, "max": 100, "step": 1 },
+    { "id": "smoothing", "label": "Smoothing", "type": "number", "default": 30, "min": 0, "max": 100, "step": 1 },
+    { "id": "min_area", "label": "Noise Removal", "type": "number", "default": 8, "min": 0, "max": 100, "step": 1 },
+    { "id": "min_piece", "label": "Remove Small Pieces", "type": "number", "default": 0, "min": 0, "max": 100, "step": 1 },
+    { "id": "round_corners", "label": "Round Corners", "type": "number", "default": 0, "min": 0, "max": 100, "step": 1 }
+  ],
+  "runtime": "trace"
+}
