@@ -12,6 +12,7 @@ import CornerPickOverlay from './CornerPickOverlay';
 import FreeCurveOverlay from './FreeCurveOverlay';
 import BezierOverlay from './BezierOverlay';
 import PointTransformOverlay from './PointTransformOverlay';
+import ResampleOverlay from './ResampleOverlay';
 import Timeline from '../timeline/Timeline';
 
 export default function Viewport() {
@@ -586,6 +587,16 @@ export default function Viewport() {
             screenToSvg={screenToSvg}
             edges={edges}
             results={results}
+          />
+        )}
+
+        {/* Resample control-point preview */}
+        {selectedNode && selectedDef && selectedDef.id === 'resample' && (
+          <ResampleOverlay
+            nodeId={selectedNode.id}
+            edges={edges}
+            results={results}
+            viewBox={viewBox}
           />
         )}
 

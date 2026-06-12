@@ -1,0 +1,18 @@
+{
+  "id": "resample",
+  "label": "Resample",
+  "category": "Transform",
+  "description": "Redistributes control points evenly along the input geometry, adding more points based on a target segment length \u2014 like Houdini's Resample SOP. Useful for giving downstream Noise Deform more points to displace.",
+  "inputs": [
+    { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }
+  ],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "segment_length", "label": "Segment Length", "type": "number", "default": 20, "min": 1, "max": 200, "step": 0.5 },
+    { "id": "keep_corners", "label": "Keep Original Points", "type": "boolean", "default": true },
+    { "id": "max_points", "label": "Max Points", "type": "number", "default": 2000, "min": 10, "max": 10000, "step": 10 }
+  ],
+  "runtime": "resample"
+}

@@ -37,6 +37,7 @@ import { interpolateRuntime } from '../nodes/interpolate';
 import { stippleRuntime } from '../nodes/stipple';
 import { convertRuntime } from '../nodes/convert';
 import { objectsRuntime } from '../nodes/objects';
+import { resampleRuntime } from '../nodes/resample';
 
 const runtimeMap = {
   line: lineRuntime,
@@ -79,6 +80,7 @@ const runtimeMap = {
   stipple: stippleRuntime,
   convert: convertRuntime,
   objects: objectsRuntime,
+  resample: resampleRuntime,
 };
 
 export function getRuntime(runtimeId) {
