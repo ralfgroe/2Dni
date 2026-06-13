@@ -2,7 +2,7 @@
   "id": "voronoi",
   "label": "Voronoi",
   "category": "Transform",
-  "description": "Generates Voronoi tessellation or Delaunay triangulation from input geometry point positions, or from random/grid seed points.",
+  "description": "Generates a Voronoi tessellation or Delaunay triangulation. Connect input geometry to fill that shape: points are scattered inside it (or its own vertices are used with 'Input Points') and the cells are clipped to the shape. With no input, fills a Width x Height rectangle from random or grid seed points.",
   "inputs": [
     { "id": "geometry_in", "label": "Geometry In", "type": "geometry" }
   ],

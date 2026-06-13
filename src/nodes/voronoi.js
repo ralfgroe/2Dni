@@ -1,4 +1,5 @@
 import paper from 'paper';
+import { geoToPaperPath } from '../utils/geoPathUtils';
 
 let paperInitialized = false;
 const canvas = typeof document !== 'undefined' ? document.createElement('canvas') : null;
@@ -118,17 +119,6 @@ function clipPolygonToRect(poly, minX, minY, maxX, maxY) {
   return output;
 }
 
-function voronoiEdgesFromCells(cells) {
-  const segments = [];
-  for (const cell of cells) {
-    for (let i = 0; i < cell.length; i++) {
-      const a = cell[i], b = cell[(i + 1) % cell.length];
-      segments.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y });
-    }
-  }
-  return segments;
-}
-
 function circumcenter(a, b, c) {
   const D = 2 * (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y));
   if (Math.abs(D) < 1e-10) return null;
@@ -202,36 +192,76 @@ export function voronoiRuntime(params, inputs) {
   const strokeColor = params.stroke_color ?? '#000000';
   const strokeWidth = params.stroke_width ?? 1;
 
+  // When geometry is connected, treat it as a boundary region: scatter points
+  // inside it (or use its vertices) and clip the diagram to its shape.
+  const inputGeo = inputs?.geometry_in;
+  let boundary = null;
+  if (inputGeo) {
+    const bp = geoToPaperPath(inputGeo);
+    if (bp && (bp.area === undefined || Math.abs(bp.area) > 0 || bp instanceof paper.CompoundPath)) {
+      boundary = bp;
+    } else if (bp) {
+      bp.remove();
+    }
+  }
+
   let points;
-  if (source === 'Input Points' && inputs?.geometry_in) {
-    points = extractPointsFromGeo(inputs.geometry_in);
+  let clipW = w, clipH = h;
+
+  if (boundary) {
+    const b = boundary.bounds;
+    clipW = b.width;
+    clipH = b.height;
+    if (source === 'Input Points') {
+      // Use the shape's own vertices, topped up with interior points so the
+      // diagram has enough sites to be interesting.
+      points = extractPointsFromGeo(inputGeo);
+      if (points.length < count) {
+        points = points.concat(scatterInsidePath(boundary, count - points.length, seed, jitter));
+      }
+    } else {
+      points = scatterInsidePath(boundary, count, seed, jitter);
+    }
+    if (points.length < 3) {
+      // Degenerate input; fall back so the node still produces something.
+      points = scatterInsidePath(boundary, Math.max(3, count), seed + 7, jitter);
+    }
+  } else if (source === 'Input Points' && inputGeo) {
+    points = extractPointsFromGeo(inputGeo);
     if (points.length < 3) points = generatePoints('Random', count, w, h, seed, jitter);
   } else {
     points = generatePoints(source, count, w, h, seed, jitter);
   }
 
-  if (relax > 0) points = lloydRelax(points, w, h, relax);
+  if (relax > 0) {
+    // Relax within a region large enough to contain the points.
+    points = lloydRelax(points, clipW * 1.2, clipH * 1.2, relax);
+  }
 
   const tris = delaunay(points);
 
-  const paths = [];
+  // Build raw cells (arrays of {x,y}) for the chosen mode.
+  let rawCells;
   if (mode === 'Delaunay') {
-    for (const tri of tris) {
-      const p = new paper.Path();
-      p.add(new paper.Point(tri[0].x, tri[0].y));
-      p.add(new paper.Point(tri[1].x, tri[1].y));
-      p.add(new paper.Point(tri[2].x, tri[2].y));
-      p.closePath();
-      paths.push(p);
-    }
+    rawCells = tris.map((tri) => [tri[0], tri[1], tri[2]]);
   } else {
-    const cells = voronoiCells(tris, points, w, h);
-    for (const cell of cells) {
-      const p = new paper.Path();
-      for (const v of cell) p.add(new paper.Point(v.x, v.y));
-      p.closePath();
-      paths.push(p);
-    }
+    rawCells = voronoiCells(tris, points, clipW * 2, clipH * 2);
+  }
+
+  // Clip to the input shape when present.
+  let cells = rawCells;
+  if (boundary) {
+    cells = clipCellsToPath(rawCells, boundary);
+    boundary.remove();
+  }
+
+  const paths = [];
+  for (const cell of cells) {
+    if (cell.length < 3) continue;
+    const p = new paper.Path();
+    for (const v of cell) p.add(new paper.Point(v.x, v.y));
+    p.closePath();
+    paths.push(p);
   }
 
   if (paths.length === 0) return null;
@@ -253,10 +283,72 @@ export function voronoiRuntime(params, inputs) {
 
 function extractPointsFromGeo(geo) {
   if (!geo) return [];
-  if (geo.type === 'group' && geo.children) {
+  if ((geo.type === 'group' || geo.type === 'boolean') && geo.children) {
     return geo.children.flatMap(extractPointsFromGeo);
   }
-  const b = geo.bounds;
-  if (b) return [{ x: b.x + b.width / 2, y: b.y + b.height / 2 }];
-  return [];
+  // Read the actual vertices of the input path rather than just its center.
+  const path = geoToPaperPath(geo);
+  if (!path) {
+    const b = geo.bounds;
+    return b ? [{ x: b.x + b.width / 2, y: b.y + b.height / 2 }] : [];
+  }
+  const out = [];
+  const collect = (p) => {
+    if (!p.segments) return;
+    for (const s of p.segments) out.push({ x: s.point.x, y: s.point.y });
+  };
+  if (path instanceof paper.CompoundPath) path.children.forEach(collect);
+  else collect(path);
+  path.remove();
+  return out;
+}
+
+// Scatters `count` points uniformly at random inside an arbitrary paper path
+// (using rejection sampling against the path's bounds), so a Voronoi/Delaunay
+// can fill the input shape instead of a fixed rectangle.
+function scatterInsidePath(path, count, seed, jitter) {
+  const rand = seededRandom(seed);
+  const b = path.bounds;
+  const pts = [];
+  const maxTries = count * 60;
+  let tries = 0;
+  while (pts.length < count && tries < maxTries) {
+    tries++;
+    const x = b.x + rand() * b.width;
+    const y = b.y + rand() * b.height;
+    if (path.contains(new paper.Point(x, y))) {
+      pts.push({
+        x: x + (rand() - 0.5) * jitter,
+        y: y + (rand() - 0.5) * jitter,
+      });
+    }
+  }
+  return pts;
+}
+
+// Clips a list of polygon cells (arrays of {x,y}) to a paper boundary path,
+// returning new cells as arrays of {x,y}. Cells fully outside are dropped.
+function clipCellsToPath(cells, boundary) {
+  const out = [];
+  for (const cell of cells) {
+    if (cell.length < 3) continue;
+    const cellPath = new paper.Path({ closed: true });
+    for (const v of cell) cellPath.add(new paper.Point(v.x, v.y));
+    let clipped;
+    try {
+      clipped = cellPath.intersect(boundary);
+    } catch {
+      clipped = null;
+    }
+    cellPath.remove();
+    if (!clipped) continue;
+    const pieces = clipped instanceof paper.CompoundPath ? clipped.children : [clipped];
+    for (const piece of pieces) {
+      if (piece.segments && piece.segments.length >= 3) {
+        out.push(piece.segments.map((s) => ({ x: s.point.x, y: s.point.y })));
+      }
+    }
+    clipped.remove();
+  }
+  return out;
 }
