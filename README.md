@@ -2,6 +2,8 @@
 
 A browser-based 2D design tool with a node-based workflow for creating and manipulating geometry.
 
+**Live demo:** [ralfgroe.github.io/2Dni](https://ralfgroe.github.io/2Dni/) — just open it in your browser, no install needed.
+
 ## Features
 
 - **Node-based editor** — Connect geometry nodes in a visual flow to build complex 2D designs
@@ -32,6 +34,12 @@ npm run dev
 ```
 
 Then open **http://localhost:5173** in your browser.
+
+## Deployment
+
+The [live demo](https://ralfgroe.github.io/2Dni/) is published to GitHub Pages
+automatically by the `Deploy to GitHub Pages` GitHub Actions workflow on every
+push to `main` — no manual steps required.
 
 ## Scripts
 
