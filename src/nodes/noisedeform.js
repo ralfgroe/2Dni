@@ -63,6 +63,26 @@ function fbm(x, y, octaves, perm) {
   return val / max;
 }
 
+// Resamples a single (non-compound) paper.Path along its arc length and
+// displaces each sample by fractal Perlin noise. Returns a new paper.Path.
+function deformSinglePath(srcPath, { amplitude, frequency, octaves, samples, perm, perm2 }) {
+  const totalLen = srcPath.length;
+  const closed = srcPath.closed;
+  if (totalLen === 0) return srcPath.clone({ insert: true });
+
+  const result = new paper.Path();
+  for (let i = 0; i <= samples; i++) {
+    const offset = (i / samples) * totalLen;
+    const pt = srcPath.getPointAt(Math.min(offset, totalLen));
+    if (!pt) continue;
+    const nx = fbm(pt.x * frequency, pt.y * frequency, octaves, perm) * amplitude;
+    const ny = fbm(pt.x * frequency + 100, pt.y * frequency + 100, octaves, perm2) * amplitude;
+    result.add(new paper.Point(pt.x + nx, pt.y + ny));
+  }
+  if (closed) result.closePath();
+  return result;
+}
+
 export function noisedeformRuntime(params, inputs) {
   ensurePaper();
 
@@ -77,29 +97,47 @@ export function noisedeformRuntime(params, inputs) {
 
   const perm = permutation(seed + 1);
   const perm2 = permutation(seed + 100);
+  const noiseParams = { amplitude, frequency, octaves, samples, perm, perm2 };
+
+  // A group (e.g. from Trace/Select, or multi-layer geometry) keeps its
+  // structure: deform each child independently.
+  if ((geo.type === 'group' || geo.type === 'boolean') && Array.isArray(geo.children)) {
+    const children = geo.children
+      .map((child) => noisedeformRuntime(params, { geometry_in: child }))
+      .filter(Boolean);
+    if (children.length === 0) return geo;
+    const bs = children.map((c) => c.bounds).filter(Boolean);
+    const minX = bs.length ? Math.min(...bs.map((b) => b.x)) : 0;
+    const minY = bs.length ? Math.min(...bs.map((b) => b.y)) : 0;
+    const maxX = bs.length ? Math.max(...bs.map((b) => b.x + b.width)) : 0;
+    const maxY = bs.length ? Math.max(...bs.map((b) => b.y + b.height)) : 0;
+    return {
+      type: 'group',
+      children,
+      bounds: { x: minX, y: minY, width: maxX - minX, height: maxY - minY },
+    };
+  }
 
   const paperPath = geoToPaperPath(geo);
   if (!paperPath) return geo;
 
-  const result = new paper.Path();
-  const totalLen = paperPath.length;
-
-  for (let i = 0; i <= samples; i++) {
-    const offset = (i / samples) * totalLen;
-    const pt = paperPath.getPointAt(offset);
-    if (!pt) continue;
-
-    const nx = fbm(pt.x * frequency, pt.y * frequency, octaves, perm) * amplitude;
-    const ny = fbm(pt.x * frequency + 100, pt.y * frequency + 100, octaves, perm2) * amplitude;
-    result.add(new paper.Point(pt.x + nx, pt.y + ny));
+  // Text and other multi-subpath geometry come back as a CompoundPath. Deform
+  // every subpath (letters, holes) independently so the shapes are preserved
+  // instead of being collapsed into one tangled open polyline.
+  let outPath;
+  if (paperPath instanceof paper.CompoundPath) {
+    const deformedChildren = paperPath.children.map((child) =>
+      deformSinglePath(child, noiseParams)
+    );
+    outPath = new paper.CompoundPath({ children: deformedChildren });
+  } else {
+    outPath = deformSinglePath(paperPath, noiseParams);
   }
 
-  if (paperPath.closed) result.closePath();
+  const pathData = outPath.pathData;
+  const bounds = outPath.bounds;
+  outPath.remove();
   paperPath.remove();
-
-  const pathData = result.pathData;
-  const bounds = result.bounds;
-  result.remove();
 
   return {
     type: 'booleanResult',

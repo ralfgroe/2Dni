@@ -40,6 +40,7 @@ import { objectsRuntime } from '../nodes/objects';
 import { resampleRuntime } from '../nodes/resample';
 import { traceRuntime } from '../nodes/trace';
 import { selectRuntime } from '../nodes/select';
+import { strangeAttractorRuntime } from '../nodes/strangeattractor';
 
 const runtimeMap = {
   line: lineRuntime,
@@ -85,6 +86,7 @@ const runtimeMap = {
   resample: resampleRuntime,
   trace: traceRuntime,
   select: selectRuntime,
+  strangeattractor: strangeAttractorRuntime,
 };
 
 export function getRuntime(runtimeId) {
