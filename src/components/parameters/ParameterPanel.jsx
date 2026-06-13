@@ -203,7 +203,26 @@ export default function ParameterPanel() {
 
       {/* Parameter list */}
       <div className="flex flex-col gap-3 py-4">
-        {definition.parameters.map((paramDef) => {
+        {definition.parameters.map((origParamDef) => {
+          // For the Strange Attractor, the useful coefficient ranges differ by
+          // Type: De Jong/Clifford want roughly -5..5, while Lorenz wants much
+          // larger values (sigma, rho, beta). Adjust the slider range/labels so
+          // the presets' values are reachable on the sliders.
+          let paramDef = origParamDef;
+          if (definition.id === 'strangeattractor' && ['a', 'b', 'c', 'd'].includes(origParamDef.id)) {
+            const t = params.type ?? 'De Jong';
+            if (t === 'Lorenz') {
+              const LORENZ = {
+                a: { label: 'σ (sigma)', min: 0, max: 50, step: 0.01 },
+                b: { label: 'ρ (rho)', min: 0, max: 250, step: 0.01 },
+                c: { label: 'β (beta)', min: 0, max: 15, step: 0.0001 },
+              };
+              if (origParamDef.id === 'd') return null; // Lorenz has no 'd'
+              paramDef = { ...origParamDef, ...LORENZ[origParamDef.id] };
+            } else {
+              paramDef = { ...origParamDef, label: origParamDef.id, min: -5, max: 5, step: 0.001 };
+            }
+          }
           if (definition.id === 'export') {
             const fmt = params.format ?? 'svg';
             const isPixel = fmt === 'svg' || fmt === 'png' || fmt === 'jpeg';
