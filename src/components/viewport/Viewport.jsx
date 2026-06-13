@@ -13,6 +13,7 @@ import FreeCurveOverlay from './FreeCurveOverlay';
 import BezierOverlay from './BezierOverlay';
 import PointTransformOverlay from './PointTransformOverlay';
 import ResampleOverlay from './ResampleOverlay';
+import SelectOverlay from './SelectOverlay';
 import Timeline from '../timeline/Timeline';
 
 export default function Viewport() {
@@ -594,6 +595,17 @@ export default function Viewport() {
         {selectedNode && selectedDef && selectedDef.id === 'resample' && (
           <ResampleOverlay
             nodeId={selectedNode.id}
+            edges={edges}
+            results={results}
+            viewBox={viewBox}
+          />
+        )}
+
+        {/* Select parts overlay */}
+        {selectedNode && selectedDef && selectedDef.id === 'select' && (
+          <SelectOverlay
+            nodeId={selectedNode.id}
+            screenToSvg={screenToSvg}
             edges={edges}
             results={results}
             viewBox={viewBox}

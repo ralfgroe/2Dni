@@ -1,0 +1,18 @@
+{
+  "id": "select",
+  "label": "Select",
+  "category": "Transform",
+  "description": "Select individual parts of a composition (e.g. the color regions of a traced image) in the viewport, then delete them or move them. Click parts to select; drag a selected part to move all selected parts.",
+  "inputs": [
+    { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }
+  ],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "mode", "label": "Action", "type": "select", "default": "Delete Selected", "options": ["Delete Selected", "Keep Only Selected"] },
+    { "id": "selected", "label": "Selected", "type": "text", "default": "[]" },
+    { "id": "offsets", "label": "Offsets", "type": "text", "default": "{}" }
+  ],
+  "runtime": "select"
+}

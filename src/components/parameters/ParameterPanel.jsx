@@ -192,6 +192,9 @@ export default function ParameterPanel() {
           if (definition.id === 'pointtransform' && paramDef.id === 'point_offsets') {
             return null;
           }
+          if (definition.id === 'select' && (paramDef.id === 'selected' || paramDef.id === 'offsets')) {
+            return null;
+          }
           if (definition.id === 'pointtransform' && paramDef.id === 'scale_points') {
             return null;
           }
@@ -267,6 +270,43 @@ export default function ParameterPanel() {
             />
           );
         })}
+
+        {/* Select node helpers */}
+        {definition.id === 'select' && (() => {
+          const selectedArr = (() => {
+            try { return JSON.parse(params.selected || '[]') || []; } catch { return []; }
+          })();
+          const hasOffsets = (() => {
+            try { return Object.keys(JSON.parse(params.offsets || '{}') || {}).length > 0; } catch { return false; }
+          })();
+          return (
+            <div className="flex flex-col gap-2">
+              <span className="text-[10px] text-text-muted">
+                Click parts in the viewport to select them. Drag a selected part to move all selected parts.
+              </span>
+              <span className="text-[11px] font-medium text-text-secondary">
+                {selectedArr.length} selected
+              </span>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => updateNodeParams(selectedNode.id, { selected: '[]' })}
+                  className="flex-1 rounded border border-border-primary bg-bg-tertiary text-[10px] text-text-secondary hover:bg-border-primary"
+                  style={{ padding: '8px 12px' }}
+                >
+                  Clear Selection
+                </button>
+                <button
+                  onClick={() => updateNodeParams(selectedNode.id, { offsets: '{}' })}
+                  disabled={!hasOffsets}
+                  className="flex-1 rounded border border-border-primary bg-bg-tertiary text-[10px] text-text-secondary hover:bg-border-primary disabled:opacity-40"
+                  style={{ padding: '8px 12px' }}
+                >
+                  Reset Moves
+                </button>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Export button for export nodes */}
         {definition.id === 'export' && (

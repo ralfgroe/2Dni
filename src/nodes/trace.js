@@ -185,25 +185,15 @@ function roundCorners(item, amount) {
   }
 }
 
-// Removes sub-paths whose area is small relative to the largest sub-path.
-// `amount` is 0..100. Preserves holes (negative-area children) belonging to
-// kept shapes by keeping any child whose absolute area passes the threshold.
-function removeSmallPieces(item, amount) {
-  if (amount <= 0) return item;
-  if (!(item instanceof paper.CompoundPath) || item.children.length <= 1) return item;
-
-  const areas = item.children.map((c) => Math.abs(c.area));
-  const maxArea = Math.max(...areas, 0);
-  if (maxArea <= 0) return item;
-
-  // Threshold grows non-linearly so the low end of the slider is gentle.
-  const frac = Math.pow(amount / 100, 2) * 0.25;
-  const threshold = maxArea * frac;
-
-  const toRemove = [];
-  item.children.forEach((c, idx) => {
-    if (areas[idx] < threshold) toRemove.push(c);
-  });
+// Removes sub-paths of a compound path whose absolute area is below
+// `minAbsArea` (in world units squared). Preserves holes/sub-shapes that are
+// still large enough. Returns the (possibly emptied) item.
+function removeSmallSubpaths(item, minAbsArea) {
+  if (minAbsArea <= 0) return item;
+  if (!(item instanceof paper.CompoundPath)) {
+    return Math.abs(item.area) < minAbsArea ? null : item;
+  }
+  const toRemove = item.children.filter((c) => Math.abs(c.area) < minAbsArea);
   for (const c of toRemove) c.remove();
   return item;
 }
@@ -258,21 +248,35 @@ export function traceRuntime(params, inputs) {
   const minPiece = Math.max(0, Math.min(100, params.min_piece ?? 0));
   const roundAmt = Math.max(0, Math.min(100, params.round_corners ?? 0));
 
+  // "Remove Small Pieces" threshold is an absolute area in world units, derived
+  // from the placed image's total area so the slider behaves consistently
+  // regardless of image size. Computed once and applied globally across every
+  // traced color region (so isolated specks in any layer are removed, not just
+  // subpaths that happen to share a compound path with a big shape).
+  const imgW = (geo.width || raster.natW);
+  const imgH = (geo.height || raster.natH);
+  const totalArea = Math.abs(imgW * imgH);
+  // Non-linear curve: gentle at the low end, up to ~3% of the image at max.
+  const minAbsArea = minPiece > 0 ? Math.pow(minPiece / 100, 2) * 0.03 * totalArea : 0;
+
   const children = [];
   for (const { d, fill, opacity } of colored) {
     let p = new paper.CompoundPath(d);
     p.scale(sx, sy, new paper.Point(0, 0));
     p.translate(new paper.Point(ox, oy));
 
-    p = removeSmallPieces(p, minPiece);
+    p = removeSmallSubpaths(p, minAbsArea);
     if (!p || (p.children && p.children.length === 0)) { if (p) p.remove(); continue; }
 
     roundCorners(p, roundAmt);
 
     const pathData = p.pathData;
     const bounds = p.bounds;
+    const area = Math.abs(p.area);
     p.remove();
     if (!pathData) continue;
+    // Drop a whole region if its remaining total area is below threshold.
+    if (minAbsArea > 0 && area < minAbsArea) continue;
     children.push({
       type: 'booleanResult',
       pathData,

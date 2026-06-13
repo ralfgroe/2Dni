@@ -39,6 +39,7 @@ import { convertRuntime } from '../nodes/convert';
 import { objectsRuntime } from '../nodes/objects';
 import { resampleRuntime } from '../nodes/resample';
 import { traceRuntime } from '../nodes/trace';
+import { selectRuntime } from '../nodes/select';
 
 const runtimeMap = {
   line: lineRuntime,
@@ -83,6 +84,7 @@ const runtimeMap = {
   objects: objectsRuntime,
   resample: resampleRuntime,
   trace: traceRuntime,
+  select: selectRuntime,
 };
 
 export function getRuntime(runtimeId) {
