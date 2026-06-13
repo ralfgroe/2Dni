@@ -4,31 +4,11 @@
 // For performance the iteration loop is paper.js-free: we compute raw points,
 // then build the SVG path data string directly. Creating tens of thousands of
 // paper.Path objects would be far too slow for live parameter tweaking.
-
-const PRESETS = {
-  'De Jong': {
-    Classic: { a: 1.4, b: -2.3, c: 2.4, d: -2.1 },
-    Swirl: { a: -2.0, b: -2.0, c: -1.2, d: 2.0 },
-    Wings: { a: 1.641, b: 1.902, c: 0.316, d: 1.525 },
-    Web: { a: -2.7, b: -0.09, c: -0.65, d: -2.2 },
-    Ribbon: { a: 2.01, b: -2.53, c: 1.61, d: -0.33 },
-  },
-  Clifford: {
-    Classic: { a: -1.4, b: 1.6, c: 1.0, d: 0.7 },
-    Swirl: { a: -1.7, b: 1.8, c: -1.9, d: -0.4 },
-    Wings: { a: 1.5, b: -1.8, c: 1.6, d: 0.9 },
-    Web: { a: -1.8, b: -2.0, c: -0.5, d: -0.9 },
-    Ribbon: { a: -1.244, b: -1.251, c: -1.815, d: -1.908 },
-  },
-  Lorenz: {
-    // a = sigma, b = rho, c = beta
-    Classic: { a: 10, b: 28, c: 2.6667 },
-    Swirl: { a: 10, b: 99.96, c: 2.6667 },
-    Wings: { a: 14, b: 28, c: 2.6667 },
-    Web: { a: 10, b: 28, c: 1.5 },
-    Ribbon: { a: 16, b: 45.92, c: 4 },
-  },
-};
+//
+// Presets (Classic, Swirl, Wings, ...) are applied in the parameter panel,
+// which writes the coefficient values into the a/b/c/d params. That way the
+// sliders reflect the preset and stay editable. See ATTRACTOR_PRESETS in
+// src/components/parameters/ParameterPanel.jsx.
 
 // De Jong map.
 function iterateDeJong(a, b, c, d, n) {
@@ -88,18 +68,14 @@ function iterateLorenz(sigma, rho, beta, n) {
 
 export function strangeAttractorRuntime(params) {
   const type = params.type ?? 'De Jong';
-  const preset = params.preset ?? 'Custom';
 
-  let a = params.a ?? 1.4;
-  let b = params.b ?? -2.3;
-  let c = params.c ?? 2.4;
-  let d = params.d ?? -2.1;
-
-  if (preset !== 'Custom' && PRESETS[type] && PRESETS[type][preset]) {
-    const p = PRESETS[type][preset];
-    a = p.a; b = p.b; c = p.c;
-    if (p.d != null) d = p.d;
-  }
+  // Coefficients come straight from the params. Presets are applied in the UI
+  // (they write their values into a/b/c/d), so editing a slider after picking a
+  // preset works as expected instead of being overridden here.
+  const a = params.a ?? 1.4;
+  const b = params.b ?? -2.3;
+  const c = params.c ?? 2.4;
+  const d = params.d ?? -2.1;
 
   const n = Math.max(500, Math.min(100000, Math.round(params.iterations ?? 20000)));
   const render = params.render ?? 'Points';

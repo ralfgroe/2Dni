@@ -88,12 +88,60 @@ export default function ParameterPanel() {
     },
   };
 
+  // Strange Attractor presets depend on the selected Type (De Jong / Clifford /
+  // Lorenz). Kept in sync with the fallback table in src/nodes/strangeattractor.js.
+  const ATTRACTOR_PRESETS = {
+    'De Jong': {
+      Classic: { a: 1.4, b: -2.3, c: 2.4, d: -2.1 },
+      Swirl: { a: -2.0, b: -2.0, c: -1.2, d: 2.0 },
+      Wings: { a: 1.641, b: 1.902, c: 0.316, d: 1.525 },
+      Web: { a: -2.7, b: -0.09, c: -0.65, d: -2.2 },
+      Ribbon: { a: 2.01, b: -2.53, c: 1.61, d: -0.33 },
+    },
+    Clifford: {
+      Classic: { a: -1.4, b: 1.6, c: 1.0, d: 0.7 },
+      Swirl: { a: -1.7, b: 1.8, c: -1.9, d: -0.4 },
+      Wings: { a: 1.5, b: -1.8, c: 1.6, d: 0.9 },
+      Web: { a: -1.8, b: -2.0, c: -0.5, d: -0.9 },
+      Ribbon: { a: -1.244, b: -1.251, c: -1.815, d: -1.908 },
+    },
+    Lorenz: {
+      Classic: { a: 10, b: 28, c: 2.6667, d: 0 },
+      Swirl: { a: 10, b: 99.96, c: 2.6667, d: 0 },
+      Wings: { a: 14, b: 28, c: 2.6667, d: 0 },
+      Web: { a: 10, b: 28, c: 1.5, d: 0 },
+      Ribbon: { a: 16, b: 45.92, c: 4, d: 0 },
+    },
+  };
+
   const handlePresetChange = (presetValue) => {
+    if (definition.id === 'strangeattractor') {
+      const type = params.type ?? 'De Jong';
+      const coeffs = ATTRACTOR_PRESETS[type]?.[presetValue];
+      if (coeffs) {
+        updateNodeParams(selectedNode.id, { preset: presetValue, ...coeffs });
+      } else {
+        updateNodeParams(selectedNode.id, { preset: presetValue });
+      }
+      return;
+    }
     const presetMap = PRESET_MAPS[definition.id];
     if (presetMap && presetMap[presetValue]) {
       updateNodeParams(selectedNode.id, { preset: presetValue, ...presetMap[presetValue] });
     } else {
       updateNodeParams(selectedNode.id, { preset: presetValue });
+    }
+  };
+
+  // When the attractor Type changes while a preset is active, re-apply that
+  // preset's coefficients for the new type so the sliders stay meaningful.
+  const handleAttractorTypeChange = (typeValue) => {
+    const preset = params.preset ?? 'Custom';
+    const coeffs = preset !== 'Custom' ? ATTRACTOR_PRESETS[typeValue]?.[preset] : null;
+    if (coeffs) {
+      updateNodeParams(selectedNode.id, { type: typeValue, ...coeffs });
+    } else {
+      updateNodeParams(selectedNode.id, { type: typeValue });
     }
   };
 
@@ -266,7 +314,13 @@ export default function ParameterPanel() {
               paramDef={paramDef}
               value={params[paramDef.id]}
               nodeId={selectedNode.id}
-              onPresetChange={paramDef.id === 'preset' && PRESET_MAPS[definition.id] ? handlePresetChange : null}
+              onPresetChange={
+                paramDef.id === 'preset' && (PRESET_MAPS[definition.id] || definition.id === 'strangeattractor')
+                  ? handlePresetChange
+                  : paramDef.id === 'type' && definition.id === 'strangeattractor'
+                  ? handleAttractorTypeChange
+                  : null
+              }
             />
           );
         })}
