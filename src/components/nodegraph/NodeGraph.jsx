@@ -466,6 +466,7 @@ export default function NodeGraph() {
                 position: 'absolute',
                 left: '36.7%',
                 top: '68%',
+                width: '26.5%',
                 padding: '8px 24px',
                 fontSize: 12,
                 fontWeight: 600,
@@ -477,6 +478,8 @@ export default function NodeGraph() {
                 pointerEvents: 'auto',
                 transition: 'background 0.15s',
                 whiteSpace: 'nowrap',
+                textAlign: 'left',
+                boxSizing: 'border-box',
               }}
               onMouseEnter={(e) => { e.target.style.background = '#3b5bdb'; }}
               onMouseLeave={(e) => { e.target.style.background = '#4263eb'; }}
@@ -486,10 +489,8 @@ export default function NodeGraph() {
             <div
               style={{
                 position: 'absolute',
-                left: 0,
-                right: 0,
+                left: '33%',
                 top: '74.5%',
-                textAlign: 'center',
                 fontSize: 11,
                 color: '#868e96',
                 fontFamily: 'system-ui, -apple-system, sans-serif',
@@ -497,15 +498,15 @@ export default function NodeGraph() {
                 pointerEvents: 'none',
               }}
             >
-              Latest release: {LATEST_RELEASE_DATE}
+              {LATEST_RELEASE_DATE}
             </div>
             <button
               onClick={(e) => { e.stopPropagation(); setShowReleaseNotes(true); }}
               style={{
                 position: 'absolute',
-                left: '50%',
-                transform: 'translateX(-50%)',
+                left: '36.7%',
                 top: '79%',
+                width: '26.5%',
                 padding: '8px 24px',
                 fontSize: 12,
                 fontWeight: 600,
@@ -517,6 +518,8 @@ export default function NodeGraph() {
                 pointerEvents: 'auto',
                 transition: 'background 0.15s',
                 whiteSpace: 'nowrap',
+                textAlign: 'left',
+                boxSizing: 'border-box',
               }}
               onMouseEnter={(e) => { e.target.style.background = '#909aa5'; }}
               onMouseLeave={(e) => { e.target.style.background = '#adb5bd'; }}
