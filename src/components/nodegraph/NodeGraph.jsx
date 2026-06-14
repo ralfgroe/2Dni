@@ -492,7 +492,8 @@ export default function NodeGraph() {
               style={{
                 position: 'absolute',
                 left: '36.7%',
-                top: '74.5%',
+                top: '76%',
+                transform: 'translateY(-50%)',
                 fontSize: 11,
                 color: '#868e96',
                 fontFamily: 'system-ui, -apple-system, sans-serif',
