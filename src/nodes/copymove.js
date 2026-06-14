@@ -70,28 +70,47 @@ function applyTransformToGeo(geo, fn) {
 }
 
 export function copymoveRuntime(params, inputs) {
-  const { copies = 1, offset_x = 50, offset_y = 0, scale_step = 0 } = params;
+  const {
+    copies = 1,
+    offset_x = 50,
+    offset_y = 0,
+    scale_step = 0,
+    dir2_enabled = false,
+    dir2_copies = 1,
+    dir2_offset_x = 0,
+    dir2_offset_y = 50,
+  } = params;
   const inputGeo = inputs.geometry_in;
   if (!inputGeo) return null;
 
-  const count = Math.round(Math.max(0, copies));
-  if (count === 0) return inputGeo;
+  const count1 = Math.round(Math.max(0, copies));
+  const count2 = dir2_enabled ? Math.round(Math.max(0, dir2_copies)) : 0;
+  if (count1 === 0 && count2 === 0) return inputGeo;
 
   ensurePaper();
 
-  const children = [deepCloneGeo(inputGeo)];
-
-  for (let i = 1; i <= count; i++) {
-    const dx = offset_x * i;
-    const dy = offset_y * i;
-    const scaleFactor = 1 + (scale_step * i);
-    const copy = applyTransformToGeo(deepCloneGeo(inputGeo), (path) => {
-      path.translate(new paper.Point(dx, dy));
-      if (scaleFactor > 0.01) {
-        path.scale(scaleFactor);
+  // Build a grid: index i runs along Direction 1, index j along Direction 2.
+  // (i, j) = (0, 0) is the original, untransformed instance.
+  const children = [];
+  for (let j = 0; j <= count2; j++) {
+    for (let i = 0; i <= count1; i++) {
+      if (i === 0 && j === 0) {
+        children.push(deepCloneGeo(inputGeo));
+        continue;
       }
-    });
-    children.push(copy);
+      const dx = offset_x * i + dir2_offset_x * j;
+      const dy = offset_y * i + dir2_offset_y * j;
+      // Scale grows progressively across the whole grid so it reads naturally
+      // in both directions.
+      const scaleFactor = 1 + scale_step * (i + j);
+      const copy = applyTransformToGeo(deepCloneGeo(inputGeo), (path) => {
+        path.translate(new paper.Point(dx, dy));
+        if (scaleFactor > 0.01) {
+          path.scale(scaleFactor);
+        }
+      });
+      children.push(copy);
+    }
   }
 
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;

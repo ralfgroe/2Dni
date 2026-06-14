@@ -2,7 +2,7 @@
   "id": "copymove",
   "label": "Copy Move",
   "category": "Transform",
-  "description": "Creates multiple copies of the input geometry, each offset by a specified X and Y distance from the previous copy.",
+  "description": "Creates multiple copies of the input geometry along one or two directions. Direction 1 offsets each copy by an X/Y distance; enable Direction 2 to replicate that row along a second X/Y direction, producing a full grid in a single node.",
   "inputs": [
     { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }
   ],
@@ -10,9 +10,13 @@
     { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
   ],
   "parameters": [
-    { "id": "copies", "label": "Copies", "type": "number", "default": 1, "min": 0, "max": 50 },
-    { "id": "offset_x", "label": "Offset X", "type": "number", "default": 50, "min": -500, "max": 500 },
-    { "id": "offset_y", "label": "Offset Y", "type": "number", "default": 0, "min": -500, "max": 500 },
+    { "id": "copies", "label": "Direction 1 Copies", "type": "number", "default": 1, "min": 0, "max": 50 },
+    { "id": "offset_x", "label": "Direction 1 Offset X", "type": "number", "default": 50, "min": -500, "max": 500 },
+    { "id": "offset_y", "label": "Direction 1 Offset Y", "type": "number", "default": 0, "min": -500, "max": 500 },
+    { "id": "dir2_enabled", "label": "Direction 2", "type": "boolean", "default": false },
+    { "id": "dir2_copies", "label": "Direction 2 Copies", "type": "number", "default": 1, "min": 0, "max": 50 },
+    { "id": "dir2_offset_x", "label": "Direction 2 Offset X", "type": "number", "default": 0, "min": -500, "max": 500 },
+    { "id": "dir2_offset_y", "label": "Direction 2 Offset Y", "type": "number", "default": 50, "min": -500, "max": 500 },
     { "id": "scale_step", "label": "Scale", "type": "number", "default": 0, "min": -0.5, "max": 0.5 }
   ],
   "runtime": "copymove"

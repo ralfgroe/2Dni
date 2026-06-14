@@ -244,6 +244,9 @@ export default function ParameterPanel() {
             const hasField = edges.some((e) => e.target === selectedNode.id && e.targetHandle === 'scatter_field');
             if (hasField && (paramDef.id === 'width' || paramDef.id === 'height')) return null;
           }
+          if (definition.id === 'copymove' && !params.dir2_enabled) {
+            if (paramDef.id === 'dir2_copies' || paramDef.id === 'dir2_offset_x' || paramDef.id === 'dir2_offset_y') return null;
+          }
           if (definition.id === 'radius' && paramDef.id === 'point_selection') {
             const sourceEdge = edges.find((e) => e.target === selectedNode.id && e.targetHandle === 'geometry_in');
             const sourceGeo = resolveEdgeResult(sourceEdge);
