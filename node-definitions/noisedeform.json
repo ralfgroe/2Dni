@@ -2,7 +2,7 @@
   "id": "noisedeform",
   "label": "Noise Deform",
   "category": "Transform",
-  "description": "Distorts geometry using Perlin-style noise. Turns clean geometric shapes into organic, hand-drawn forms.",
+  "description": "Distorts geometry using noise. Choose between several noise algorithms (Perlin, Simplex, Worley/cellular, Value, Ridged, Curl), each giving a different character, to turn clean geometric shapes into organic, flowing, or hand-drawn forms.",
   "inputs": [
     { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }
   ],
@@ -10,6 +10,7 @@
     { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
   ],
   "parameters": [
+    { "id": "noise_type", "label": "Noise Type", "type": "select", "default": "Perlin", "options": ["Perlin", "Simplex", "Worley", "Value", "Ridged", "Curl"] },
     { "id": "amplitude", "label": "Amplitude", "type": "number", "default": 10, "min": 0, "max": 100 },
     { "id": "frequency", "label": "Frequency", "type": "number", "default": 0.02, "min": 0.001, "max": 0.2 },
     { "id": "octaves", "label": "Octaves", "type": "number", "default": 2, "min": 1, "max": 6, "step": 1 },
