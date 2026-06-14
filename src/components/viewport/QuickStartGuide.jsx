@@ -1,6 +1,19 @@
 export default function QuickStartGuide({ onClose }) {
   return (
-    <div style={{ position: 'absolute', inset: 0, zIndex: 20, background: '#f8f9fa', overflowY: 'auto', overflowX: 'hidden' }}>
+    <div
+      data-scrollable
+      style={{
+        position: 'absolute',
+        inset: 0,
+        zIndex: 20,
+        background: '#f8f9fa',
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        WebkitOverflowScrolling: 'touch',
+        overscrollBehavior: 'contain',
+        willChange: 'scroll-position',
+      }}
+    >
       <div style={{ maxWidth: 640, margin: '0 auto', padding: '48px 32px 80px' }}>
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <h1 style={{ fontSize: 28, fontWeight: 700, color: '#1a1a2e', margin: 0 }}>Quick Start Guide</h1>

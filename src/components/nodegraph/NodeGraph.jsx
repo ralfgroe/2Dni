@@ -341,6 +341,9 @@ export default function NodeGraph() {
     if (!el || !reactFlowInstance) return;
     const onWheel = (e) => {
       if (e.target.closest('[data-node-palette]')) return;
+      // Let scrollable overlays (e.g. Release Notes, Quick Start Guide) handle
+      // their own trackpad scrolling natively instead of hijacking it for pan.
+      if (e.target.closest('[data-scrollable]')) return;
 
       const isPinch = e.ctrlKey || e.metaKey;
       if (isPinch) return;
