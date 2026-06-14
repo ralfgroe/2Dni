@@ -1,5 +1,5 @@
 import paper from 'paper';
-import { geoToPaperPath, flattenGeoToPathData } from '../utils/geoPathUtils';
+import { geoToPaperPath } from '../utils/geoPathUtils';
 
 let paperInitialized = false;
 const canvas = typeof document !== 'undefined' ? document.createElement('canvas') : null;
@@ -17,10 +17,117 @@ function dist(a, b) {
   return Math.sqrt(dx * dx + dy * dy);
 }
 
+// Global vertex weld: collapse every vertex across all paths that lies within
+// `threshold` of another into a shared, averaged location. Uses a spatial hash
+// grid so it stays fast even with many copies, and union-find to merge points
+// transitively. This is what actually fuses coincident points where separate
+// copies / subpaths overlap (the consecutive-only pass missed those).
+function weldVertices(paths, threshold) {
+  if (threshold <= 0) return paths;
+
+  // Flatten all vertices into one list, remembering where each came from.
+  const verts = [];
+  paths.forEach((path, pi) => {
+    path.segments.forEach((seg, si) => {
+      verts.push({ x: seg.point.x, y: seg.point.y, pi, si });
+    });
+  });
+  const n = verts.length;
+  if (n === 0) return paths;
+
+  // Union-find.
+  const parent = new Array(n);
+  for (let i = 0; i < n; i++) parent[i] = i;
+  const find = (i) => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
+  const union = (a, b) => { const ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; };
+
+  // Spatial hash: bucket by cell of size = threshold, only compare neighbors.
+  const cell = Math.max(threshold, 1e-6);
+  const buckets = new Map();
+  const key = (cx, cy) => cx + ',' + cy;
+  for (let i = 0; i < n; i++) {
+    const cx = Math.floor(verts[i].x / cell);
+    const cy = Math.floor(verts[i].y / cell);
+    const k = key(cx, cy);
+    let arr = buckets.get(k);
+    if (!arr) { arr = []; buckets.set(k, arr); }
+    arr.push(i);
+  }
+
+  const thr2 = threshold * threshold;
+  for (let i = 0; i < n; i++) {
+    const cx = Math.floor(verts[i].x / cell);
+    const cy = Math.floor(verts[i].y / cell);
+    for (let ox = -1; ox <= 1; ox++) {
+      for (let oy = -1; oy <= 1; oy++) {
+        const arr = buckets.get(key(cx + ox, cy + oy));
+        if (!arr) continue;
+        for (const j of arr) {
+          if (j <= i) continue;
+          const dx = verts[i].x - verts[j].x;
+          const dy = verts[i].y - verts[j].y;
+          if (dx * dx + dy * dy <= thr2) union(i, j);
+        }
+      }
+    }
+  }
+
+  // Compute cluster centroids.
+  const sums = new Map();
+  for (let i = 0; i < n; i++) {
+    const r = find(i);
+    let s = sums.get(r);
+    if (!s) { s = { x: 0, y: 0, c: 0 }; sums.set(r, s); }
+    s.x += verts[i].x; s.y += verts[i].y; s.c += 1;
+  }
+
+  // Write the centroid back to every vertex's source segment.
+  const out = paths.map((path) => ({
+    closed: path.closed,
+    segments: path.segments.map((seg) => ({
+      point: { ...seg.point },
+      handleIn: { ...seg.handleIn },
+      handleOut: { ...seg.handleOut },
+    })),
+  }));
+  for (let i = 0; i < n; i++) {
+    const s = sums.get(find(i));
+    const v = verts[i];
+    out[v.pi].segments[v.si].point = { x: s.x / s.c, y: s.y / s.c };
+  }
+
+  // Remove consecutive duplicate vertices created by welding (within each path),
+  // preserving the outer handles of the run.
+  return out.map((path) => {
+    const segs = path.segments;
+    if (segs.length === 0) return path;
+    const merged = [segs[0]];
+    for (let i = 1; i < segs.length; i++) {
+      const prev = merged[merged.length - 1];
+      const cur = segs[i];
+      if (Math.abs(prev.point.x - cur.point.x) < 1e-6 && Math.abs(prev.point.y - cur.point.y) < 1e-6) {
+        prev.handleOut = { ...cur.handleOut };
+      } else {
+        merged.push(cur);
+      }
+    }
+    // For closed paths, also drop a trailing duplicate of the first point.
+    if (path.closed && merged.length >= 2) {
+      const first = merged[0];
+      const last = merged[merged.length - 1];
+      if (Math.abs(first.point.x - last.point.x) < 1e-6 && Math.abs(first.point.y - last.point.y) < 1e-6) {
+        first.handleIn = { ...last.handleIn };
+        merged.pop();
+      }
+    }
+    return { segments: merged, closed: path.closed };
+  });
+}
+
 function extractOpenPaths(geo) {
   ensurePaper();
 
-  if (geo.type === 'group' && geo.children) {
+  if ((geo.type === 'group' || geo.type === 'boolean') && geo.children) {
     const paths = [];
     for (const child of geo.children) {
       paths.push(...extractOpenPaths(child));
@@ -233,7 +340,10 @@ export function fuseRuntime(params, inputs) {
   const paths = extractOpenPaths(inputGeo);
   if (paths.length === 0) return inputGeo;
 
-  const fused = fuseAndJoin(paths, distance);
+  // First weld coincident/near-coincident vertices everywhere (across all
+  // copies and subpaths), then join open paths end-to-end.
+  const welded = weldVertices(paths, distance);
+  const fused = fuseAndJoin(welded, distance);
 
   const paperPaths = [];
   for (const chain of fused) {
