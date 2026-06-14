@@ -14,6 +14,7 @@ import { useNodeRegistryStore } from '../../store/nodeRegistryStore';
 import GraphNode from './GraphNode';
 import NodeSearchPalette from './NodeSearchPalette';
 import QuickStartGuide from '../viewport/QuickStartGuide';
+import ReleaseNotes, { LATEST_RELEASE_DATE } from '../viewport/ReleaseNotes';
 import { getPortColor } from '../../utils/portColors';
 
 const nodeTypes = { _custom: GraphNode };
@@ -24,6 +25,7 @@ export default function NodeGraph() {
   const [palette, setPalette] = useState(null);
   const [showStartup, setShowStartup] = useState(true);
   const [showGuide, setShowGuide] = useState(false);
+  const [showReleaseNotes, setShowReleaseNotes] = useState(false);
   const mousePos = useRef({ x: 0, y: 0 });
   const pendingConnection = useRef(null);
 
@@ -419,7 +421,7 @@ export default function NodeGraph() {
         />
       )}
 
-      {showStartup && nodes.length === 0 && !showGuide && (
+      {showStartup && nodes.length === 0 && !showGuide && !showReleaseNotes && (
         <div
           style={{
             position: 'absolute', inset: 0,
@@ -481,8 +483,52 @@ export default function NodeGraph() {
             >
               Quick Start Guide
             </button>
+            <div
+              style={{
+                position: 'absolute',
+                left: 0,
+                right: 0,
+                top: '74.5%',
+                textAlign: 'center',
+                fontSize: 11,
+                color: '#868e96',
+                fontFamily: 'system-ui, -apple-system, sans-serif',
+                letterSpacing: 0.3,
+                pointerEvents: 'none',
+              }}
+            >
+              Latest release: {LATEST_RELEASE_DATE}
+            </div>
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowReleaseNotes(true); }}
+              style={{
+                position: 'absolute',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                top: '79%',
+                padding: '8px 24px',
+                fontSize: 12,
+                fontWeight: 600,
+                color: '#fff',
+                background: '#adb5bd',
+                border: 'none',
+                borderRadius: 6,
+                cursor: 'pointer',
+                pointerEvents: 'auto',
+                transition: 'background 0.15s',
+                whiteSpace: 'nowrap',
+              }}
+              onMouseEnter={(e) => { e.target.style.background = '#909aa5'; }}
+              onMouseLeave={(e) => { e.target.style.background = '#adb5bd'; }}
+            >
+              Release Notes
+            </button>
           </div>
         </div>
+      )}
+
+      {showReleaseNotes && (
+        <ReleaseNotes onClose={() => setShowReleaseNotes(false)} />
       )}
 
       {showGuide && (
