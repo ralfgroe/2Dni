@@ -200,6 +200,33 @@ function fuseClosedPath(path, threshold) {
   return { segments: merged, closed: true };
 }
 
+// If an open path's start and end coincide (within threshold), close it by
+// dropping the duplicate endpoint. This is what lets a spirograph (an open
+// polyline whose pen returns to the start) become a proper closed loop that
+// the Radius node can fillet all the way around.
+function selfClose(path, threshold) {
+  if (path.closed) return path;
+  const segs = path.segments;
+  if (segs.length < 3) return path;
+  const first = segs[0].point;
+  const last = segs[segs.length - 1].point;
+  if (dist(first, last) <= threshold) {
+    const merged = segs.slice(0, -1).map(s => ({
+      point: { ...s.point },
+      handleIn: { ...s.handleIn },
+      handleOut: { ...s.handleOut },
+    }));
+    // Average the coincident endpoints into the first segment.
+    merged[0] = {
+      point: { x: (first.x + last.x) / 2, y: (first.y + last.y) / 2 },
+      handleIn: { ...segs[segs.length - 1].handleIn },
+      handleOut: { ...segs[0].handleOut },
+    };
+    return { segments: merged, closed: true };
+  }
+  return path;
+}
+
 function fuseAndJoin(paths, threshold) {
   if (paths.length === 0) return [];
   if (threshold <= 0) return paths;
@@ -209,7 +236,9 @@ function fuseAndJoin(paths, threshold) {
 
   const fusedClosed = closed.map(p => fuseClosedPath(p, threshold));
 
-  if (open.length <= 1) return [...fusedClosed, ...open];
+  if (open.length <= 1) {
+    return [...fusedClosed, ...open.map(p => selfClose(p, threshold))];
+  }
 
   const used = new Set();
   const chains = [];
