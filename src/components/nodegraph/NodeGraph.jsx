@@ -489,7 +489,7 @@ export default function NodeGraph() {
             <div
               style={{
                 position: 'absolute',
-                left: '23%',
+                left: '36.7%',
                 top: '74.5%',
                 fontSize: 11,
                 color: '#868e96',
