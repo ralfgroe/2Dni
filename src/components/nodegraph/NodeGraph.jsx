@@ -478,7 +478,7 @@ export default function NodeGraph() {
                 pointerEvents: 'auto',
                 transition: 'background 0.15s',
                 whiteSpace: 'nowrap',
-                textAlign: 'left',
+                textAlign: 'center',
                 boxSizing: 'border-box',
               }}
               onMouseEnter={(e) => { e.target.style.background = '#3b5bdb'; }}
@@ -489,7 +489,7 @@ export default function NodeGraph() {
             <div
               style={{
                 position: 'absolute',
-                left: '33%',
+                left: '23%',
                 top: '74.5%',
                 fontSize: 11,
                 color: '#868e96',
@@ -518,7 +518,7 @@ export default function NodeGraph() {
                 pointerEvents: 'auto',
                 transition: 'background 0.15s',
                 whiteSpace: 'nowrap',
-                textAlign: 'left',
+                textAlign: 'center',
                 boxSizing: 'border-box',
               }}
               onMouseEnter={(e) => { e.target.style.background = '#909aa5'; }}
