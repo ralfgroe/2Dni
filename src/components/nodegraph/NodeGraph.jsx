@@ -478,7 +478,9 @@ export default function NodeGraph() {
                 pointerEvents: 'auto',
                 transition: 'background 0.15s',
                 whiteSpace: 'nowrap',
-                textAlign: 'center',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
                 boxSizing: 'border-box',
               }}
               onMouseEnter={(e) => { e.target.style.background = '#3b5bdb'; }}
@@ -518,7 +520,9 @@ export default function NodeGraph() {
                 pointerEvents: 'auto',
                 transition: 'background 0.15s',
                 whiteSpace: 'nowrap',
-                textAlign: 'center',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
                 boxSizing: 'border-box',
               }}
               onMouseEnter={(e) => { e.target.style.background = '#909aa5'; }}
