@@ -1,0 +1,32 @@
+{
+  "id": "reactiondiffusion",
+  "label": "Reaction Diffusion",
+  "category": "Geometry",
+  "description": "Runs a Gray-Scott reaction-diffusion simulation, then marching-squares the chemical field into vector contours. Produces organic Turing patterns — spots, stripes, coral, mazes, mitosis. Pick a Pattern preset to get started, then tune Feed / Kill for endless variation. Heavier compute: raise Steps for more developed patterns, lower Resolution if it feels slow. Change the Seed for a different random layout.",
+  "inputs": [],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "preset", "label": "Pattern", "type": "select", "default": "Coral", "options": ["Custom", "Spots", "Stripes", "Coral", "Maze", "Mitosis", "Bubbles", "Worms", "Holes", "Flicker"] },
+    { "id": "feed", "label": "Feed Rate", "type": "number", "default": 0.0545, "min": 0.01, "max": 0.1, "step": 0.0001 },
+    { "id": "kill", "label": "Kill Rate", "type": "number", "default": 0.062, "min": 0.03, "max": 0.07, "step": 0.0001 },
+    { "id": "steps", "label": "Steps", "type": "number", "default": 3000, "min": 100, "max": 8000, "step": 100 },
+    { "id": "resolution", "label": "Resolution", "type": "number", "default": 120, "min": 40, "max": 220, "step": 4 },
+    { "id": "threshold", "label": "Contour Level", "type": "number", "default": 0.25, "min": 0.05, "max": 0.9, "step": 0.01 },
+    { "id": "smoothing", "label": "Smoothing", "type": "number", "default": 2, "min": 0, "max": 4, "step": 1 },
+    { "id": "min_size", "label": "Min Detail Size", "type": "number", "default": 4, "min": 0, "max": 40, "step": 1 },
+    { "id": "seed", "label": "Seed", "type": "number", "default": 1, "min": 0, "max": 9999, "step": 1 },
+    { "id": "seed_density", "label": "Seed Density", "type": "number", "default": 1, "min": 0.2, "max": 6, "step": 0.1 },
+    { "id": "diffuse_u", "label": "Diffuse A", "type": "number", "default": 0.16, "min": 0.05, "max": 0.3, "step": 0.005 },
+    { "id": "diffuse_v", "label": "Diffuse B", "type": "number", "default": 0.08, "min": 0.02, "max": 0.2, "step": 0.005 },
+    { "id": "size", "label": "Size", "type": "number", "default": 400, "min": 20, "max": 1200, "step": 10 },
+    { "id": "x", "label": "X", "type": "number", "default": 0, "min": -1000, "max": 1000 },
+    { "id": "y", "label": "Y", "type": "number", "default": 0, "min": -1000, "max": 1000 },
+    { "id": "color", "label": "Line Color", "type": "color", "default": "#000000" },
+    { "id": "stroke_width", "label": "Line Width", "type": "number", "default": 1, "min": 0.1, "max": 8, "step": 0.1 },
+    { "id": "fill", "label": "Fill Pattern", "type": "boolean", "default": false },
+    { "id": "fill_color", "label": "Fill Color", "type": "color", "default": "#222222" }
+  ],
+  "runtime": "reactiondiffusion"
+}

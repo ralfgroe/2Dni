@@ -1,6 +1,6 @@
 // Release notes for 2Dni. Add a new <Release> block at the top each time we
 // ship new nodes or notable changes, and bump LATEST_RELEASE_DATE below.
-export const LATEST_RELEASE_DATE = 'June 13, 2026';
+export const LATEST_RELEASE_DATE = 'June 14, 2026';
 
 export default function ReleaseNotes({ onClose }) {
   return (
@@ -23,6 +23,28 @@ export default function ReleaseNotes({ onClose }) {
           <h1 style={{ fontSize: 28, fontWeight: 700, color: '#1a1a2e', margin: 0 }}>Release Notes</h1>
           <p style={{ fontSize: 13, color: '#6c757d', marginTop: 8 }}>What's new in 2Dni</p>
         </div>
+
+        <Release version="June 14, 2026" title="Reaction-Diffusion & polish">
+          <Item name="Reaction Diffusion node" tag="new">
+            Runs a Gray-Scott reaction-diffusion simulation and marching-squares
+            the result into vector contours — organic Turing patterns like spots,
+            stripes, coral, mazes and mitosis. Pick a Pattern preset, then tune
+            Feed / Kill rates, Steps and Contour Level for endless variation;
+            change the Seed for a fresh layout. Optionally fill the pattern.
+          </Item>
+          <Item name="Bolder viewport grid" tag="improved">
+            The background grid lines are heavier and clearer, so the canvas is
+            easier to read at a glance.
+          </Item>
+          <Item name="2D tab icon" tag="improved">
+            The browser tab now shows the 2Dni pixel "2D" mark instead of the
+            default placeholder favicon.
+          </Item>
+          <Item name="Smooth overlay scrolling" tag="fixed">
+            Two-finger trackpad scrolling in the Release Notes and Quick Start
+            Guide is smooth now — the node graph no longer hijacks the gesture.
+          </Item>
+        </Release>
 
         <Release version="June 13, 2026" title="Dashes, selection & cleaner styling">
           <Item name="Dashes node" tag="new">

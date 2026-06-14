@@ -189,6 +189,7 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
           key={nodeId}
           d={geo.pathData}
           fill={geo.fill}
+          fillRule={geo.fillRule}
           stroke={geo.stroke}
           strokeWidth={geo.strokeWidth}
           opacity={geoOpacity}

@@ -540,7 +540,7 @@ function geometryToSVGString(geo) {
     }
 
     case 'booleanResult':
-      return `<path d="${geo.pathData}" fill="${geo.fill}" stroke="${geo.stroke}" stroke-width="${geo.strokeWidth}"${dashAttr}${opAttr} />`;
+      return `<path d="${geo.pathData}" fill="${geo.fill}"${geo.fillRule ? ` fill-rule="${geo.fillRule}"` : ''} stroke="${geo.stroke}" stroke-width="${geo.strokeWidth}"${dashAttr}${opAttr} />`;
 
     case 'image':
       if (geo.dataUrl) {
