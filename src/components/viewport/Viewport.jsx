@@ -463,8 +463,8 @@ export default function Viewport() {
                 d={`M ${gridSize} 0 L 0 0 0 ${gridSize}`}
                 fill="none"
                 stroke="var(--border-primary)"
-                strokeWidth="0.5"
-                opacity="0.5"
+                strokeWidth="1"
+                opacity="0.7"
               />
             </pattern>
           )}
