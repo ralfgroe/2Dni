@@ -266,13 +266,15 @@ function decimate(line, closed, minDist) {
 // Build smooth cubic-Bézier SVG path data through `pts` using a centripetal
 // Catmull-Rom spline (tension-controlled). The spline passes through every
 // point, so the result hugs the contour while rendering as true curves rather
-// than faceted line segments.
-function catmullRomPath(pts, closed, mapPt) {
+// than faceted line segments. `tension` (0..1) controls how loose/round the
+// curve is: low values hug the points tightly, high values round them off.
+function catmullRomPath(pts, closed, mapPt, tension) {
   const n = pts.length;
   if (n < 3) return '';
 
-  // Catmull-Rom -> cubic Bézier control points. `t` is tension (1/6 = uniform).
-  const t = 1 / 6;
+  // Convert Catmull-Rom to cubic Bézier control points. `t` scales the tangent
+  // length; 1/6 reproduces the standard uniform Catmull-Rom.
+  const t = tension;
   const at = (i) => {
     if (closed) return pts[(i % n + n) % n];
     return pts[Math.max(0, Math.min(n - 1, i))];
@@ -312,6 +314,18 @@ export function reactiondiffusionRuntime(params) {
   const threshold = Math.max(0.05, Math.min(0.9, params.threshold ?? 0.25));
   const smoothing = Math.max(0, Math.min(4, Math.round(params.smoothing ?? 2)));
   const minPerimeter = Math.max(0, params.min_size ?? 4);
+
+  // Curve Tension (0..1, UI): how round/loose the fitted Bezier curves are.
+  // Map onto the Catmull-Rom tangent scale: ~0.04 (tight) .. ~0.30 (round),
+  // centered near the standard 1/6 ~= 0.167.
+  const tensionUI = Math.max(0, Math.min(1, params.tension ?? 0.5));
+  const tension = 0.04 + tensionUI * 0.26;
+
+  // Detail (0..1, UI): higher keeps more points (finer, more faithful);
+  // lower decimates harder for smoother, simpler curves. Expressed as the
+  // minimum spacing (in grid units) between kept points.
+  const detailUI = Math.max(0, Math.min(1, params.detail ?? 0.5));
+  const decimateDist = 2.2 - detailUI * 2.0; // ~2.2 (coarse) .. ~0.2 (fine)
 
   const worldSize = Math.max(10, params.size ?? 400);
   const ox = params.x ?? 0;
@@ -362,7 +376,7 @@ export function reactiondiffusionRuntime(params) {
     // Light Chaikin pre-pass relaxes the staircase, then thin the points and
     // fit a smooth Catmull-Rom spline so the output is genuine curves.
     if (smoothing > 0) line = smoothPolyline(line, closed, smoothing);
-    line = decimate(line, closed, 0.9);
+    line = decimate(line, closed, decimateDist);
 
     // Reject tiny specks below the minimum perimeter (in grid units).
     let perim = 0;
@@ -373,7 +387,7 @@ export function reactiondiffusionRuntime(params) {
     }
     if (perim < minPerimeter) continue;
 
-    const d = catmullRomPath(line, closed, mapPt);
+    const d = catmullRomPath(line, closed, mapPt, tension);
     if (d) pathParts.push(d);
   }
 
