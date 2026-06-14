@@ -224,7 +224,8 @@ function stitch(segments) {
 
 // ---- Path building -----------------------------------------------------------
 
-// Chaikin corner-cutting smoothing for nicer organic contours.
+// Chaikin corner-cutting smoothing for nicer organic contours. Used as a light
+// pre-pass to relax the blocky marching-squares staircase before we fit curves.
 function smoothPolyline(pts, closed, iterations) {
   let line = pts;
   for (let it = 0; it < iterations; it++) {
@@ -243,6 +244,57 @@ function smoothPolyline(pts, closed, iterations) {
     line = out;
   }
   return line;
+}
+
+// Drop points that are closer than `minDist` to the previously kept point.
+// Reduces over-tessellation so the curve fit is clean and the path data small.
+function decimate(line, closed, minDist) {
+  if (minDist <= 0 || line.length < 3) return line;
+  const md2 = minDist * minDist;
+  const out = [line[0]];
+  for (let i = 1; i < line.length; i++) {
+    const p = line[i];
+    const q = out[out.length - 1];
+    const dx = p.x - q.x, dy = p.y - q.y;
+    if (dx * dx + dy * dy >= md2) out.push(p);
+  }
+  // Keep at least a triangle.
+  if (out.length < 3) return line;
+  return out;
+}
+
+// Build smooth cubic-Bézier SVG path data through `pts` using a centripetal
+// Catmull-Rom spline (tension-controlled). The spline passes through every
+// point, so the result hugs the contour while rendering as true curves rather
+// than faceted line segments.
+function catmullRomPath(pts, closed, mapPt) {
+  const n = pts.length;
+  if (n < 3) return '';
+
+  // Catmull-Rom -> cubic Bézier control points. `t` is tension (1/6 = uniform).
+  const t = 1 / 6;
+  const at = (i) => {
+    if (closed) return pts[(i % n + n) % n];
+    return pts[Math.max(0, Math.min(n - 1, i))];
+  };
+
+  const m0 = mapPt(pts[0]);
+  let d = `M${m0.x} ${m0.y}`;
+
+  const segCount = closed ? n : n - 1;
+  for (let i = 0; i < segCount; i++) {
+    const p0 = at(i - 1);
+    const p1 = at(i);
+    const p2 = at(i + 1);
+    const p3 = at(i + 2);
+
+    const c1 = mapPt({ x: p1.x + (p2.x - p0.x) * t, y: p1.y + (p2.y - p0.y) * t });
+    const c2 = mapPt({ x: p2.x - (p3.x - p1.x) * t, y: p2.y - (p3.y - p1.y) * t });
+    const e = mapPt(p2);
+    d += `C${c1.x} ${c1.y} ${c2.x} ${c2.y} ${e.x} ${e.y}`;
+  }
+  if (closed) d += 'Z';
+  return d;
 }
 
 export function reactiondiffusionRuntime(params) {
@@ -282,6 +334,16 @@ export function reactiondiffusionRuntime(params) {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
   const round = (v) => Math.round(v * 100) / 100;
+  const mapPt = (p) => {
+    const px = ox + p.x * scale - halfW;
+    const py = oy + p.y * scale - halfH;
+    if (px < minX) minX = px;
+    if (py < minY) minY = py;
+    if (px > maxX) maxX = px;
+    if (py > maxY) maxY = py;
+    return { x: round(px), y: round(py) };
+  };
+
   const pathParts = [];
 
   for (let line of polylines) {
@@ -294,30 +356,25 @@ export function reactiondiffusionRuntime(params) {
     const dy = first.y - last.y;
     const closed = dx * dx + dy * dy < 1e-4;
 
+    // For closed loops the duplicated endpoint would confuse the spline wrap.
+    if (closed && line.length > 1) line = line.slice(0, -1);
+
+    // Light Chaikin pre-pass relaxes the staircase, then thin the points and
+    // fit a smooth Catmull-Rom spline so the output is genuine curves.
     if (smoothing > 0) line = smoothPolyline(line, closed, smoothing);
+    line = decimate(line, closed, 0.9);
 
     // Reject tiny specks below the minimum perimeter (in grid units).
     let perim = 0;
-    for (let i = 1; i < line.length; i++) {
-      const a = line[i - 1], b = line[i];
+    const segs = closed ? line.length : line.length - 1;
+    for (let i = 0; i < segs; i++) {
+      const a = line[i], b = line[(i + 1) % line.length];
       perim += Math.hypot(b.x - a.x, b.y - a.y);
     }
     if (perim < minPerimeter) continue;
 
-    let d = '';
-    for (let i = 0; i < line.length; i++) {
-      const px = ox + line[i].x * scale - halfW;
-      const py = oy + line[i].y * scale - halfH;
-      const rx = round(px);
-      const ry = round(py);
-      d += (i === 0 ? `M${rx} ${ry}` : `L${rx} ${ry}`);
-      if (px < minX) minX = px;
-      if (py < minY) minY = py;
-      if (px > maxX) maxX = px;
-      if (py > maxY) maxY = py;
-    }
-    if (closed) d += 'Z';
-    pathParts.push(d);
+    const d = catmullRomPath(line, closed, mapPt);
+    if (d) pathParts.push(d);
   }
 
   if (pathParts.length === 0) {
