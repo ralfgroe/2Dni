@@ -253,6 +253,10 @@ export default function ParameterPanel() {
             if (paramDef.id === 'dash_length' && style !== 'Dashed') return null;
             if (paramDef.id === 'gap_length' && style === 'Solid') return null;
           }
+          if (definition.id === 'dashes') {
+            const style = params.style ?? 'Dashed';
+            if (paramDef.id === 'dash_length' && style === 'Dotted') return null;
+          }
           if (definition.id === 'radius' && paramDef.id === 'point_selection') {
             const sourceEdge = edges.find((e) => e.target === selectedNode.id && e.targetHandle === 'geometry_in');
             const sourceGeo = resolveEdgeResult(sourceEdge);

@@ -1,0 +1,19 @@
+{
+  "id": "dashes",
+  "label": "Dashes",
+  "category": "Transform",
+  "description": "Converts a path into real, separate dash or dot pieces of geometry along its length. Unlike the dotted-line style on the Color node, every dash/dot is an actual independent shape, so you can feed the result into Split Select or Select and pick individual pieces to keep, delete, or recolor.",
+  "inputs": [
+    { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }
+  ],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "style", "label": "Style", "type": "select", "default": "Dashed", "options": ["Dashed", "Dotted"] },
+    { "id": "dash_length", "label": "Dash Length", "type": "number", "default": 8, "min": 0.5, "max": 200, "step": 0.5 },
+    { "id": "gap_length", "label": "Gap Length", "type": "number", "default": 8, "min": 0, "max": 200, "step": 0.5 },
+    { "id": "round_caps", "label": "Round Caps", "type": "boolean", "default": true }
+  ],
+  "runtime": "dashes"
+}

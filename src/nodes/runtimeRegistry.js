@@ -41,6 +41,7 @@ import { resampleRuntime } from '../nodes/resample';
 import { traceRuntime } from '../nodes/trace';
 import { selectRuntime } from '../nodes/select';
 import { splitselectRuntime } from '../nodes/splitselect';
+import { dashesRuntime } from '../nodes/dashes';
 import { strangeAttractorRuntime } from '../nodes/strangeattractor';
 
 const runtimeMap = {
@@ -88,6 +89,7 @@ const runtimeMap = {
   trace: traceRuntime,
   select: selectRuntime,
   splitselect: splitselectRuntime,
+  dashes: dashesRuntime,
   strangeattractor: strangeAttractorRuntime,
 };
 
