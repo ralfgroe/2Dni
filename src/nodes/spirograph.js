@@ -49,6 +49,18 @@ export function spirographRuntime(params) {
     path.add(new paper.Point(cx + x, cy + y));
   }
 
+  // The sampled points trace a mathematically smooth curve, so fit a
+  // continuous Catmull-Rom spline through them to remove the faceting.
+  const closesOnItself =
+    path.firstSegment &&
+    path.lastSegment &&
+    path.firstSegment.point.getDistance(path.lastSegment.point) < 0.5;
+  if (closesOnItself) {
+    path.lastSegment.remove();
+    path.closed = true;
+  }
+  path.smooth({ type: 'catmull-rom', factor: 0.5 });
+
   const pathData = path.pathData;
   const bounds = path.bounds;
   path.remove();
