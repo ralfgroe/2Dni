@@ -24,27 +24,7 @@ export default function ReleaseNotes({ onClose }) {
           <p style={{ fontSize: 13, color: '#6c757d', marginTop: 8 }}>What's new in 2Dni</p>
         </div>
 
-        <Release version="June 14, 2026" title="Reaction-Diffusion & polish">
-          <Item name="Reaction Diffusion node" tag="new">
-            Runs a Gray-Scott reaction-diffusion simulation and marching-squares
-            the result into smooth vector curves — organic Turing patterns like
-            coral, mazes, mitosis, spots and stripes. Pick a Pattern preset, then
-            tune Feed / Kill rates, Steps and Contour Level; change the Seed for a
-            fresh layout.
-          </Item>
-          <Item name="Grow patterns inside a shape" tag="new">
-            Reaction Diffusion now has a Boundary input — connect any geometry
-            (a circle, text, a traced logo) and the pattern grows inside it,
-            following the shape's organic edge. With nothing connected, an Edge
-            Falloff control fades the pattern out as a soft disc instead of a
-            hard rectangle.
-          </Item>
-          <Item name="Filled coral look + smooth curves" tag="improved">
-            Render Reaction Diffusion as bold Filled regions (the classic coral
-            look) or thin Outlines. Contours are fitted with Catmull-Rom Bezier
-            splines — true smooth curves with Curve Tension and Detail controls,
-            no more faceted polylines.
-          </Item>
+        <Release version="June 14, 2026" title="Polish & quality-of-life">
           <Item name="Bolder viewport grid" tag="improved">
             The background grid lines are heavier and clearer, so the canvas is
             easier to read at a glance.

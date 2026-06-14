@@ -86,17 +86,6 @@ export default function ParameterPanel() {
       'Fractal Plant':       { axiom: 'X', rule_f: 'FF', rule_g: '', angle: 25 },
       'Penrose':             { axiom: '[X]++[X]++[X]++[X]++[X]', rule_f: '', rule_g: '', angle: 36 },
     },
-    reactiondiffusion: {
-      'Spots':   { feed: 0.0367, kill: 0.0649 },
-      'Stripes': { feed: 0.022,  kill: 0.051 },
-      'Coral':   { feed: 0.0545, kill: 0.062 },
-      'Maze':    { feed: 0.029,  kill: 0.057 },
-      'Mitosis': { feed: 0.0367, kill: 0.0588 },
-      'Bubbles': { feed: 0.034,  kill: 0.0618 },
-      'Worms':   { feed: 0.058,  kill: 0.065 },
-      'Holes':   { feed: 0.039,  kill: 0.058 },
-      'Flicker': { feed: 0.014,  kill: 0.054 },
-    },
   };
 
   // Strange Attractor presets depend on the selected Type (De Jong / Clifford /
@@ -254,15 +243,6 @@ export default function ParameterPanel() {
           if (definition.id === 'scatter') {
             const hasField = edges.some((e) => e.target === selectedNode.id && e.targetHandle === 'scatter_field');
             if (hasField && (paramDef.id === 'width' || paramDef.id === 'height')) return null;
-          }
-          if (definition.id === 'reactiondiffusion') {
-            const hasBoundary = edges.some((e) => e.target === selectedNode.id && e.targetHandle === 'geometry_in');
-            // The connected shape defines the region, so Size / Edge Falloff
-            // no longer apply.
-            if (hasBoundary && (paramDef.id === 'size' || paramDef.id === 'edge_falloff')) return null;
-            const filled = (params.render ?? 'Filled') === 'Filled';
-            if (filled && (paramDef.id === 'color' || paramDef.id === 'stroke_width')) return null;
-            if (!filled && paramDef.id === 'fill_color') return null;
           }
           if (definition.id === 'copymove' && !params.dir2_enabled) {
             if (paramDef.id === 'dir2_copies' || paramDef.id === 'dir2_offset_x' || paramDef.id === 'dir2_offset_y') return null;
