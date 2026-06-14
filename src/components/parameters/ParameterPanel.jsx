@@ -247,6 +247,12 @@ export default function ParameterPanel() {
           if (definition.id === 'copymove' && !params.dir2_enabled) {
             if (paramDef.id === 'dir2_copies' || paramDef.id === 'dir2_offset_x' || paramDef.id === 'dir2_offset_y') return null;
           }
+          if (definition.id === 'color') {
+            const style = params.line_style ?? 'Solid';
+            if ((paramDef.id === 'line_style' || paramDef.id === 'dash_length' || paramDef.id === 'gap_length') && !(params.show_stroke ?? true)) return null;
+            if (paramDef.id === 'dash_length' && style !== 'Dashed') return null;
+            if (paramDef.id === 'gap_length' && style === 'Solid') return null;
+          }
           if (definition.id === 'radius' && paramDef.id === 'point_selection') {
             const sourceEdge = edges.find((e) => e.target === selectedNode.id && e.targetHandle === 'geometry_in');
             const sourceGeo = resolveEdgeResult(sourceEdge);

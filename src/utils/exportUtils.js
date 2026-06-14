@@ -495,24 +495,26 @@ function geometryToSVGString(geo) {
   if (!geo) return '';
 
   const opAttr = geo.opacity != null && geo.opacity !== 1 ? ` opacity="${geo.opacity}"` : '';
+  const dashAttr = (geo.strokeDasharray ? ` stroke-dasharray="${geo.strokeDasharray}"` : '')
+    + (geo.strokeLinecap ? ` stroke-linecap="${geo.strokeLinecap}"` : '');
 
   switch (geo.type) {
     case 'line':
-      return `<line x1="${geo.x1}" y1="${geo.y1}" x2="${geo.x2}" y2="${geo.y2}" stroke="${geo.stroke}" stroke-width="${geo.strokeWidth}"${opAttr} />`;
+      return `<line x1="${geo.x1}" y1="${geo.y1}" x2="${geo.x2}" y2="${geo.y2}" stroke="${geo.stroke}" stroke-width="${geo.strokeWidth}"${dashAttr}${opAttr} />`;
 
     case 'rect':
-      return `<rect x="${geo.x}" y="${geo.y}" width="${geo.width}" height="${geo.height}" fill="${geo.fill}" stroke="${geo.stroke}" stroke-width="${geo.strokeWidth}"${opAttr} />`;
+      return `<rect x="${geo.x}" y="${geo.y}" width="${geo.width}" height="${geo.height}" fill="${geo.fill}" stroke="${geo.stroke}" stroke-width="${geo.strokeWidth}"${dashAttr}${opAttr} />`;
 
     case 'ellipse':
-      return `<ellipse cx="${geo.cx}" cy="${geo.cy}" rx="${geo.rx}" ry="${geo.ry}" fill="${geo.fill}" stroke="${geo.stroke}" stroke-width="${geo.strokeWidth}"${opAttr} />`;
+      return `<ellipse cx="${geo.cx}" cy="${geo.cy}" rx="${geo.rx}" ry="${geo.ry}" fill="${geo.fill}" stroke="${geo.stroke}" stroke-width="${geo.strokeWidth}"${dashAttr}${opAttr} />`;
 
     case 'arc':
-      return `<path d="${geo.pathData}" fill="${geo.fill}" stroke="${geo.stroke}" stroke-width="${geo.strokeWidth}"${opAttr} />`;
+      return `<path d="${geo.pathData}" fill="${geo.fill}" stroke="${geo.stroke}" stroke-width="${geo.strokeWidth}"${dashAttr}${opAttr} />`;
 
     case 'roundedRect': {
       const corners = geo.corners || [geo.rx, geo.rx, geo.rx, geo.rx];
       const d = exportRoundedRectPath(geo.x, geo.y, geo.width, geo.height, corners);
-      return `<path d="${d}" fill="${geo.fill}" stroke="${geo.stroke}" stroke-width="${geo.strokeWidth}"${opAttr} />`;
+      return `<path d="${d}" fill="${geo.fill}" stroke="${geo.stroke}" stroke-width="${geo.strokeWidth}"${dashAttr}${opAttr} />`;
     }
 
     case 'text': {
@@ -538,7 +540,7 @@ function geometryToSVGString(geo) {
     }
 
     case 'booleanResult':
-      return `<path d="${geo.pathData}" fill="${geo.fill}" stroke="${geo.stroke}" stroke-width="${geo.strokeWidth}"${opAttr} />`;
+      return `<path d="${geo.pathData}" fill="${geo.fill}" stroke="${geo.stroke}" stroke-width="${geo.strokeWidth}"${dashAttr}${opAttr} />`;
 
     case 'image':
       if (geo.dataUrl) {

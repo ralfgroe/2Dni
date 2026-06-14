@@ -8,6 +8,7 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
   };
 
   const geoOpacity = geo.opacity != null ? geo.opacity : undefined;
+  const dash = strokeDashProps(geo);
 
   switch (geo.type) {
     case 'line':
@@ -34,6 +35,7 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
             stroke={geo.stroke}
             strokeWidth={geo.strokeWidth}
             strokeLinecap="round"
+            {...dash}
           />
         </g>
       );
@@ -53,6 +55,7 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
           onClick={handleClick}
           className="cursor-pointer"
           filter={isSelected ? 'url(#selection-glow)' : undefined}
+          {...dash}
         />
       );
 
@@ -71,6 +74,7 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
           onClick={handleClick}
           className="cursor-pointer"
           filter={isSelected ? 'url(#selection-glow)' : undefined}
+          {...dash}
         />
       );
 
@@ -86,6 +90,7 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
           onClick={handleClick}
           className="cursor-pointer"
           filter={isSelected ? 'url(#selection-glow)' : undefined}
+          {...dash}
         />
       );
 
@@ -102,6 +107,7 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
           onClick={handleClick}
           className="cursor-pointer"
           filter={isSelected ? 'url(#selection-glow)' : undefined}
+          {...dash}
         />
       );
     }
@@ -189,6 +195,7 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
           onClick={handleClick}
           className="cursor-pointer"
           filter={isSelected ? 'url(#selection-glow)' : undefined}
+          {...dash}
         />
       );
 
@@ -217,6 +224,13 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
     default:
       return null;
   }
+}
+
+function strokeDashProps(geo) {
+  const props = {};
+  if (geo.strokeDasharray) props.strokeDasharray = geo.strokeDasharray;
+  if (geo.strokeLinecap) props.strokeLinecap = geo.strokeLinecap;
+  return props;
 }
 
 function sortByLayer(children) {
