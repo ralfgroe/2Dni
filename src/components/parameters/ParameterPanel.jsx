@@ -271,6 +271,9 @@ export default function ParameterPanel() {
           if (definition.id === 'select' && (paramDef.id === 'selected' || paramDef.id === 'offsets')) {
             return null;
           }
+          if (definition.id === 'splitselect' && paramDef.id === 'selected') {
+            return null;
+          }
           if (definition.id === 'pointtransform' && paramDef.id === 'scale_points') {
             return null;
           }
@@ -386,6 +389,30 @@ export default function ParameterPanel() {
                   Reset Moves
                 </button>
               </div>
+            </div>
+          );
+        })()}
+
+        {/* Split Select node helpers */}
+        {definition.id === 'splitselect' && (() => {
+          const selectedArr = (() => {
+            try { return JSON.parse(params.selected || '[]') || []; } catch { return []; }
+          })();
+          return (
+            <div className="flex flex-col gap-2">
+              <span className="text-[10px] text-text-muted">
+                Click components in the viewport to send them to the <span style={{ color: '#2f9e44' }}>Selected</span> output (2nd terminal). Everything else goes to the <span style={{ color: '#4263eb' }}>Rest</span> output (1st terminal).
+              </span>
+              <span className="text-[11px] font-medium text-text-secondary">
+                {selectedArr.length} sent to Selected
+              </span>
+              <button
+                onClick={() => updateNodeParams(selectedNode.id, { selected: '[]' })}
+                className="rounded border border-border-primary bg-bg-tertiary text-[10px] text-text-secondary hover:bg-border-primary"
+                style={{ padding: '8px 12px' }}
+              >
+                Clear Selection
+              </button>
             </div>
           );
         })()}

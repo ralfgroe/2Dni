@@ -1,0 +1,17 @@
+{
+  "id": "splitselect",
+  "label": "Split Select",
+  "category": "Transform",
+  "description": "Interactively splits geometry into two streams. Click components in the viewport (like Illustrator's white-arrow selection) to mark them: selected components come out of the second output, everything else comes out of the first. Great for separating regions of a traced image or pieces of a composition into two branches.",
+  "inputs": [
+    { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }
+  ],
+  "outputs": [
+    { "id": "geo_out_unselected", "label": "Rest", "type": "geometry" },
+    { "id": "geo_out_selected", "label": "Selected", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "selected", "label": "Selected", "type": "text", "default": "[]" }
+  ],
+  "runtime": "splitselect"
+}

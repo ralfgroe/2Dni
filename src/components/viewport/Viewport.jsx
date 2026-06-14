@@ -14,6 +14,7 @@ import BezierOverlay from './BezierOverlay';
 import PointTransformOverlay from './PointTransformOverlay';
 import ResampleOverlay from './ResampleOverlay';
 import SelectOverlay from './SelectOverlay';
+import SplitSelectOverlay from './SplitSelectOverlay';
 import Timeline from '../timeline/Timeline';
 
 export default function Viewport() {
@@ -606,6 +607,16 @@ export default function Viewport() {
           <SelectOverlay
             nodeId={selectedNode.id}
             screenToSvg={screenToSvg}
+            edges={edges}
+            results={results}
+            viewBox={viewBox}
+          />
+        )}
+
+        {/* Split Select component picker overlay */}
+        {selectedNode && selectedDef && selectedDef.id === 'splitselect' && (
+          <SplitSelectOverlay
+            nodeId={selectedNode.id}
             edges={edges}
             results={results}
             viewBox={viewBox}
