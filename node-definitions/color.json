@@ -2,7 +2,7 @@
   "id": "color",
   "label": "Color",
   "category": "Appearance",
-  "description": "Sets the fill color, stroke color, and stroke width of incoming geometry. Can also render the stroke as dashed or dotted lines with rounded ends and adjustable length and spacing.",
+  "description": "Sets the fill color, stroke color, and stroke width of incoming geometry. For real dashed or dotted lines, use the Dashes node upstream \u2014 Color preserves the rounded caps those pieces carry.",
   "inputs": [
     { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }
   ],
@@ -15,9 +15,6 @@
     { "id": "show_stroke", "label": "Show Stroke", "type": "boolean", "default": true },
     { "id": "stroke_color", "label": "Stroke Color", "type": "color", "default": "#000000" },
     { "id": "stroke_width", "label": "Stroke Width", "type": "number", "default": 1, "min": 0, "max": 50 },
-    { "id": "line_style", "label": "Line Style", "type": "select", "default": "Solid", "options": ["Solid", "Dashed", "Dotted"] },
-    { "id": "dash_length", "label": "Dash Length", "type": "number", "default": 8, "min": 0.5, "max": 100, "step": 0.5 },
-    { "id": "gap_length", "label": "Gap Length", "type": "number", "default": 8, "min": 0, "max": 100, "step": 0.5 },
     { "id": "opacity", "label": "Transparency", "type": "number", "default": 100, "min": 0, "max": 100 }
   ],
   "runtime": "color"
