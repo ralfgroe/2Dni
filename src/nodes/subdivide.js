@@ -96,6 +96,8 @@ function smoothGeo(geo, iterations, tension) {
       fill: geo.fill || 'none',
       stroke: geo.stroke || '#000000',
       strokeWidth: geo.strokeWidth ?? 1,
+      strokeLinecap: geo.strokeLinecap,
+      strokeDasharray: geo.strokeDasharray,
       opacity: geo.opacity,
       bounds: { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height },
     };
@@ -113,6 +115,8 @@ function smoothGeo(geo, iterations, tension) {
     fill: geo.fill || 'none',
     stroke: geo.stroke || '#000000',
     strokeWidth: geo.strokeWidth ?? 1,
+    strokeLinecap: geo.strokeLinecap,
+    strokeDasharray: geo.strokeDasharray,
     opacity: geo.opacity,
     bounds: { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height },
   };

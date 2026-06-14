@@ -37,6 +37,8 @@ export function extractParts(geo) {
               fill: geo.fill || '#000000',
               stroke: geo.stroke || 'none',
               strokeWidth: geo.strokeWidth ?? 0,
+              strokeLinecap: geo.strokeLinecap,
+              strokeDasharray: geo.strokeDasharray,
               opacity: geo.opacity,
               bounds: { x: b.x, y: b.y, width: b.width, height: b.height },
             },
@@ -94,6 +96,8 @@ function offsetGeo(geo, dx, dy) {
     fill: geo.fill ?? '#000000',
     stroke: geo.stroke ?? 'none',
     strokeWidth: geo.strokeWidth ?? 0,
+    strokeLinecap: geo.strokeLinecap,
+    strokeDasharray: geo.strokeDasharray,
     opacity: geo.opacity,
     bounds: { x: b.x, y: b.y, width: b.width, height: b.height },
   };
