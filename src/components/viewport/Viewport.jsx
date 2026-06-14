@@ -15,6 +15,7 @@ import PointTransformOverlay from './PointTransformOverlay';
 import ResampleOverlay from './ResampleOverlay';
 import SelectOverlay from './SelectOverlay';
 import SplitSelectOverlay from './SplitSelectOverlay';
+import DeleteOverlay from './DeleteOverlay';
 import Timeline from '../timeline/Timeline';
 
 export default function Viewport() {
@@ -616,6 +617,16 @@ export default function Viewport() {
         {/* Split Select component picker overlay */}
         {selectedNode && selectedDef && selectedDef.id === 'splitselect' && (
           <SplitSelectOverlay
+            nodeId={selectedNode.id}
+            edges={edges}
+            results={results}
+            viewBox={viewBox}
+          />
+        )}
+
+        {/* Delete component picker overlay */}
+        {selectedNode && selectedDef && selectedDef.id === 'delete' && (
+          <DeleteOverlay
             nodeId={selectedNode.id}
             edges={edges}
             results={results}

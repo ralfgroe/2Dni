@@ -133,6 +133,17 @@ export default function SelectOverlay({ nodeId, screenToSvg, edges, results, vie
           stroke: isSel ? '#e64980' : '#4263eb',
           strokeWidth: isSel ? sw * 2 : sw,
           strokeDasharray: isSel ? undefined : `${sw * 3} ${sw * 2}`,
+          pointerEvents: 'none',
+        };
+
+        // Fat invisible hit target so thin/open pieces (e.g. dashes) are
+        // clickable and draggable, not just their hairline stroke.
+        const hitProps = {
+          fill: 'transparent',
+          stroke: '#000',
+          strokeOpacity: 0,
+          strokeWidth: Math.max(sw * 8, (part.geo?.strokeWidth ?? 0) + sw * 6),
+          strokeLinecap: 'round',
           style: { cursor: 'move' },
           onMouseDown: (e) => handleMouseDown(e, part.idx),
         };
@@ -140,9 +151,15 @@ export default function SelectOverlay({ nodeId, screenToSvg, edges, results, vie
         return (
           <g key={part.idx} transform={transform}>
             {shape.kind === 'path' ? (
-              <path d={shape.d} {...common} />
+              <>
+                <path d={shape.d} {...common} />
+                <path d={shape.d} {...hitProps} />
+              </>
             ) : (
-              <rect x={shape.x} y={shape.y} width={shape.width} height={shape.height} {...common} />
+              <>
+                <rect x={shape.x} y={shape.y} width={shape.width} height={shape.height} {...common} />
+                <rect x={shape.x} y={shape.y} width={shape.width} height={shape.height} {...hitProps} />
+              </>
             )}
           </g>
         );

@@ -278,6 +278,9 @@ export default function ParameterPanel() {
           if (definition.id === 'splitselect' && paramDef.id === 'selected') {
             return null;
           }
+          if (definition.id === 'delete' && paramDef.id === 'selected') {
+            return null;
+          }
           if (definition.id === 'pointtransform' && paramDef.id === 'scale_points') {
             return null;
           }
@@ -409,6 +412,30 @@ export default function ParameterPanel() {
               </span>
               <span className="text-[11px] font-medium text-text-secondary">
                 {selectedArr.length} sent to Selected
+              </span>
+              <button
+                onClick={() => updateNodeParams(selectedNode.id, { selected: '[]' })}
+                className="rounded border border-border-primary bg-bg-tertiary text-[10px] text-text-secondary hover:bg-border-primary"
+                style={{ padding: '8px 12px' }}
+              >
+                Clear Selection
+              </button>
+            </div>
+          );
+        })()}
+
+        {/* Delete node helpers */}
+        {definition.id === 'delete' && (() => {
+          const selectedArr = (() => {
+            try { return JSON.parse(params.selected || '[]') || []; } catch { return []; }
+          })();
+          return (
+            <div className="flex flex-col gap-2">
+              <span className="text-[10px] text-text-muted">
+                Click pieces in the viewport to mark them for deletion (they turn <span style={{ color: '#e03131' }}>red</span>). Everything else passes through. Tip: put a <span className="text-text-secondary">Dashes</span> node before this to delete individual dashes/dots.
+              </span>
+              <span className="text-[11px] font-medium text-text-secondary">
+                {selectedArr.length} marked for deletion
               </span>
               <button
                 onClick={() => updateNodeParams(selectedNode.id, { selected: '[]' })}

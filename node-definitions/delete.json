@@ -1,0 +1,16 @@
+{
+  "id": "delete",
+  "label": "Delete",
+  "category": "Transform",
+  "description": "Interactively delete components from geometry. Click pieces in the viewport (like Illustrator's white-arrow selection) to mark them for deletion \u2014 marked pieces turn red. Everything not marked passes through the output. Pair it with the Dashes node to delete individual dashes/dots.",
+  "inputs": [
+    { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }
+  ],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "selected", "label": "Selected", "type": "text", "default": "[]" }
+  ],
+  "runtime": "delete"
+}

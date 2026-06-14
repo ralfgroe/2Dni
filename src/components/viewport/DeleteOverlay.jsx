@@ -26,10 +26,10 @@ function partShape(geo) {
   return null;
 }
 
-// Interactive component picker for the Split Select node. Clicking a part
-// toggles whether it belongs to the "Selected" output (second terminal). Picked
-// parts are tinted green (output 2), the rest blue (output 1).
-export default function SplitSelectOverlay({ nodeId, edges, results, viewBox }) {
+// Interactive component picker for the Delete node. Clicking a part toggles
+// whether it is marked for deletion. Marked parts are tinted red and removed
+// from the output; everything else passes through.
+export default function DeleteOverlay({ nodeId, edges, results, viewBox }) {
   const updateNodeParams = useGraphStore((s) => s.updateNodeParams);
   const nodes = useGraphStore((s) => s.nodes);
   const node = nodes.find((n) => n.id === nodeId);
@@ -71,13 +71,13 @@ export default function SplitSelectOverlay({ nodeId, edges, results, viewBox }) 
       {parts.map((part) => {
         const shape = partShape(part.geo);
         if (!shape) return null;
-        const isSel = selected.has(part.idx);
+        const isDel = selected.has(part.idx);
 
         const common = {
-          fill: isSel ? 'rgba(64, 192, 87, 0.30)' : 'rgba(66, 99, 235, 0.06)',
-          stroke: isSel ? '#2f9e44' : '#4263eb',
-          strokeWidth: isSel ? sw * 2 : sw,
-          strokeDasharray: isSel ? undefined : `${sw * 3} ${sw * 2}`,
+          fill: isDel ? 'rgba(240, 62, 62, 0.30)' : 'rgba(66, 99, 235, 0.06)',
+          stroke: isDel ? '#e03131' : '#4263eb',
+          strokeWidth: isDel ? sw * 2 : sw,
+          strokeDasharray: isDel ? undefined : `${sw * 3} ${sw * 2}`,
           pointerEvents: 'none',
         };
 
