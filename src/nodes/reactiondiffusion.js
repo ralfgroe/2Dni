@@ -5,17 +5,35 @@
 // smooth iso-contours as vector paths. Produces classic Turing patterns:
 // spots, stripes, coral / mazes, mitosis, etc.
 //
+// The reaction can be confined to an input geometry (or a soft disc) so the
+// pattern runs out organically instead of filling a hard rectangle. Render as
+// thin outlines or as a bold filled region (the classic "coral" look).
+//
 // The sim is the heavy part. We keep the grid modest (default 120x120) and the
-// step count bounded so live tweaking stays responsive. Everything here is
-// plain typed-array math (no paper.js) for speed; we only build SVG path data
-// strings at the end.
+// step count bounded so live tweaking stays responsive. The math is plain
+// typed arrays for speed; paper.js is only used to rasterize an input shape
+// into a mask.
+
+import paper from 'paper';
+import { geoToPaperPath } from '../utils/geoPathUtils';
+
+let paperReady = false;
+const rdCanvas = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+function ensurePaper() {
+  if (!paperReady && rdCanvas) { paper.setup(rdCanvas); paperReady = true; }
+}
 
 // ---- Gray-Scott simulation ---------------------------------------------------
 
 // One simulation producing a Float32Array of V concentrations (the "pattern"
 // chemical), normalized roughly to 0..1.
+//
+// `mask` (optional Float32Array, same size) confines the reaction: cells where
+// mask <= 0 are held inert (V forced to 0). Diffusion uses no-flux (Neumann)
+// boundaries — clamped neighbours — so the pattern does NOT wrap/tile into a
+// hard rectangle the way toroidal boundaries do; it runs out at the edges.
 function simulate(width, height, opts) {
-  const { feed, kill, dU, dV, steps, seed, seedDensity } = opts;
+  const { feed, kill, dU, dV, steps, seed, seedDensity, mask } = opts;
   const size = width * height;
 
   let u = new Float32Array(size);
@@ -33,13 +51,19 @@ function simulate(width, height, opts) {
     return s / 233280;
   };
 
-  // Seed: scatter small square blobs of V across the whole grid to kick the
-  // reaction off. Blob count scales with grid area so patterns reliably fill
-  // the canvas regardless of resolution.
+  const inMask = (idx) => !mask || mask[idx] > 0;
+
+  // Seed: scatter small square blobs of V to kick the reaction off. Blob count
+  // scales with grid area so patterns reliably fill the region regardless of
+  // resolution. Seeds are only placed inside the mask.
   const blobs = Math.max(8, Math.round((size / 700) * seedDensity));
-  for (let bcount = 0; bcount < blobs; bcount++) {
+  let placed = 0;
+  let attempts = 0;
+  while (placed < blobs && attempts < blobs * 40) {
+    attempts++;
     const bx = Math.floor(rand() * width);
     const by = Math.floor(rand() * height);
+    if (!inMask(by * width + bx)) continue;
     const r = 3 + Math.floor(rand() * 4);
     for (let dy = -r; dy <= r; dy++) {
       for (let dx = -r; dx <= r; dx++) {
@@ -47,27 +71,31 @@ function simulate(width, height, opts) {
         const y = by + dy;
         if (x < 0 || y < 0 || x >= width || y >= height) continue;
         const idx = y * width + x;
+        if (!inMask(idx)) continue;
         u[idx] = 0.5;
         v[idx] = 0.25;
       }
     }
+    placed++;
   }
 
   const dt = 1.0;
 
   for (let step = 0; step < steps; step++) {
     for (let y = 0; y < height; y++) {
-      const yUp = y === 0 ? height - 1 : y - 1;
-      const yDn = y === height - 1 ? 0 : y + 1;
+      // No-flux boundaries: clamp neighbour indices at the edges.
+      const yUp = y === 0 ? 0 : y - 1;
+      const yDn = y === height - 1 ? height - 1 : y + 1;
       const rowC = y * width;
       const rowU = yUp * width;
       const rowD = yDn * width;
       for (let x = 0; x < width; x++) {
-        const xL = x === 0 ? width - 1 : x - 1;
-        const xR = x === width - 1 ? 0 : x + 1;
         const i = rowC + x;
+        if (!inMask(i)) { u2[i] = 1; v2[i] = 0; continue; }
 
-        // 9-point Laplacian (with the standard Gray-Scott weights).
+        const xL = x === 0 ? 0 : x - 1;
+        const xR = x === width - 1 ? width - 1 : x + 1;
+
         const uVal = u[i];
         const vVal = v[i];
 
@@ -104,6 +132,39 @@ function simulate(width, height, opts) {
   }
 
   return v;
+}
+
+// Build a mask grid from an input geometry's paper.js path. Cells whose center
+// falls inside the path are 1, outside 0. The path is in world coords; we map
+// each grid cell to world space using the same transform the contours use.
+function buildMaskFromPath(path, width, height, scale, ox, oy, halfW, halfH) {
+  const mask = new Float32Array(width * height);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const wx = ox + x * scale - halfW;
+      const wy = oy + y * scale - halfH;
+      mask[y * width + x] = path.contains({ x: wx, y: wy }) ? 1 : 0;
+    }
+  }
+  return mask;
+}
+
+// Radial falloff mask: a soft disc that fades the reaction out toward the grid
+// edges so the pattern "runs out" organically instead of hitting a hard square.
+function buildRadialMask(width, height, strength) {
+  const mask = new Float32Array(width * height);
+  const cx = (width - 1) / 2;
+  const cy = (height - 1) / 2;
+  const maxR = Math.min(width, height) / 2;
+  // strength 0 -> full square (no falloff); 1 -> tight disc.
+  const radius = maxR * (1 - 0.45 * strength);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const d = Math.hypot(x - cx, y - cy);
+      mask[y * width + x] = d <= radius ? 1 : 0;
+    }
+  }
+  return mask;
 }
 
 // ---- Marching squares --------------------------------------------------------
@@ -299,7 +360,9 @@ function catmullRomPath(pts, closed, mapPt, tension) {
   return d;
 }
 
-export function reactiondiffusionRuntime(params) {
+export function reactiondiffusionRuntime(params, inputs) {
+  ensurePaper();
+
   const resolution = Math.max(40, Math.min(220, Math.round(params.resolution ?? 120)));
   const width = resolution;
   const height = resolution;
@@ -314,43 +377,68 @@ export function reactiondiffusionRuntime(params) {
   const threshold = Math.max(0.05, Math.min(0.9, params.threshold ?? 0.25));
   const smoothing = Math.max(0, Math.min(4, Math.round(params.smoothing ?? 2)));
   const minPerimeter = Math.max(0, params.min_size ?? 4);
+  const edgeFalloff = Math.max(0, Math.min(1, params.edge_falloff ?? 0));
 
   // Curve Tension (0..1, UI): how round/loose the fitted Bezier curves are.
-  // Map onto the Catmull-Rom tangent scale: ~0.04 (tight) .. ~0.30 (round),
-  // centered near the standard 1/6 ~= 0.167.
   const tensionUI = Math.max(0, Math.min(1, params.tension ?? 0.5));
   const tension = 0.04 + tensionUI * 0.26;
 
-  // Detail (0..1, UI): higher keeps more points (finer, more faithful);
-  // lower decimates harder for smoother, simpler curves. Expressed as the
-  // minimum spacing (in grid units) between kept points.
+  // Detail (0..1, UI): higher keeps more points (finer); lower decimates harder.
   const detailUI = Math.max(0, Math.min(1, params.detail ?? 0.5));
   const decimateDist = 2.2 - detailUI * 2.0; // ~2.2 (coarse) .. ~0.2 (fine)
 
-  const worldSize = Math.max(10, params.size ?? 400);
+  const renderMode = params.render ?? 'Filled';
+  const filled = renderMode === 'Filled';
+  const color = params.color ?? '#000000';
+  const fillColor = params.fill_color ?? '#111111';
+  const strokeWidth = params.stroke_width ?? 1.5;
+
   const ox = params.x ?? 0;
   const oy = params.y ?? 0;
 
-  const fillContours = params.fill ?? false;
-  const color = params.color ?? '#000000';
-  const fillColor = params.fill_color ?? '#000000';
-  const strokeWidth = params.stroke_width ?? 1;
+  // If geometry is connected we run the reaction *inside* it; otherwise the
+  // pattern fills the configured Size (optionally inside a soft disc falloff).
+  const inputGeo = inputs?.geometry_in;
+  let boundaryPath = null;
+  let worldSize = Math.max(10, params.size ?? 400);
+  let cox = ox, coy = oy;
 
-  const field = simulate(width, height, { feed, kill, dU, dV, steps, seed, seedDensity });
+  if (inputGeo) {
+    const bp = geoToPaperPath(inputGeo);
+    if (bp) {
+      boundaryPath = bp;
+      const b = bp.bounds;
+      // Fit the grid over the shape's bounding box (square, padded a touch) and
+      // center it on the shape so the mask lines up with the geometry.
+      worldSize = Math.max(b.width, b.height) * 1.04;
+      cox = ox + b.x + b.width / 2;
+      coy = oy + b.y + b.height / 2;
+    }
+  }
 
-  let polylines = marchingSquares(field, width, height, threshold);
-
-  // Scale from grid space to world space and recenter on (ox, oy).
   const scale = worldSize / Math.max(width, height);
   const halfW = (width * scale) / 2;
   const halfH = (height * scale) / 2;
+
+  // Build the confinement mask.
+  let mask = null;
+  if (boundaryPath) {
+    mask = buildMaskFromPath(boundaryPath, width, height, scale, cox, coy, halfW, halfH);
+    boundaryPath.remove();
+  } else if (edgeFalloff > 0) {
+    mask = buildRadialMask(width, height, edgeFalloff);
+  }
+
+  const field = simulate(width, height, { feed, kill, dU, dV, steps, seed, seedDensity, mask });
+
+  let polylines = marchingSquares(field, width, height, threshold);
 
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
   const round = (v) => Math.round(v * 100) / 100;
   const mapPt = (p) => {
-    const px = ox + p.x * scale - halfW;
-    const py = oy + p.y * scale - halfH;
+    const px = cox + p.x * scale - halfW;
+    const py = coy + p.y * scale - halfH;
     if (px < minX) minX = px;
     if (py < minY) minY = py;
     if (px > maxX) maxX = px;
@@ -401,9 +489,11 @@ export function reactiondiffusionRuntime(params) {
   return {
     type: 'booleanResult',
     pathData: pathParts.join(' '),
-    fill: fillContours ? fillColor : 'none',
-    stroke: color,
-    strokeWidth,
+    fill: filled ? fillColor : 'none',
+    stroke: filled ? 'none' : color,
+    strokeWidth: filled ? 0 : strokeWidth,
+    strokeLinejoin: 'round',
+    strokeLinecap: 'round',
     fillRule: 'evenodd',
     bounds: {
       x: minX,

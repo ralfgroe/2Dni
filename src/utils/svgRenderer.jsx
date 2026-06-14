@@ -231,6 +231,7 @@ function strokeDashProps(geo) {
   const props = {};
   if (geo.strokeDasharray) props.strokeDasharray = geo.strokeDasharray;
   if (geo.strokeLinecap) props.strokeLinecap = geo.strokeLinecap;
+  if (geo.strokeLinejoin) props.strokeLinejoin = geo.strokeLinejoin;
   return props;
 }
 

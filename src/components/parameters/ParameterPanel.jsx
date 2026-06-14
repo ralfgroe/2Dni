@@ -255,6 +255,15 @@ export default function ParameterPanel() {
             const hasField = edges.some((e) => e.target === selectedNode.id && e.targetHandle === 'scatter_field');
             if (hasField && (paramDef.id === 'width' || paramDef.id === 'height')) return null;
           }
+          if (definition.id === 'reactiondiffusion') {
+            const hasBoundary = edges.some((e) => e.target === selectedNode.id && e.targetHandle === 'geometry_in');
+            // The connected shape defines the region, so Size / Edge Falloff
+            // no longer apply.
+            if (hasBoundary && (paramDef.id === 'size' || paramDef.id === 'edge_falloff')) return null;
+            const filled = (params.render ?? 'Filled') === 'Filled';
+            if (filled && (paramDef.id === 'color' || paramDef.id === 'stroke_width')) return null;
+            if (!filled && paramDef.id === 'fill_color') return null;
+          }
           if (definition.id === 'copymove' && !params.dir2_enabled) {
             if (paramDef.id === 'dir2_copies' || paramDef.id === 'dir2_offset_x' || paramDef.id === 'dir2_offset_y') return null;
           }
