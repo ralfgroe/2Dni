@@ -16,6 +16,8 @@ import ResampleOverlay from './ResampleOverlay';
 import SelectOverlay from './SelectOverlay';
 import SplitSelectOverlay from './SplitSelectOverlay';
 import DeleteOverlay from './DeleteOverlay';
+import DimensionOverlay from './DimensionOverlay';
+import GeometryErrorBoundary from './GeometryErrorBoundary';
 import Timeline from '../timeline/Timeline';
 
 export default function Viewport() {
@@ -81,6 +83,10 @@ export default function Viewport() {
     [animatedNodes, edges, definitions, displayNodeId, fontVersion]
   );
 
+  // Changes whenever the evaluated graph output changes; used to reset the
+  // geometry error boundary so it recovers after the user fixes a bad value.
+  const renderResetKey = useMemo(() => `${displayNodeId || ''}:${Date.now()}`, [results, displayNodeId]);
+
   const selectedNode = nodes.find((n) => n.id === selectedNodeId);
   const selectedGeoRaw = selectedNodeId ? results.get(selectedNodeId) : null;
   const selectedGeo = selectedGeoRaw && selectedGeoRaw.__multiOutput
@@ -96,7 +102,9 @@ export default function Viewport() {
     if (!def || def.id !== 'export') return null;
     const p = selectedNode.data.params || {};
     const fmt = p.format ?? 'svg';
-    if (fmt === 'obj' || fmt === 'geo') return null;
+    // OBJ/GEO have no 2D canvas frame; the 1:1 CAD exports (dxf/svg_mm) use the
+    // part's true bounds rather than a pixel canvas, so no fit-frame is shown.
+    if (fmt === 'obj' || fmt === 'geo' || fmt === 'dxf' || fmt === 'svg_mm') return null;
 
     const res = p.resolution ?? 'hd';
     let ew, eh;
@@ -483,6 +491,10 @@ export default function Viewport() {
         <line x1="-20" y1="0" x2="20" y2="0" stroke="var(--text-muted)" strokeWidth="0.5" opacity="0.4" />
         <line x1="0" y1="-20" x2="0" y2="20" stroke="var(--text-muted)" strokeWidth="0.5" opacity="0.4" />
 
+        {/* Geometry rendering is wrapped in an error boundary so a single
+            malformed shape (e.g. from an extreme dimension edit) shows an
+            inline notice instead of blanking the entire viewport. */}
+        <GeometryErrorBoundary resetKey={renderResetKey}>
         {/* Render templated nodes as ghost overlay */}
         {nodes.map((node) => {
           if (!node.data.templated) return null;
@@ -537,6 +549,7 @@ export default function Viewport() {
             return renderGeometry(geo, node.id, selectedNodeId, selectNode);
           });
         })()}
+        </GeometryErrorBoundary>
 
         {selectedGeo && selectedNode && selectedDef && (
           <GimbalHandles
@@ -628,6 +641,17 @@ export default function Viewport() {
         {selectedNode && selectedDef && selectedDef.id === 'delete' && (
           <DeleteOverlay
             nodeId={selectedNode.id}
+            edges={edges}
+            results={results}
+            viewBox={viewBox}
+          />
+        )}
+
+        {/* Dimension (parametric sketch) overlay */}
+        {selectedNode && selectedDef && selectedDef.id === 'dimension' && (
+          <DimensionOverlay
+            nodeId={selectedNode.id}
+            screenToSvg={screenToSvg}
             edges={edges}
             results={results}
             viewBox={viewBox}

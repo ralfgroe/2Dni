@@ -1,0 +1,22 @@
+{
+  "id": "dimension",
+  "label": "Dimension",
+  "category": "Sketch",
+  "description": "Add parametric, driven dimensions to a shape \u2014 SolidWorks-style. Select the node, click two points (linear), an edge pair (angle), or a circle/arc (radius) in the viewport, then double-click the dimension number on the canvas and type a new value to resize the geometry to match. The dimension drives the shape.",
+  "inputs": [
+    { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }
+  ],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "dimensions", "label": "Dimensions", "type": "text", "default": "[]" },
+    { "id": "show_dimensions", "label": "Show Dimensions", "type": "boolean", "default": true },
+    { "id": "dim_color", "label": "Dimension Color", "type": "color", "default": "#1366d6" },
+    { "id": "text_size", "label": "Text Size", "type": "number", "default": 14, "min": 6, "max": 48, "step": 1 },
+    { "id": "arrow_size", "label": "Arrow Size", "type": "number", "default": 8, "min": 2, "max": 30, "step": 1 },
+    { "id": "units", "label": "Units", "type": "text", "default": "" },
+    { "id": "decimals", "label": "Decimals", "type": "number", "default": 1, "min": 0, "max": 4, "step": 1 }
+  ],
+  "runtime": "dimension"
+}

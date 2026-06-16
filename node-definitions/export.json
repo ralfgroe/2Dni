@@ -2,13 +2,14 @@
   "id": "export",
   "label": "Export",
   "category": "I/O",
-  "description": "Terminal node that exports the graph result as SVG, PNG, JPEG, OBJ, or Houdini GEO.",
+  "description": "Terminal node that exports the graph result as SVG (screen px), SVG 1:1 mm, DXF 1:1 mm (CAD/laser-accurate), PNG, JPEG, OBJ, or Houdini GEO.",
   "inputs": [
     { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }
   ],
   "outputs": [],
   "parameters": [
-    { "id": "format", "label": "Format", "type": "select", "default": "svg", "options": ["svg", "png", "jpeg", "obj", "geo"] },
+    { "id": "format", "label": "Format", "type": "select", "default": "svg", "options": ["svg", "svg_mm", "dxf", "png", "jpeg", "obj", "geo"] },
+    { "id": "units_per_mm", "label": "Units per mm", "type": "number", "default": 1, "min": 0.0001, "max": 1000, "step": 0.0001 },
     { "id": "resolution", "label": "Resolution", "type": "select", "default": "hd", "options": ["hd", "4k", "custom"] },
     { "id": "filename", "label": "Filename", "type": "text", "default": "export" },
     { "id": "canvas_width", "label": "Canvas Width", "type": "number", "default": 1920, "min": 1, "max": 16384 },

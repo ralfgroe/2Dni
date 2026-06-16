@@ -250,3 +250,128 @@ function parsePointSelection(sel, total) {
   }
   return result;
 }
+
+/* Fillet one or more corners of a polygonal path in a SINGLE pass, each with
+   its own radius. Corners are identified by coordinate (matched to the nearest
+   vertex). Applying every fillet in one pass from the original geometry avoids
+   re-parsing already-rounded arcs as polylines (which would turn an existing
+   fillet into a chamfer). `corners` = [{ x, y, radius }]. */
+export function filletCornersAt(pathData, corners) {
+  if (!pathData || !Array.isArray(corners) || corners.length === 0) return null;
+  const { points: rawPts, closed } = parsePathPoints(pathData);
+  if (rawPts.length < 3) return null;
+
+  const pts = [];
+  pts.push(rawPts[0]);
+  for (let i = 1; i < rawPts.length; i++) {
+    if (dist(rawPts[i], pts[pts.length - 1]) > 0.5) pts.push(rawPts[i]);
+  }
+  if (closed && pts.length > 2 && dist(pts[0], pts[pts.length - 1]) < 1) pts.pop();
+  if (pts.length < 3) return null;
+
+  const n = pts.length;
+
+  // Map each requested corner to the nearest vertex; keep the largest radius if
+  // two requests resolve to the same vertex.
+  const radiusByIdx = new Array(n).fill(0);
+  for (const c of corners) {
+    if (!(c.radius > 0)) continue;
+    let best = -1, bestD = Infinity;
+    for (let i = 0; i < n; i++) {
+      const d = dist(pts[i], { x: c.x, y: c.y });
+      if (d < bestD) { bestD = d; best = i; }
+    }
+    if (best >= 0) radiusByIdx[best] = Math.max(radiusByIdx[best], c.radius);
+  }
+
+  const segLens = [];
+  for (let i = 0; i < n - 1; i++) segLens.push(dist(pts[i], pts[i + 1]));
+  if (closed) segLens.push(dist(pts[n - 1], pts[0]));
+
+  const offsets = new Array(n).fill(0);
+  for (let i = 0; i < n; i++) {
+    if (!(radiusByIdx[i] > 0)) continue;
+    if (!closed && (i === 0 || i === n - 1)) continue;
+
+    const prev = (i - 1 + n) % n;
+    const next = (i + 1) % n;
+    const dA = norm({ x: pts[prev].x - pts[i].x, y: pts[prev].y - pts[i].y });
+    const dB = norm({ x: pts[next].x - pts[i].x, y: pts[next].y - pts[i].y });
+    const dot = dA.x * dB.x + dA.y * dB.y;
+    const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
+    if (angle < SMOOTH_ANGLE_DEG * Math.PI / 180) continue;
+
+    const tanHalf = Math.tan(angle / 2);
+    if (tanHalf < 0.001) continue;
+
+    const segIn = closed ? segLens[(i - 1 + n) % n] : (i > 0 ? segLens[i - 1] : Infinity);
+    const segOut = closed ? segLens[i] : (i < n - 1 ? segLens[i] : Infinity);
+    const maxOffset = Math.min(segIn, segOut) * 0.45;
+    const wantedOffset = radiusByIdx[i] / tanHalf;
+    offsets[i] = Math.min(wantedOffset, maxOffset);
+  }
+
+  // Share edge length between two adjacent rounded corners so they don't overrun.
+  for (let pass = 0; pass < 3; pass++) {
+    const numEdges = closed ? n : n - 1;
+    for (let ci = 0; ci < numEdges; ci++) {
+      const a = ci, b = (ci + 1) % n;
+      if (offsets[a] <= 0 && offsets[b] <= 0) continue;
+      const total = offsets[a] + offsets[b];
+      const avail = segLens[ci] * 0.95;
+      if (total > avail) {
+        const s = avail / total;
+        if (offsets[a] > 0) offsets[a] *= s;
+        if (offsets[b] > 0) offsets[b] *= s;
+      }
+    }
+  }
+
+  let d = '';
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  const trackBounds = (x, y) => {
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+  };
+
+  for (let i = 0; i < n; i++) {
+    const off = offsets[i];
+    if (off < 0.01) {
+      const { x, y } = pts[i];
+      d += (i === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`);
+      trackBounds(x, y);
+      continue;
+    }
+    const prev = (i - 1 + n) % n;
+    const next = (i + 1) % n;
+    const dA = norm({ x: pts[prev].x - pts[i].x, y: pts[prev].y - pts[i].y });
+    const dB = norm({ x: pts[next].x - pts[i].x, y: pts[next].y - pts[i].y });
+    const pA = { x: pts[i].x + dA.x * off, y: pts[i].y + dA.y * off };
+    const pB = { x: pts[i].x + dB.x * off, y: pts[i].y + dB.y * off };
+    const dot = dA.x * dB.x + dA.y * dB.y;
+    const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
+    const arcSweep = Math.PI - angle;
+    const effR = off * Math.tan(angle / 2);
+    const k = (4 / 3) * Math.tan(arcSweep / 4);
+    const hLen = k * effR;
+    const cp1x = pA.x - dA.x * hLen, cp1y = pA.y - dA.y * hLen;
+    const cp2x = pB.x - dB.x * hLen, cp2y = pB.y - dB.y * hLen;
+    d += (i === 0 ? `M ${pA.x} ${pA.y}` : ` L ${pA.x} ${pA.y}`);
+    d += ` C ${cp1x} ${cp1y} ${cp2x} ${cp2y} ${pB.x} ${pB.y}`;
+    trackBounds(pA.x, pA.y);
+    trackBounds(pB.x, pB.y);
+    trackBounds(cp1x, cp1y);
+    trackBounds(cp2x, cp2y);
+  }
+
+  if (closed) d += ' Z';
+
+  return {
+    pathData: d,
+    bounds: { x: minX, y: minY, width: maxX - minX, height: maxY - minY },
+  };
+}
+
+

@@ -36,6 +36,9 @@ function collectPolygons(geo, fill) {
     return results;
   }
 
+  // Dimension annotations are presentation-only; they have no fillable polygons.
+  if (geo.type === 'dimAnnotation') return [];
+
   const pp = geoToPaperPath(geo);
   if (!pp) return [];
   const polys = flattenPaperPath(pp);
@@ -405,6 +408,125 @@ export function exportSVG(geometry, params) {
   downloadFile(svg, `${filename}.svg`, 'image/svg+xml');
 }
 
+/* Bounds of the real cut geometry only, ignoring dimension annotations, so the
+   physical (mm) export size reflects the part and not its callouts. */
+function computeCutBounds(geo) {
+  if (!geo) return null;
+  if (geo.type === 'dimAnnotation') return null;
+  if (geo.type === 'group' || geo.type === 'boolean') {
+    let box = null;
+    for (const child of (geo.children || [])) box = mergeBox(box, computeCutBounds(child));
+    return box;
+  }
+  if (geo.type === 'export') return computeCutBounds(geo.geometry);
+  return computeGeoBounds(geo);
+}
+
+/* 1:1 millimetre SVG export for CAD / laser cutting.
+
+   Unlike exportSVG (which fits geometry into a pixel canvas and applies a fit
+   zoom), this preserves true size: the SVG's width/height are declared in mm
+   and the viewBox is the geometry's own world-unit bounds, so a feature that
+   reads "100" in the editor comes out exactly 100mm (when units_per_mm = 1).
+   Dimension annotations are stripped so only the cut geometry is exported. */
+export function exportSVGmm(geometry, params) {
+  const { filename = 'export', units_per_mm = 1, margin_mm = 2 } = params;
+  const upm = (isFinite(units_per_mm) && units_per_mm > 0) ? units_per_mm : 1;
+
+  const bounds = computeCutBounds(geometry);
+  if (!bounds) {
+    downloadFile(
+      `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="0mm" height="0mm"></svg>`,
+      `${filename}.svg`, 'image/svg+xml'
+    );
+    return;
+  }
+
+  // World-unit bounds, padded by a margin (expressed in mm -> world units).
+  const marginU = (isFinite(margin_mm) ? margin_mm : 0) * upm;
+  const minX = bounds.minX - marginU;
+  const minY = bounds.minY - marginU;
+  const wU = (bounds.maxX - bounds.minX) + marginU * 2;
+  const hU = (bounds.maxY - bounds.minY) + marginU * 2;
+
+  // Physical size in mm: world units / (units per mm).
+  const wMM = wU / upm;
+  const hMM = hU / upm;
+
+  const svgContent = geometryToSVGString(geometry, true);
+
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${wMM}mm" height="${hMM}mm" viewBox="${minX} ${minY} ${wU} ${hU}">
+  <!-- 1:1 scale: 1 mm in this file = ${upm} editor unit(s). -->
+  ${svgContent}
+</svg>`;
+
+  downloadFile(svg, `${filename}.svg`, 'image/svg+xml');
+}
+
+/* ========================================
+   DXF Export (1:1 mm, for laser cutters / CAD)
+   ======================================== */
+
+/* Emit an ASCII DXF (R12-compatible) in true millimetres. All geometry is
+   flattened to polylines via Paper.js (so arcs, fillets, beziers and booleans
+   are handled uniformly), the Y axis is flipped to CAD convention (Y up), and
+   coordinates are divided by units_per_mm so 1 editor unit = 1 mm by default.
+   Dimension annotations are skipped — only the cut contours are written. */
+export function exportDXF(geometry, params) {
+  const { filename = 'export', units_per_mm = 1 } = params;
+  const upm = (isFinite(units_per_mm) && units_per_mm > 0) ? units_per_mm : 1;
+
+  const polys = collectPolygons(geometry, '#000000').filter((p) => p.points && p.points.length >= 2);
+  const bounds = computeCutBounds(geometry);
+  if (polys.length === 0 || !bounds) {
+    downloadFile(dxfWrap([]), `${filename}.dxf`, 'application/dxf');
+    return;
+  }
+
+  // Flip Y around the part's bounds (SVG Y-down -> DXF Y-up) and scale to mm.
+  const flipY = (y) => (bounds.maxY - (y - bounds.minY) - bounds.minY) / upm;
+  const toMM = (v) => v / upm;
+
+  const entities = [];
+  for (const poly of polys) {
+    const pts = poly.points;
+    const isClosed = poly.closed && pts.length >= 3;
+    // LWPOLYLINE entity
+    entities.push(
+      '0', 'LWPOLYLINE',
+      '8', '0',                 // layer 0
+      '90', String(pts.length), // vertex count
+      '70', isClosed ? '1' : '0'
+    );
+    for (const [x, y] of pts) {
+      entities.push('10', fmtNum(toMM(x)), '20', fmtNum(flipY(y)));
+    }
+  }
+
+  downloadFile(dxfWrap(entities), `${filename}.dxf`, 'application/dxf');
+}
+
+function fmtNum(n) {
+  // Trim to a sane precision; DXF readers accept plain decimals.
+  return (Math.round(n * 1e6) / 1e6).toString();
+}
+
+function dxfWrap(entityCodes) {
+  // Minimal HEADER setting drawing units to millimetres ($INSUNITS = 4),
+  // then the ENTITIES section, then EOF.
+  const header = [
+    '0', 'SECTION',
+    '2', 'HEADER',
+    '9', '$INSUNITS', '70', '4',
+    '9', '$MEASUREMENT', '70', '1',
+    '0', 'ENDSEC',
+  ];
+  const entities = ['0', 'SECTION', '2', 'ENTITIES', ...entityCodes, '0', 'ENDSEC'];
+  const eof = ['0', 'EOF'];
+  return [...header, ...entities, ...eof].join('\r\n') + '\r\n';
+}
+
 export function exportPNG(geometry, params) {
   const {
     canvasWidth = 1920,
@@ -491,7 +613,7 @@ function sortChildrenByLayer(children) {
   return [...children].sort((a, b) => (a?.layer ?? 0) - (b?.layer ?? 0));
 }
 
-function geometryToSVGString(geo) {
+function geometryToSVGString(geo, skipAnnotations = false) {
   if (!geo) return '';
 
   const opAttr = geo.opacity != null && geo.opacity !== 1 ? ` opacity="${geo.opacity}"` : '';
@@ -529,13 +651,13 @@ function geometryToSVGString(geo) {
     case 'group': {
       const { translate_x = 0, translate_y = 0, rotate = 0, scale_x = 1, scale_y = 1, pivot_x = 0, pivot_y = 0 } = geo.transform || {};
       const sorted = sortChildrenByLayer(geo.children || []);
-      const childSvg = sorted.map(geometryToSVGString).join('\n    ');
+      const childSvg = sorted.map((c) => geometryToSVGString(c, skipAnnotations)).join('\n    ');
       return `<g transform="translate(${translate_x}, ${translate_y}) rotate(${rotate}, ${pivot_x}, ${pivot_y}) scale(${scale_x}, ${scale_y})"${opAttr}>\n    ${childSvg}\n  </g>`;
     }
 
     case 'boolean': {
       const sorted = sortChildrenByLayer(geo.children || []);
-      const childSvg = sorted.map(geometryToSVGString).join('\n    ');
+      const childSvg = sorted.map((c) => geometryToSVGString(c, skipAnnotations)).join('\n    ');
       return `<g${opAttr}>\n    ${childSvg}\n  </g>`;
     }
 
@@ -548,8 +670,25 @@ function geometryToSVGString(geo) {
       }
       return '';
 
+    case 'dimAnnotation': {
+      if (skipAnnotations) return '';
+      const color = geo.color || '#1366d6';
+      const ts = geo.textSize || 14;
+      const parts = [];
+      for (const ln of (geo.lines || [])) {
+        parts.push(`<line x1="${ln[0]}" y1="${ln[1]}" x2="${ln[2]}" y2="${ln[3]}" stroke="${color}" stroke-width="${ts * 0.07}" vector-effect="non-scaling-stroke" />`);
+      }
+      for (const d of (geo.arrows || [])) {
+        parts.push(`<path d="${d}" fill="${color}" stroke="none" />`);
+      }
+      if (geo.label) {
+        parts.push(`<text x="${geo.label.x}" y="${geo.label.y}" font-family="sans-serif" font-size="${ts}" fill="${color}" text-anchor="${geo.label.anchor || 'middle'}" dominant-baseline="middle">${escapeXml(geo.label.text)}</text>`);
+      }
+      return `<g${opAttr}>${parts.join('')}</g>`;
+    }
+
     case 'export':
-      return geometryToSVGString(geo.geometry);
+      return geometryToSVGString(geo.geometry, skipAnnotations);
 
     default:
       return '';

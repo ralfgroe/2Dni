@@ -4,7 +4,7 @@ import { useNodeRegistryStore } from '../../store/nodeRegistryStore';
 import { useAnimationStore } from '../../store/animationStore';
 import { evaluateGraph } from '../../utils/evaluateGraph';
 import { resolveAllNodesAtFrame, interpolateValue, EASING_OPTIONS } from '../../utils/interpolation';
-import { exportSVG, exportPNG, exportJPEG, exportOBJ, exportGEO } from '../../utils/exportUtils';
+import { exportSVG, exportSVGmm, exportDXF, exportPNG, exportJPEG, exportOBJ, exportGEO } from '../../utils/exportUtils';
 import { extractPoints } from '../../utils/geometryPoints';
 import WrangleChat from './WrangleChat';
 
@@ -182,9 +182,11 @@ export default function ParameterPanel() {
       let h = params.canvas_height ?? 1080;
       if (res === 'hd') { w = 1920; h = 1080; }
       else if (res === '4k') { w = 3840; h = 2160; }
-      return { ...params, canvasWidth: w, canvasHeight: h, backgroundColor: params.background_color, jpegQuality: params.jpeg_quality, offsetX: params.offset_x ?? 0, offsetY: params.offset_y ?? 0, zoom: params.zoom ?? 1 };
+      return { ...params, canvasWidth: w, canvasHeight: h, backgroundColor: params.background_color, jpegQuality: params.jpeg_quality, offsetX: params.offset_x ?? 0, offsetY: params.offset_y ?? 0, zoom: params.zoom ?? 1, units_per_mm: params.units_per_mm ?? 1 };
     })();
     switch (params.format) {
+      case 'svg_mm': exportSVGmm(sourceGeo, exportParams); break;
+      case 'dxf':  exportDXF(sourceGeo, exportParams); break;
       case 'png':  exportPNG(sourceGeo, exportParams); break;
       case 'jpeg': exportJPEG(sourceGeo, exportParams); break;
       case 'obj':  exportOBJ(sourceGeo, exportParams); break;
@@ -226,10 +228,13 @@ export default function ParameterPanel() {
           if (definition.id === 'export') {
             const fmt = params.format ?? 'svg';
             const isPixel = fmt === 'svg' || fmt === 'png' || fmt === 'jpeg';
+            const isCadMM = fmt === 'svg_mm' || fmt === 'dxf';
             const res = params.resolution ?? 'hd';
             if (!isPixel && (paramDef.id === 'resolution' || paramDef.id === 'canvas_width' || paramDef.id === 'canvas_height' || paramDef.id === 'background_color' || paramDef.id === 'offset_x' || paramDef.id === 'offset_y' || paramDef.id === 'zoom')) return null;
             if (isPixel && res !== 'custom' && (paramDef.id === 'canvas_width' || paramDef.id === 'canvas_height')) return null;
             if (fmt !== 'jpeg' && paramDef.id === 'jpeg_quality') return null;
+            // "Units per mm" only matters for the 1:1 CAD exports.
+            if (!isCadMM && paramDef.id === 'units_per_mm') return null;
           }
           if (definition.id === 'circle') {
             const separateXY = params.separate_xy;
@@ -274,6 +279,16 @@ export default function ParameterPanel() {
           }
           if (definition.id === 'delete' && paramDef.id === 'selected') {
             return null;
+          }
+          if (definition.id === 'dimension' && paramDef.id === 'dimensions') {
+            return (
+              <DimensionList
+                key={paramDef.id}
+                nodeId={selectedNode.id}
+                value={params.dimensions}
+                units={params.units}
+              />
+            );
           }
           if (definition.id === 'pointtransform' && paramDef.id === 'scale_points') {
             return null;
@@ -1097,6 +1112,92 @@ function PointOffsetSlider({ paramDef, value, nodeId, params }) {
               <option key={opt.id} value={opt.id}>{opt.label}</option>
             ))}
           </select>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DimensionList({ nodeId, value, units }) {
+  const updateNodeParams = useGraphStore((s) => s.updateNodeParams);
+  const beginOperation = useGraphStore((s) => s.beginOperation);
+  const endOperation = useGraphStore((s) => s.endOperation);
+
+  const dims = useMemo(() => {
+    try { const v = JSON.parse(value || '[]'); return Array.isArray(v) ? v : []; }
+    catch { return []; }
+  }, [value]);
+
+  const setValue = (id, raw) => {
+    const num = parseFloat(raw);
+    const next = dims.map((d) => {
+      if (d.id !== id) return d;
+      // Lengths (linear/radius/diameter) must be positive to avoid collapsing
+      // the geometry; angles may be any finite value. Keep the prior value
+      // otherwise so invalid input can't crash the renderer.
+      const isAngle = d.kind === 'angle';
+      const valid = isFinite(num) && (isAngle || num > 0);
+      return { ...d, value: valid ? num : d.value };
+    });
+    beginOperation();
+    updateNodeParams(nodeId, { dimensions: JSON.stringify(next) });
+    endOperation();
+  };
+
+  const remove = (id) => {
+    beginOperation();
+    updateNodeParams(nodeId, { dimensions: JSON.stringify(dims.filter((d) => d.id !== id)) });
+    endOperation();
+  };
+
+  const kindLabel = (d) => {
+    if (d.kind === 'radius') return 'Radius';
+    if (d.kind === 'diameter') return 'Diameter';
+    if (d.kind === 'angle') return 'Angle';
+    if (d.axis === 'horizontal') return 'Horizontal';
+    if (d.axis === 'vertical') return 'Vertical';
+    return 'Length';
+  };
+
+  return (
+    <div className="mb-3">
+      <label className="mb-1 block text-xs font-medium text-text-secondary">Dimensions</label>
+      {dims.length === 0 ? (
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+          Select this node, then use the toolbar in the viewport to add dimensions.
+          Pick points to dimension, then double-click a value on the canvas to drive the shape.
+        </div>
+      ) : (
+        <div className="flex flex-col gap-1">
+          {dims.map((d) => (
+            <div key={d.id} className="flex items-center gap-2">
+              <span style={{ fontSize: 10, color: 'var(--text-muted)', width: 64, flexShrink: 0 }}>
+                {kindLabel(d)}
+              </span>
+              <input
+                type="number"
+                value={d.value ?? ''}
+                onFocus={beginOperation}
+                onBlur={endOperation}
+                onChange={(e) => setValue(d.id, e.target.value)}
+                className="w-20 rounded border border-border-primary bg-bg-primary px-2 py-1 text-xs text-text-primary outline-none focus:border-accent"
+              />
+              <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                {d.kind === 'angle' ? '\u00b0' : (units || '')}
+              </span>
+              <button
+                onClick={() => remove(d.id)}
+                title="Remove dimension"
+                style={{
+                  marginLeft: 'auto', fontSize: 11, lineHeight: 1, width: 20, height: 20,
+                  borderRadius: 4, border: '1px solid var(--border-primary)',
+                  background: 'var(--bg-primary)', color: 'var(--text-muted)', cursor: 'pointer',
+                }}
+              >
+                ×
+              </button>
+            </div>
+          ))}
         </div>
       )}
     </div>

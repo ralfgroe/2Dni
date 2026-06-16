@@ -44,6 +44,7 @@ import { splitselectRuntime } from '../nodes/splitselect';
 import { deleteRuntime } from '../nodes/delete';
 import { dashesRuntime } from '../nodes/dashes';
 import { strangeAttractorRuntime } from '../nodes/strangeattractor';
+import { dimensionRuntime } from '../nodes/dimension';
 
 const runtimeMap = {
   line: lineRuntime,
@@ -93,6 +94,7 @@ const runtimeMap = {
   delete: deleteRuntime,
   dashes: dashesRuntime,
   strangeattractor: strangeAttractorRuntime,
+  dimension: dimensionRuntime,
 };
 
 export function getRuntime(runtimeId) {

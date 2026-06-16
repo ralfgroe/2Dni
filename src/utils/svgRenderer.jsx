@@ -222,6 +222,38 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
         />
       );
 
+    case 'dimAnnotation': {
+      const color = geo.color || '#1366d6';
+      const ts = geo.textSize || 14;
+      return (
+        <g key={nodeId} pointerEvents="none">
+          {(geo.lines || []).map((ln, i) => (
+            <line
+              key={`l${i}`}
+              x1={ln[0]} y1={ln[1]} x2={ln[2]} y2={ln[3]}
+              stroke={color} strokeWidth={ts * 0.07} vectorEffect="non-scaling-stroke"
+            />
+          ))}
+          {(geo.arrows || []).map((d, i) => (
+            <path key={`a${i}`} d={d} fill={color} stroke="none" />
+          ))}
+          {geo.label && (
+            <text
+              x={geo.label.x}
+              y={geo.label.y}
+              fontFamily="ui-sans-serif, system-ui, sans-serif"
+              fontSize={ts}
+              fill={color}
+              textAnchor={geo.label.anchor || 'middle'}
+              dominantBaseline="middle"
+            >
+              {geo.label.text}
+            </text>
+          )}
+        </g>
+      );
+    }
+
     default:
       return null;
   }
