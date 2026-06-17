@@ -139,8 +139,37 @@ function bindAnchors(canonicalPts, dims) {
     } else if (dim.kind === 'relation' || dim.kind === 'linear' || !dim.kind) {
       bind(dim, 'a', 'ax', 'ay');
       bind(dim, 'b', 'bx', 'by');
+      // Safety net for a SECOND dimension placed after an earlier one moved a
+      // vertex: the stored coordinates are captured against the driven shape, so
+      // both ends can snap (nearest) onto the SAME canonical vertex, collapsing
+      // the dimension to length 0 and raising a false red conflict. If that
+      // happens, re-resolve the second end to its nearest DISTINCT vertex, and
+      // prefer the stored vertex index when it disagrees with the collapse.
+      if (dim._ai != null && dim._ai === dim._bi) {
+        if (Number.isInteger(dim.a) && Number.isInteger(dim.b)
+            && dim.a !== dim.b
+            && dim.a >= 0 && dim.a < canonicalPts.length
+            && dim.b >= 0 && dim.b < canonicalPts.length) {
+          dim._ai = dim.a;
+          dim._bi = dim.b;
+        } else if (dim.bx != null && dim.by != null) {
+          const alt = nearestPointExcept(canonicalPts, dim.bx, dim.by, dim._ai);
+          if (alt) dim._bi = alt.idx;
+        }
+      }
     }
   }
+}
+
+/* nearestPoint but skipping one vertex index (used to break a collapsed pair). */
+function nearestPointExcept(pts, x, y, exceptIdx) {
+  let best = null, bestD = Infinity;
+  for (const p of pts) {
+    if (p.idx === exceptIdx) continue;
+    const d = (p.x - x) * (p.x - x) + (p.y - y) * (p.y - y);
+    if (d < bestD) { bestD = d; best = p; }
+  }
+  return best;
 }
 
 /* Normalize any input geometry to a canonical booleanResult so its vertex order
