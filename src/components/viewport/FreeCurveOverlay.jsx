@@ -59,7 +59,7 @@ function findSnapTarget(cursor, snapPoints, threshold) {
   return best;
 }
 
-export default function FreeCurveOverlay({ nodeId, screenToSvg, results }) {
+export default function FreeCurveOverlay({ nodeId, screenToSvg, results, gridSize = 50 }) {
   const updateNodeParams = useGraphStore((s) => s.updateNodeParams);
   const node = useGraphStore((s) => s.nodes.find((n) => n.id === nodeId));
   const nodeParams = node?.data?.params;
@@ -98,6 +98,15 @@ export default function FreeCurveOverlay({ nodeId, screenToSvg, results }) {
   );
 
   const orthoLock = node?.data?.params?.ortho_lock === true;
+  const snapGrid = node?.data?.params?.snap_grid === true;
+
+  const snapToGrid = useCallback((pt) => {
+    if (!snapGrid || !gridSize) return pt;
+    return {
+      x: Math.round(pt.x / gridSize) * gridSize,
+      y: Math.round(pt.y / gridSize) * gridSize,
+    };
+  }, [snapGrid, gridSize]);
 
   const constrainToAxis = useCallback((prev, current, shiftKey) => {
     if (!(shiftKey || orthoLock) || !prev) return current;
@@ -132,6 +141,7 @@ export default function FreeCurveOverlay({ nodeId, screenToSvg, results }) {
     const svgPt = screenToSvg(e.clientX, e.clientY);
     const lastPt = points.length > 0 ? points[points.length - 1] : null;
     let pt = constrainToAxis(lastPt, svgPt, e.shiftKey);
+    pt = snapToGrid(pt);
 
     // Close the loop if the cursor is near the start point (needs >= 3 points)
     if (points.length >= 3) {
@@ -153,12 +163,13 @@ export default function FreeCurveOverlay({ nodeId, screenToSvg, results }) {
     };
 
     savePoints([...points, rounded]);
-  }, [points, savePoints, screenToSvg, constrainToAxis, snapPoints, closePath]);
+  }, [points, savePoints, screenToSvg, constrainToAxis, snapToGrid, snapPoints, closePath]);
 
   const handleDrawMove = useCallback((e) => {
     const svgPt = screenToSvg(e.clientX, e.clientY);
     const lastPt = points.length > 0 ? points[points.length - 1] : null;
     let pt = constrainToAxis(lastPt, svgPt, e.shiftKey);
+    pt = snapToGrid(pt);
 
     // Highlight the start point when close enough to close the loop
     if (points.length >= 3) {
@@ -182,7 +193,7 @@ export default function FreeCurveOverlay({ nodeId, screenToSvg, results }) {
       setSnapTarget(null);
     }
     setPreview(pt);
-  }, [points, screenToSvg, constrainToAxis, snapPoints]);
+  }, [points, screenToSvg, constrainToAxis, snapToGrid, snapPoints]);
 
   const handleStopDrawing = useCallback((e) => {
     e.stopPropagation();
@@ -206,7 +217,7 @@ export default function FreeCurveOverlay({ nodeId, screenToSvg, results }) {
 
     const handleDragMove = (e) => {
       const svgPt = screenToSvg(e.clientX, e.clientY);
-      let pt = svgPt;
+      let pt = snapToGrid(svgPt);
 
       const snap = findSnapTarget(pt, snapPoints, SNAP_DISTANCE);
       if (snap) {
@@ -244,7 +255,7 @@ export default function FreeCurveOverlay({ nodeId, screenToSvg, results }) {
       window.removeEventListener('mousemove', handleDragMove);
       window.removeEventListener('mouseup', handleDragUp);
     };
-  }, [dragIdx, points, savePoints, screenToSvg, snapPoints]);
+  }, [dragIdx, points, savePoints, screenToSvg, snapToGrid, snapPoints]);
 
   // --- Keyboard handlers ---
   const handleKeyDown = useCallback((e) => {

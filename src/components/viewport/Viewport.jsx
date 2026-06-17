@@ -462,17 +462,31 @@ export default function Viewport() {
 
           {showGrid && (
             <pattern
-              id="grid"
-              width={gridSize}
-              height={gridSize}
+              id="gridMajor"
+              width={gridSize * 5}
+              height={gridSize * 5}
               patternUnits="userSpaceOnUse"
             >
+              {/* minor lines every cell */}
+              {[1, 2, 3, 4].map((i) => (
+                <g key={`m${i}`}>
+                  <line
+                    x1={gridSize * i} y1="0" x2={gridSize * i} y2={gridSize * 5}
+                    stroke="var(--text-muted)" strokeWidth="1"
+                    vectorEffect="non-scaling-stroke" opacity="0.4"
+                  />
+                  <line
+                    x1="0" y1={gridSize * i} x2={gridSize * 5} y2={gridSize * i}
+                    stroke="var(--text-muted)" strokeWidth="1"
+                    vectorEffect="non-scaling-stroke" opacity="0.4"
+                  />
+                </g>
+              ))}
+              {/* heavier major line at the block edge */}
               <path
-                d={`M ${gridSize} 0 L 0 0 0 ${gridSize}`}
-                fill="none"
-                stroke="var(--border-primary)"
-                strokeWidth="1"
-                opacity="0.7"
+                d={`M ${gridSize * 5} 0 L 0 0 0 ${gridSize * 5}`}
+                fill="none" stroke="var(--text-muted)" strokeWidth="1.5"
+                vectorEffect="non-scaling-stroke" opacity="0.85"
               />
             </pattern>
           )}
@@ -484,7 +498,7 @@ export default function Viewport() {
             y={viewBox.y}
             width={viewBox.w}
             height={viewBox.h}
-            fill="url(#grid)"
+            fill="url(#gridMajor)"
           />
         )}
 
@@ -584,6 +598,7 @@ export default function Viewport() {
             nodeId={selectedNode.id}
             screenToSvg={screenToSvg}
             results={results}
+            gridSize={gridSize}
           />
         )}
 

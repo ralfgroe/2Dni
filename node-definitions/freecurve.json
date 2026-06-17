@@ -2,7 +2,7 @@
   "id": "freecurve",
   "label": "Polyline",
   "category": "Geometry",
-  "description": "Draw a chain of connected lines interactively by clicking in the viewport. Enable Ortho Lock to constrain segments to horizontal/vertical (great for floorplans), or hold Shift to constrain temporarily. Move the cursor near the start point to snap and close the loop. Double-click or Esc to finish.",
+  "description": "Draw a chain of connected lines interactively by clicking in the viewport. Enable Ortho Lock to constrain segments to horizontal/vertical (great for floorplans), or hold Shift to constrain temporarily. Enable Snap to Grid to lock points to the viewport grid. Move the cursor near the start point to snap and close the loop. Double-click or Esc to finish.",
   "inputs": [],
   "outputs": [
     { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
@@ -10,6 +10,7 @@
   "parameters": [
     { "id": "points_data", "label": "Points", "type": "text", "default": "[]" },
     { "id": "ortho_lock", "label": "Ortho Lock (H/V only)", "type": "boolean", "default": false },
+    { "id": "snap_grid", "label": "Snap to Grid", "type": "boolean", "default": false },
     { "id": "closed", "label": "Close Path", "type": "boolean", "default": false },
     { "id": "stroke_color", "label": "Stroke Color", "type": "color", "default": "#000000" },
     { "id": "stroke_width", "label": "Stroke Width", "type": "number", "default": 2, "min": 0.5, "max": 20 }

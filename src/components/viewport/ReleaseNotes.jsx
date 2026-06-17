@@ -24,7 +24,17 @@ export default function ReleaseNotes({ onClose }) {
           <p style={{ fontSize: 13, color: '#6c757d', marginTop: 8 }}>What's new in 2Dni</p>
         </div>
 
-        <Release version="June 17, 2026" title="Relations, locking & a rebuilt engine">
+        <Release version="June 17, 2026" title="Relations, locking, grid snap & a rebuilt engine">
+          <Item name="Snap to Grid (Polyline)" tag="new">
+            The Polyline node now has a <b>Snap to Grid</b> toggle: placed points,
+            the live preview, and dragged points lock to the viewport grid —
+            perfect for clean floorplan sketching.
+          </Item>
+          <Item name="Higher-contrast grid" tag="improved">
+            The viewport grid is darker and adds heavier major lines every five
+            cells, with crisp non-scaling strokes so it stays readable at any
+            zoom.
+          </Item>
           <Item name="Horizontal / Vertical relations" tag="new">
             A new <b>Relation</b> mode in the Dimension node: pick two points on a
             line and lock it Horizontal or Vertical, just like SolidWorks sketch
