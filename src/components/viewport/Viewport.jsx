@@ -25,7 +25,7 @@ export default function Viewport() {
   const [viewBox, setViewBox] = useState({ x: -400, y: -300, w: 800, h: 600 });
   const [isPanning, setIsPanning] = useState(false);
   const panRef = useRef({ active: false, x: 0, y: 0 });
-  const [showGrid, setShowGrid] = useState(true);
+  const [showGrid, setShowGrid] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
   const [fontVersion, setFontVersion] = useState(0);
   const exportPanRef = useRef({ active: false, x: 0, y: 0 });
@@ -95,6 +95,19 @@ export default function Viewport() {
   const selectedDef = selectedNode
     ? definitions[selectedNode.data.definitionId]
     : null;
+
+  // Magical reveal: the grid stays hidden until a Polyline turns on Snap to Grid,
+  // then it appears so you can see what you're snapping to. We only auto-enable
+  // (never force-off), so the manual grid toggle still works afterward.
+  const anySnapGrid = useMemo(
+    () => nodes.some(
+      (n) => n.data.definitionId === 'freecurve' && n.data.params?.snap_grid === true,
+    ),
+    [nodes],
+  );
+  useEffect(() => {
+    if (anySnapGrid) setShowGrid(true);
+  }, [anySnapGrid]);
 
   const exportFrameRect = useMemo(() => {
     if (!selectedNode) return null;
