@@ -76,6 +76,11 @@ export const useGraphStore = create((rawSet, get) => {
 
     set((state) => ({
       nodes: [...state.nodes, newNode],
+      // Auto-show the newest node: move the blue display flag to it (and select
+      // it so its parameters appear). This teaches new users how display works
+      // and matches the common "I want to see what I just added" expectation.
+      displayNodeId: id,
+      selectedNodeId: id,
     }));
 
     return id;
