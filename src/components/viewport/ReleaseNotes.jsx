@@ -1,6 +1,6 @@
 // Release notes for 2Dni. Add a new <Release> block at the top each time we
 // ship new nodes or notable changes, and bump LATEST_RELEASE_DATE below.
-export const LATEST_RELEASE_DATE = 'June 14, 2026';
+export const LATEST_RELEASE_DATE = 'June 16, 2026';
 
 export default function ReleaseNotes({ onClose }) {
   return (
@@ -23,6 +23,26 @@ export default function ReleaseNotes({ onClose }) {
           <h1 style={{ fontSize: 28, fontWeight: 700, color: '#1a1a2e', margin: 0 }}>Release Notes</h1>
           <p style={{ fontSize: 13, color: '#6c757d', marginTop: 8 }}>What's new in 2Dni</p>
         </div>
+
+        <Release version="June 16, 2026" title="Parametric Dimensions (CAD)">
+          <Item name="Dimension node" tag="new">
+            A SolidWorks-style sketch tool: connect a shape, then place dimensions
+            in the viewport and type a number to drive the geometry. Supports
+            <b> Linear</b> (with Smart / Horizontal / Vertical / Aligned axis lock),
+            <b> Radius</b>, <b>Diameter</b>, and <b>Angle</b>. Double-click a value on
+            the canvas to edit it; drag a value to reposition it.
+          </Item>
+          <Item name="Smart edge push/pull" tag="new">
+            Editing a linear dimension moves only the dimensioned edge — interior
+            features (like a centered arc) stay put and curved segments keep their
+            shape instead of distorting.
+          </Item>
+          <Item name="Circle &amp; ellipse driving" tag="new">
+            A linear dimension on a circle scales it cleanly; add a horizontal and a
+            vertical dimension to turn a circle into an ellipse. Angle dimensions
+            open or close the angle between two lines.
+          </Item>
+        </Release>
 
         <Release version="June 14, 2026" title="Polish & quality-of-life">
           <Item name="Bolder viewport grid" tag="improved">

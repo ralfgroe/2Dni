@@ -226,7 +226,7 @@ export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, 
         : 'Click the shape to dimension its diameter';
 
   return (
-    <g onClick={(e) => e.stopPropagation()}>
+    <g onClick={(e) => e.stopPropagation()} style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>
       {/* Picking handles on the driven shape */}
       {points.map((pt) => {
         const isPending = pending.includes(pt.idx);

@@ -73,7 +73,20 @@ export default function QuickStartGuide({ onClose }) {
           <LayersDiagram />
         </Section>
 
-        <Section number="8" title="Exporting Your Work">
+        <Section number="8" title="Parametric Dimensions (CAD)">
+          <P>The <B>Dimension</B> node lets you measure and <B>drive</B> geometry by typing numbers — like a SolidWorks sketch. Connect a shape to its input, select the node, and use the toolbar in the Viewport to place dimensions.</P>
+          <DimensionDiagram />
+          <Steps>
+            <Step>Add a shape (e.g. <B>Rectangle</B> or <B>Circle</B>) and a <B>Dimension</B> node below it</Step>
+            <Step>Select Dimension — a toolbar appears in the Viewport: <B>Linear</B>, <B>Radius</B>, <B>Diameter</B>, <B>Angle</B></Step>
+            <Step>For <B>Linear</B>, pick <B>Smart / Horizontal / Vertical / Aligned</B>, then click two points</Step>
+            <Step><B>Double-click</B> the value on the canvas, type a new number, and press <B>Enter</B> — the geometry updates to match</Step>
+          </Steps>
+          <Tip>A linear dimension across a circle scales it; add a horizontal <B>and</B> a vertical one to turn a circle into an ellipse. <B>Angle</B> dimensions open or close the angle between two lines.</Tip>
+          <Tip>Drag a dimension's number to reposition it. Use the small <B>↺</B> button to snap it back to its default spot.</Tip>
+        </Section>
+
+        <Section number="9" title="Exporting Your Work">
           <P>Add an <B>Export</B> node at the end of your chain and choose a format:</P>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 12 }}>
             <FormatCard label="SVG" desc="Vector graphics for web & print" />
@@ -83,7 +96,7 @@ export default function QuickStartGuide({ onClose }) {
           </div>
         </Section>
 
-        <Section number="9" title="Animating Your Design">
+        <Section number="10" title="Animating Your Design">
           <P>2Dni includes a built-in animation system. Click the <B>Animate</B> button in the toolbar (next to AI) to reveal the timeline playbar at the bottom of the Viewport.</P>
           <AnimationDiagram />
           <Steps>
@@ -98,7 +111,7 @@ export default function QuickStartGuide({ onClose }) {
           <Tip>Use the <B>camera icon</B> to toggle a red frame overlay that previews exactly what area will be exported.</Tip>
         </Section>
 
-        <Section number="10" title="Keyboard & Mouse Shortcuts">
+        <Section number="11" title="Keyboard & Mouse Shortcuts">
           <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '6px 16px', marginTop: 8, fontSize: 12, color: '#495057' }}>
             <Kbd>Right-click</Kbd><span>Open toolbox (Node Graph)</span>
             <Kbd>Ctrl + Z</Kbd><span>Undo</span>
@@ -114,12 +127,13 @@ export default function QuickStartGuide({ onClose }) {
           </div>
         </Section>
 
-        <Section number="11" title="Tips & Tricks">
+        <Section number="12" title="Tips & Tricks">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
             <Tip>Hover over any node in the toolbox to see a description of what it does.</Tip>
             <Tip>Use <B>arrow keys</B> to navigate the toolbox, press <B>Enter</B> to add.</Tip>
             <Tip><B>Split</B> separates compound geometry into individual pieces you can color independently.</Tip>
             <Tip><B>Point Transform</B> lets you select and drag individual vertices for precise control.</Tip>
+            <Tip><B>Dimension</B> (CAD) drives geometry by number — type a length, radius, or angle to resize the shape parametrically.</Tip>
           </div>
         </Section>
 
@@ -283,6 +297,35 @@ function MergeDiagram() {
       <SvgWire x1={320} y1={44} x2={272} y2={96} />
       <SvgNode x={260} y={112} label="Boolean" inputs={2} outputs={1} />
       <text x={260} y={148} textAnchor="middle" fontSize="8" fill="#868e96" fontFamily="system-ui">Two inputs → one combined output</text>
+    </Illust>
+  );
+}
+
+function DimensionDiagram() {
+  return (
+    <Illust width={520} height={150}>
+      {/* The shape being driven */}
+      <rect x={150} y={30} width={150} height={60} rx={4} fill="#dbe4ff" stroke="#4263eb" strokeWidth={1.5} />
+
+      {/* Horizontal dimension below */}
+      <line x1={150} y1={90} x2={150} y2={120} stroke="#1366d6" strokeWidth={0.8} />
+      <line x1={300} y1={90} x2={300} y2={120} stroke="#1366d6" strokeWidth={0.8} />
+      <line x1={150} y1={114} x2={300} y2={114} stroke="#1366d6" strokeWidth={0.9} />
+      <polygon points="150,114 158,111 158,117" fill="#1366d6" />
+      <polygon points="300,114 292,111 292,117" fill="#1366d6" />
+      <rect x={205} y={104} width={40} height={18} rx={3} fill="#fff" stroke="#1366d6" strokeWidth={1} />
+      <text x={225} y={117} textAnchor="middle" fontSize="11" fontWeight="600" fill="#1366d6" fontFamily="system-ui">200</text>
+
+      {/* Vertical dimension on the right */}
+      <line x1={300} y1={30} x2={330} y2={30} stroke="#1366d6" strokeWidth={0.8} />
+      <line x1={300} y1={90} x2={330} y2={90} stroke="#1366d6" strokeWidth={0.8} />
+      <line x1={324} y1={30} x2={324} y2={90} stroke="#1366d6" strokeWidth={0.9} />
+      <polygon points="324,30 321,38 327,38" fill="#1366d6" />
+      <polygon points="324,90 321,82 327,82" fill="#1366d6" />
+      <text x={340} y={63} fontSize="11" fontWeight="600" fill="#1366d6" fontFamily="system-ui">80</text>
+
+      {/* Hint */}
+      <text x={225} y={142} textAnchor="middle" fontSize="8" fill="#868e96" fontFamily="system-ui">Double-click a value, type a number — the shape resizes</text>
     </Illust>
   );
 }

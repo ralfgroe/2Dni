@@ -41,14 +41,57 @@ function scaleGeo(geo, sx, sy, pivotX, pivotY) {
   return out;
 }
 
-/* Rotate the input about a pivot. Used to drive angle dimensions. */
-function rotateGeo(geo, deg, pivotX, pivotY) {
+/* Rotate ONLY arm B about the vertex, leaving arm A fixed, so an angle
+   dimension opens/closes the angle between two arms instead of spinning the
+   whole shape. A segment belongs to arm B if its direction from the vertex is
+   angularly closer to B's direction than to A's. The vertex segment and the
+   handles travel with their anchors. */
+function rotateArm(geo, deg, v, a, b) {
   ensurePaper();
+  if (!isFinite(deg) || Math.abs(deg) < 1e-9) return geo;
   const path = geoToPaperPath(geo);
   if (!path) return geo;
-  path.rotate(deg, new paper.Point(pivotX, pivotY));
+
+  const angA = Math.atan2(a.y - v.y, a.x - v.x);
+  const angB = Math.atan2(b.y - v.y, b.x - v.x);
+  // Smallest absolute angular difference between two angles.
+  const angDiff = (p, q) => {
+    let d = p - q;
+    while (d <= -Math.PI) d += 2 * Math.PI;
+    while (d > Math.PI) d -= 2 * Math.PI;
+    return Math.abs(d);
+  };
+  const rad = deg * Math.PI / 180;
+  const cos = Math.cos(rad), sin = Math.sin(rad);
+  const rot = (pt) => {
+    const dx = pt.x - v.x, dy = pt.y - v.y;
+    return new paper.Point(
+      v.x + dx * cos - dy * sin,
+      v.y + dx * sin + dy * cos,
+    );
+  };
+
+  const rotateSegs = (segs) => {
+    for (const s of segs) {
+      const dx = s.point.x - v.x, dy = s.point.y - v.y;
+      const r = Math.hypot(dx, dy);
+      if (r < 1e-6) continue; // the vertex itself stays put
+      const ang = Math.atan2(dy, dx);
+      // Belongs to arm B if closer to B's direction than A's.
+      if (angDiff(ang, angB) < angDiff(ang, angA)) {
+        s.point = rot(s.point);
+      }
+    }
+  };
+
+  if (path.className === 'CompoundPath') {
+    for (const child of (path.children || [])) rotateSegs(child.segments);
+  } else {
+    rotateSegs(path.segments);
+  }
   const out = paperPathToGeo(path, geo);
   path.remove();
+  if (!out || !out.pathData) return geo;
   return out;
 }
 
@@ -335,6 +378,7 @@ export function isCircular(geo) {
    the live geometry's points so sequential edits compose correctly. */
 function applyDimension(geo, dim) {
   dim._drive = null;
+  dim._angleDrive = null;
   const value = dim.value;
   if (value == null || !isFinite(value)) return geo;
 
@@ -372,11 +416,25 @@ function applyDimension(geo, dim) {
     while (current > 180) current -= 360;
     const currentMag = Math.abs(current);
     if (currentMag < 1e-6) return geo;
-    // Rotate arm b about the vertex by the delta needed to reach the target.
+    // Rotate only arm B about the vertex so the angle BETWEEN the two arms
+    // changes, instead of spinning the whole shape (which keeps the angle the
+    // same). Arm A stays put as the reference.
     const deltaDeg = (Math.sign(current) || 1) * (value - currentMag);
-    // We rotate the whole shape about the vertex; for a single-feature shape
-    // this opens/closes the angle as expected.
-    return rotateGeo(geo, deltaDeg, v.x, v.y);
+    const rotated = rotateArm(geo, deltaDeg, v, a, b);
+    dim._drive = null;
+    // Record the driven angle so the annotation draws the NEW angle instead of
+    // re-measuring arm B from its now-stale stored anchor (which would still
+    // read the original angle). Arm A is the fixed reference.
+    const sign = Math.sign(current) || 1;
+    dim._angleDrive = {
+      vx: v.x, vy: v.y,
+      angA: Math.atan2(a.y - v.y, a.x - v.x), // fixed reference arm
+      armLenA: dist(v.x, v.y, a.x, a.y),
+      armLenB: dist(v.x, v.y, b.x, b.y),
+      sign,
+      value, // target magnitude in degrees
+    };
+    return rotated;
   }
 
   // linear (default) — push/pull the dimensioned edge by translating the
@@ -386,6 +444,50 @@ function applyDimension(geo, dim) {
   const b = resolveAnchor(pts, dim, 'b', 'bx', 'by');
   if (!a || !b) return geo;
   const axis = dim.axis || 'aligned';
+
+  // A linear dimension across a whole circular shape would tear it into a
+  // teardrop if we pushed only one edge. Scale about the centre instead. We
+  // scale only along the dimension's axis (non-uniform), so a horizontal and a
+  // vertical linear dimension together turn the circle into an ellipse; an
+  // aligned dimension scales uniformly along its direction.
+  if (isCircular(geo)) {
+    const circle = detectCircle(geo);
+    if (circle && circle.r > 1e-6) {
+      let current;
+      if (axis === 'horizontal') current = Math.abs(b.x - a.x);
+      else if (axis === 'vertical') current = Math.abs(b.y - a.y);
+      else current = dist(a.x, a.y, b.x, b.y);
+      if (current > 1e-6) {
+        const factor = value / current;
+        if (isFinite(factor) && factor > 0) {
+          let sx, sy, scaled;
+          if (axis === 'horizontal') {
+            sx = factor; sy = 1;
+            scaled = scaleGeo(geo, sx, sy, circle.cx, circle.cy);
+          } else if (axis === 'vertical') {
+            sx = 1; sy = factor;
+            scaled = scaleGeo(geo, sx, sy, circle.cx, circle.cy);
+          } else {
+            // Aligned: scale uniformly so the circle stays round along its span.
+            scaled = scaleGeo(geo, factor, factor, circle.cx, circle.cy);
+          }
+          // Record drive so the annotation spans the scaled axis, centred on the
+          // shape: pin = centre - axis*value/2, mover = centre + axis*value/2.
+          const cx = circle.cx, cy = circle.cy;
+          let ux, uy;
+          if (axis === 'horizontal') { ux = 1; uy = 0; }
+          else if (axis === 'vertical') { ux = 0; uy = 1; }
+          else { const d = dist(a.x, a.y, b.x, b.y) || 1; ux = (b.x - a.x) / d; uy = (b.y - a.y) / d; }
+          dim._drive = {
+            pinX: cx - ux * value / 2, pinY: cy - uy * value / 2,
+            ux, uy, value,
+          };
+          return scaled;
+        }
+      }
+    }
+  }
+
   if (typeof window !== 'undefined' && window.__DIM_DEBUG) {
     console.log('[applyDimension linear]', { value, axis, a, b, ptsCount: pts.length });
   }
@@ -622,13 +724,23 @@ function buildAnnotation(geo, dim, style) {
   const pts = extractPoints(geo);
 
   if (dim.kind === 'angle') {
-    const v = resolveAnchor(pts, dim, 'v', 'vx', 'vy');
-    const a = resolveAnchor(pts, dim, 'a', 'ax', 'ay');
-    const b = resolveAnchor(pts, dim, 'b', 'bx', 'by');
-    if (!v || !a || !b) return null;
+    let v, ang1, ang2;
+    if (dim._angleDrive) {
+      // Use the recorded drive so the annotation reflects the NEW angle. Arm A
+      // is the fixed reference; arm B is at angA + sign*value.
+      const dr = dim._angleDrive;
+      v = { x: dr.vx, y: dr.vy };
+      ang1 = dr.angA;
+      ang2 = dr.angA + dr.sign * dr.value * Math.PI / 180;
+    } else {
+      v = resolveAnchor(pts, dim, 'v', 'vx', 'vy');
+      const a = resolveAnchor(pts, dim, 'a', 'ax', 'ay');
+      const b = resolveAnchor(pts, dim, 'b', 'bx', 'by');
+      if (!v || !a || !b) return null;
+      ang1 = Math.atan2(a.y - v.y, a.x - v.x);
+      ang2 = Math.atan2(b.y - v.y, b.x - v.x);
+    }
     const r = (dim.labelOffset ?? 40);
-    let ang1 = Math.atan2(a.y - v.y, a.x - v.x);
-    let ang2 = Math.atan2(b.y - v.y, b.x - v.x);
     // small witness extensions along each arm
     lines.push([v.x, v.y, v.x + Math.cos(ang1) * r, v.y + Math.sin(ang1) * r]);
     lines.push([v.x, v.y, v.x + Math.cos(ang2) * r, v.y + Math.sin(ang2) * r]);
@@ -649,8 +761,10 @@ function buildAnnotation(geo, dim, style) {
     const lx = v.x + Math.cos(mid) * (r + textSize);
     const ly = v.y + Math.sin(mid) * (r + textSize);
     label = { x: lx, y: ly, text: fmtValue(Math.abs(delta) * 180 / Math.PI, decimals, '') + '\u00b0', anchor: 'middle' };
-    leaderAnchor = { x: v.x + Math.cos(mid) * r, y: v.y + Math.sin(mid) * r };
-    return finishAnnotation(dim, lines, arrows, label, leaderAnchor, style);
+    // A dragged angle label just relocates the number — don't draw a leader
+    // stub (that was the stray "extra line"). Pass no leaderAnchor so
+    // finishAnnotation only repositions the label.
+    return finishAnnotation(dim, lines, arrows, label, null, style);
   }
 
   // linear

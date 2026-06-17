@@ -246,6 +246,7 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
               fill={color}
               textAnchor={geo.label.anchor || 'middle'}
               dominantBaseline="middle"
+              style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
             >
               {geo.label.text}
             </text>
