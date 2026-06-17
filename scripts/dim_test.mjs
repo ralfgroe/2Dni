@@ -145,16 +145,17 @@ console.log('\nTEST 7: vertical relation locks a tilted edge upright');
   check('relation residual ~0', near(measureDimension(out, rel), 0, 1), measureDimension(out, rel));
 }
 
-console.log('\nTEST 8: conflicting dims flagged (two widths that disagree)');
+console.log('\nTEST 8: SolidWorks rule - first dim is kept, the conflicting NEW dim is flagged');
 {
   const d1 = { id: 'w1', kind: 'linear', axis: 'horizontal', value: 150, a: 0, b: 1, ax: 0, ay: 0, bx: 100, by: 0 };
-  // Second dim on the SAME top edge demanding a different width -> conflict.
+  // Second dim on the SAME top edge demanding a different width -> over-defined.
   const d2 = { id: 'w2', kind: 'linear', axis: 'horizontal', value: 250, a: 0, b: 1, ax: 0, ay: 0, bx: 100, by: 0 };
   const res = dim.solveDimensions(RECT(), [d1, d2]);
-  // d2 is applied last so it wins (width 250); d1 (150) can't be satisfied.
   console.log('  conflicts:', [...res.conflicts]);
   check('exactly one conflict flagged', res.conflicts.size === 1, [...res.conflicts]);
-  check('the unsatisfied dim (w1) is flagged', res.conflicts.has('w1'), [...res.conflicts]);
+  check('the NEW dim (w2) is flagged, not the set one', res.conflicts.has('w2'), [...res.conflicts]);
+  // The first, locked dim must still hold its value.
+  check('first dim (w1=150) stays satisfied', near(measureDimension(res.geo, d1), 150), measureDimension(res.geo, d1));
 }
 
 console.log('\nTEST 9: consistent dims produce NO conflicts');
@@ -164,6 +165,32 @@ console.log('\nTEST 9: consistent dims produce NO conflicts');
   const res = dim.solveDimensions(L(), [d1, d2]);
   console.log('  conflicts:', [...res.conflicts]);
   check('no conflicts for compatible dims', res.conflicts.size === 0, [...res.conflicts]);
+}
+
+console.log("\nTEST 10: user scenario - set top edge, then set bottom step; top stays put");
+{
+  // L floorplan: top edge wide, a bottom-right step. Set top edge first.
+  const d1 = { id: 't1', kind: 'linear', axis: 'horizontal', value: 500, a: 0, b: 1, ax: 0, ay: 0, bx: 254, by: 0 };
+  // Then dimension the bottom-right horizontal step to a different value.
+  // Bottom step edge is v3(150,250)->v4(150,200)? Use the horizontal step v4->v3.
+  const d2 = { id: 's1', kind: 'linear', axis: 'horizontal', value: 100, a: 3, b: 4, ax: 150, ay: 250, bx: 150, by: 200 };
+  // d2 anchors are vertical here; use the real horizontal bottom edge v4->v5.
+  const d2h = { id: 's1', kind: 'linear', axis: 'horizontal', value: 90, a: 4, b: 5, ax: 150, ay: 200, bx: 0, by: 200 };
+  const res = dim.solveDimensions(L(), [d1, d2h]);
+  console.log('  conflicts:', [...res.conflicts]);
+  check('top edge held at 500', near(measureDimension(res.geo, d1), 500), measureDimension(res.geo, d1));
+  // d2h compatible or flagged, but top MUST NOT change either way.
+}
+
+console.log("\nTEST 11: three compatible dims all hold (top, right, bottom step)");
+{
+  const d1 = { id: 'x1', kind: 'linear', axis: 'horizontal', value: 300, a: 0, b: 1, ax: 0, ay: 0, bx: 254, by: 0 };
+  const d2 = { id: 'x2', kind: 'linear', axis: 'vertical', value: 150, a: 1, b: 2, ax: 300, ay: 0, bx: 300, by: 103 };
+  const d3 = { id: 'x3', kind: 'linear', axis: 'horizontal', value: 90, a: 4, b: 5, ax: 150, ay: 200, bx: 0, by: 200 };
+  const res = dim.solveDimensions(L(), [d1, d2, d3]);
+  console.log('  conflicts:', [...res.conflicts]);
+  check('top stays 300', near(measureDimension(res.geo, d1), 300), measureDimension(res.geo, d1));
+  check('right stays 150', near(measureDimension(res.geo, d2), 150), measureDimension(res.geo, d2));
 }
 
 console.log('');

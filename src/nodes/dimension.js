@@ -511,19 +511,39 @@ function axisSpan(axis, a, b) {
    that has MORE of the shape's vertices, so the smaller side moves. This makes
    the result independent of the order the two points were picked, and keeps the
    bulk of a floorplan stationary while one wall is pushed out. */
-function choosePin(pts, a, b, ux, uy) {
-  let nA = 0, nB = 0; // vertices strictly on A-side / B-side of the mid plane
+/* Pick which endpoint to pin (hold fixed) for a linear drive. We pin the side
+   that has MORE of the shape's vertices, so the smaller side moves. This makes
+   the result independent of the order the two points were picked, and keeps the
+   bulk of a floorplan stationary while one wall is pushed out.
+
+   `frozen` (optional) is a list of {x,y} points that earlier locked dimensions
+   depend on. We strongly prefer to pin the side that holds MORE frozen points,
+   so the drive moves the still-free part of the shape and doesn't disturb an
+   already-set dimension. Vertex count only breaks ties. */
+function choosePin(pts, a, b, ux, uy, frozen) {
   const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+  const side = (p) => (p.x - mx) * ux + (p.y - my) * uy;
+  let nA = 0, nB = 0;
   for (const p of pts) {
-    const rel = (p.x - mx) * ux + (p.y - my) * uy;
+    const rel = side(p);
     if (rel < -1e-6) nA++;
     else if (rel > 1e-6) nB++;
+  }
+  if (frozen && frozen.length) {
+    let fA = 0, fB = 0;
+    for (const p of frozen) {
+      const rel = side(p);
+      if (rel < -1e-6) fA++;
+      else if (rel > 1e-6) fB++;
+    }
+    // Pin the side carrying more frozen (locked-dim) points; keep it stationary.
+    if (fA !== fB) return fA > fB ? { pin: a, mover: b } : { pin: b, mover: a };
   }
   // Pin the side with more vertices; push the lighter side.
   return nA >= nB ? { pin: a, mover: b } : { pin: b, mover: a };
 }
 
-function driveLinear(geo, dim) {
+function driveLinear(geo, dim, frozen) {
   const value = dim.value;
   if (value == null || !isFinite(value) || value <= 0) return geo;
   const pts = extractPoints(geo);
@@ -568,7 +588,7 @@ function driveLinear(geo, dim) {
   else if (axis === 'vertical') { ax = 0; ay = 1; }
   else { const d = dist(a.x, a.y, b.x, b.y) || 1; ax = (b.x - a.x) / d; ay = (b.y - a.y) / d; }
 
-  const { pin, mover } = choosePin(pts, a, b, ax, ay);
+  const { pin, mover } = choosePin(pts, a, b, ax, ay, frozen);
   // Direction from pin toward mover along the axis.
   let ux = mover.x - pin.x, uy = mover.y - pin.y;
   if (axis === 'horizontal') { ux = Math.sign(ux) || 1; uy = 0; }
@@ -621,7 +641,7 @@ function driveRadial(geo, dim) {
    while keeping the rest of the shape rigid (so a floorplan doesn't warp). For a
    'horizontal' relation the mover endpoint is shifted vertically to match the
    pinned endpoint's y; for 'vertical', horizontally to match its x. */
-function driveRelation(geo, dim) {
+function driveRelation(geo, dim, frozen) {
   const rel = dim.relation;
   if (rel !== 'horizontal' && rel !== 'vertical') return geo;
   const pts = extractPoints(geo);
@@ -632,7 +652,7 @@ function driveRelation(geo, dim) {
   // Pin the endpoint on the larger side of the shape (matches linear driving),
   // and move the lighter endpoint onto the relation axis.
   const axisU = rel === 'horizontal' ? { x: 0, y: 1 } : { x: 1, y: 0 };
-  const { pin, mover } = choosePin(pts, a, b, axisU.x, axisU.y);
+  const { pin, mover } = choosePin(pts, a, b, axisU.x, axisU.y, frozen);
 
   if (rel === 'horizontal') {
     // Move the mover's half-space in y so the mover's y matches the pin's y.
@@ -651,13 +671,13 @@ function driveRelation(geo, dim) {
 /* Apply one driving dimension. No side-channel state is written: the drive only
    transforms geometry; the annotation later re-resolves the same anchors, so
    the two cannot disagree. */
-function applyDimension(geo, dim) {
-  if (dim.kind === 'relation') return driveRelation(geo, dim);
+function applyDimension(geo, dim, frozen) {
+  if (dim.kind === 'relation') return driveRelation(geo, dim, frozen);
   if (dim.kind === 'radius' || dim.kind === 'diameter') return driveRadial(geo, dim);
   // arcRadius is measure-only; fillets are applied together in applyFillets.
   if (dim.kind === 'arcRadius' || dim.kind === 'fillet') return geo;
   if (dim.kind === 'angle') return driveAngle(geo, dim);
-  return driveLinear(geo, dim);
+  return driveLinear(geo, dim, frozen);
 }
 
 /* ---- annotation geometry (the visible dimension graphics) ---- */
@@ -715,10 +735,12 @@ function finishAnnotation(dim, lines, arrows, label, leaderAnchor, style, leader
     label = { ...label, x: dim.labelPos.x, y: dim.labelPos.y };
   }
   const ann = { type: 'dimAnnotation', lines, arrows, label, color, textSize, bounds: annBounds(lines, label, textSize) };
-  // Over-constrained: paint everything red and stamp an X next to the value so
-  // the user can see exactly which dimension breaks the math (SolidWorks-style).
+  // Over-constrained: paint everything red and replace the number with an X, so
+  // the dimension that breaks the math reads as "X" rather than a misleading
+  // value (SolidWorks-style over-defined feedback).
   if (style.conflict && label) {
     ann.color = CONFLICT_DIM_COLOR;
+    ann.label = { ...label, text: 'X' };
     ann.marker = { type: 'conflict', x: label.x, y: label.y, size: textSize };
   }
   return ann;
@@ -959,6 +981,20 @@ export function driveGeometry(inputGeo, dims) {
    math" when its target can't be met because an earlier dimension/relation
    already pinned the same geometry — the residual exceeds a tolerance. Returns
    the driven geometry plus a Set of conflicting dimension ids. */
+/* Solve dimensions the SolidWorks way: each dimension is a constraint, applied
+   in the order it was created. Once a dimension is set it becomes LOCKED — later
+   dimensions must not change it. We achieve this with trial-and-check:
+
+     - Apply the next dimension to a trial copy of the current geometry.
+     - Re-measure every already-locked dimension on that trial.
+     - If the trial still satisfies all locked dims, accept it and lock this one.
+     - If it would break a locked dim (mathematically over-defined / redundant),
+       DISCARD the trial (geometry is left exactly as the locked dims defined it)
+       and flag this dimension red with an X instead of a number.
+
+   So set dimensions never drift, and the one dimension that "breaks the math" is
+   the one marked over-defined — exactly the SolidWorks sketch behaviour. Returns
+   the driven geometry plus a Set of conflicting dimension ids. */
 export function solveDimensions(inputGeo, dims) {
   if (!inputGeo) return null;
   ensurePaper();
@@ -966,29 +1002,80 @@ export function solveDimensions(inputGeo, dims) {
   let canonicalPts = [];
   try { canonicalPts = extractPoints(base) || []; } catch { canonicalPts = []; }
   bindAnchors(canonicalPts, dims);
-  let driven = base;
-  for (const dim of dims) driven = applyDimension(driven, dim);
-  resolveFilletCorners(driven, dims);
-  driven = applyFillets(driven, dims);
 
   const conflicts = new Set();
-  for (const dim of dims) {
-    if (!isDrivingDim(dim)) continue;
-    const measured = measureDimension(driven, dim);
-    if (measured == null) continue;
+  const locked = []; // dims accepted so far (must stay satisfied)
+  let driven = base;
+
+  const measuresTarget = (geo, dim) => {
+    const measured = measureDimension(geo, dim);
+    if (measured == null) return true; // can't measure => don't block
     if (dim.kind === 'relation') {
-      // Aligned when residual misalignment is ~0 (allow sub-pixel slack).
-      if (measured > Math.max(0.5, dimScaleTol(driven))) conflicts.add(dim.id);
-      continue;
+      return measured <= Math.max(0.5, dimScaleTol(geo));
     }
     const target = dim.value;
-    if (target == null || !isFinite(target)) continue;
-    const tol = dim.kind === 'angle'
-      ? 0.5 // half a degree
-      : Math.max(0.5, Math.abs(target) * 0.01); // 1% or half a unit
-    if (Math.abs(measured - target) > tol) conflicts.add(dim.id);
+    if (target == null || !isFinite(target)) return true;
+    const tol = dimTolerance(dim, target);
+    return Math.abs(measured - target) <= tol;
+  };
+
+  for (const dim of dims) {
+    // Non-driving dims (fillet radii, measure-only arc radii) never constrain or
+    // conflict; apply them inline with no lock bookkeeping.
+    if (!isDrivingDim(dim)) {
+      driven = applyDimension(driven, dim);
+      continue;
+    }
+
+    // Points the already-locked dimensions depend on, resolved on the CURRENT
+    // geometry. Driving biases its pin to keep these stationary, so a compatible
+    // new dimension moves only the still-free part of the shape.
+    const frozen = lockedAnchorPoints(driven, locked);
+
+    const trial = applyDimension(driven, dim, frozen);
+
+    // Did the trial actually satisfy THIS dimension? If the drive couldn't reach
+    // the target (e.g. geometry can't move that way), it's over-defined too.
+    const selfOk = measuresTarget(trial, dim);
+    // Did the trial keep every previously-locked dimension satisfied?
+    const keepsLocked = selfOk && locked.every((ld) => measuresTarget(trial, ld));
+
+    if (keepsLocked) {
+      driven = trial;
+      locked.push(dim);
+    } else {
+      // Over-defined: leave geometry as the locked dims defined it, flag this one.
+      conflicts.add(dim.id);
+    }
   }
+
+  resolveFilletCorners(driven, dims);
+  driven = applyFillets(driven, dims);
   return { geo: driven, conflicts };
+}
+
+/* Per-kind tolerance for "is this dimension satisfied". */
+function dimTolerance(dim, target) {
+  if (dim.kind === 'angle') return 0.5; // half a degree
+  return Math.max(0.5, Math.abs(target) * 0.01); // 1% or half a unit
+}
+
+/* The live vertices that the already-locked dimensions reference. The driver
+   uses these to decide which side of a new dimension to hold fixed, so it keeps
+   set dimensions stationary whenever the geometry permits. */
+function lockedAnchorPoints(geo, locked) {
+  if (!locked || locked.length === 0) return [];
+  let pts = [];
+  try { pts = extractPoints(geo) || []; } catch { pts = []; }
+  if (pts.length === 0) return [];
+  const out = [];
+  for (const ld of locked) {
+    for (const [ik, xk, yk] of [['a', 'ax', 'ay'], ['b', 'bx', 'by'], ['v', 'vx', 'vy']]) {
+      const r = resolveAnchor(pts, ld, ik, xk, yk);
+      if (r) out.push({ x: r.x, y: r.y });
+    }
+  }
+  return out;
 }
 
 /* A dimension that actually drives geometry (so it can be over-constrained).
