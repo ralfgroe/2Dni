@@ -63,11 +63,17 @@ export function evaluateGraph(nodes, edges, definitions, displayNodeId) {
     for (const edge of incomingEdges) {
       const sourceResult = results.get(edge.source);
       if (sourceResult !== undefined) {
+        let value;
         if (sourceResult && sourceResult.__multiOutput && edge.sourceHandle) {
-          inputs[edge.targetHandle] = sourceResult[edge.sourceHandle];
+          value = sourceResult[edge.sourceHandle];
         } else {
-          inputs[edge.targetHandle] = sourceResult;
+          value = sourceResult;
         }
+        // Dimension annotations are an editing overlay, not real geometry. They
+        // live on the Dimension node's own output (shown when it's displayed),
+        // but downstream consumers (Color, Transform, ...) should only receive
+        // the underlying shape — otherwise the dims keep rendering downstream.
+        inputs[edge.targetHandle] = stripDimAnnotations(value);
       }
     }
 
@@ -80,6 +86,19 @@ export function evaluateGraph(nodes, edges, definitions, displayNodeId) {
   }
 
   return results;
+}
+
+/* Remove Dimension overlay annotations from a geometry value before it flows
+   into a downstream node. The Dimension runtime wraps the driven shape and its
+   dimAnnotation graphics in a group; consumers only want the shape. */
+function stripDimAnnotations(value) {
+  if (!value || value.type !== 'group' || !Array.isArray(value.children)) return value;
+  const hasAnnotations = value.children.some((c) => c && c.type === 'dimAnnotation');
+  if (!hasAnnotations) return value;
+  const real = value.children.filter((c) => c && c.type !== 'dimAnnotation');
+  if (real.length === 0) return value;
+  if (real.length === 1) return real[0];
+  return { ...value, children: real };
 }
 
 function getUpstreamNodes(nodeId, adjacency, nodeMap) {
