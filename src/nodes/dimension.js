@@ -68,36 +68,20 @@ function translateHalfSpace(geo, ux, uy, delta, px, py, sharpPts) {
 
   const tx = ux * delta, ty = uy * delta;
   const eps = 1e-6;
-  const SMOOTH_ANGLE_DEG = 20;
 
-  // Classify a segment as a sharp corner directly from the path's own adjacent
-  // curve tangents. Doing this on the live path (rather than matching against a
-  // separately-parsed point list) avoids floating-point drift between two
-  // parses of the same path data, which previously caused the match to fail and
-  // the edit to silently do nothing on boolean shapes.
-  const isSharpSegment = (segs, i) => {
-    const n = segs.length;
-    if (n < 2) return true;
-    const seg = segs[i];
-    const curveIn = seg.previous && seg.previous.curve ? seg.previous.curve : null;
-    const curveOut = seg.curve || null;
-    if (!curveIn || !curveOut) return true; // open-path endpoint: treat as sharp
-    const tIn = curveIn.getTangentAtTime(1);
-    const tOut = curveOut.getTangentAtTime(0);
-    if (!tIn || !tOut || tIn.length < 1e-4 || tOut.length < 1e-4) return true;
-    const dot = tIn.dot(tOut) / (tIn.length * tOut.length);
-    const ang = Math.acos(Math.max(-1, Math.min(1, dot))) * 180 / Math.PI;
-    return ang > SMOOTH_ANGLE_DEG;
-  };
-
+  // Translate every anchor at or beyond the threshold plane (which passes
+  // through (px,py) — the moving EDGE — perpendicular to the push direction).
+  // Only the outer edge group moves; interior features (e.g. a centered arc)
+  // stay put, and the segments connecting them to the moved edge stretch to
+  // follow. Bezier handles are stored relative to their anchor, so moving an
+  // anchor carries its handles too (no tearing of curved segments that move).
   let movedCount = 0;
   const moveSegments = (segs) => {
-    // Collect targets first; mutating points mid-iteration would change tangents.
     const targets = [];
     for (let i = 0; i < segs.length; i++) {
       const s = segs[i];
       const rel = (s.point.x - px) * ux + (s.point.y - py) * uy;
-      if (rel >= eps && isSharpSegment(segs, i)) targets.push(s);
+      if (rel >= -eps) targets.push(s);
     }
     for (const s of targets) {
       s.point = new paper.Point(s.point.x + tx, s.point.y + ty);
@@ -350,6 +334,7 @@ export function isCircular(geo) {
    against `basePoints` (the original input's extracted points) but measured on
    the live geometry's points so sequential edits compose correctly. */
 function applyDimension(geo, dim) {
+  dim._drive = null;
   const value = dim.value;
   if (value == null || !isFinite(value)) return geo;
 
@@ -428,10 +413,12 @@ function applyDimension(geo, dim) {
     const { pin, mover } = choosePin(a, b, 1, 0);
     const dir = Math.sign(mover.x - pin.x) || 1;
     const delta = value - current;        // positive => edge moves outward
+    dim._drive = { pinX: pin.x, pinY: pin.y, ux: dir, uy: 0, value };
     if (typeof window !== 'undefined' && window.__DIM_DEBUG) {
       console.log('[applyDimension horizontal]', { current, value, delta, pin, mover, dir });
     }
-    return translateHalfSpace(geo, dir, 0, delta, pin.x, pin.y, pts);
+    // Threshold plane at the moving edge so interior features stay fixed.
+    return translateHalfSpace(geo, dir, 0, delta, mover.x, mover.y, pts);
   }
   if (axis === 'vertical') {
     const current = Math.abs(b.y - a.y);
@@ -439,7 +426,8 @@ function applyDimension(geo, dim) {
     const { pin, mover } = choosePin(a, b, 0, 1);
     const dir = Math.sign(mover.y - pin.y) || 1;
     const delta = value - current;
-    return translateHalfSpace(geo, 0, dir, delta, pin.x, pin.y, pts);
+    dim._drive = { pinX: pin.x, pinY: pin.y, ux: 0, uy: dir, value };
+    return translateHalfSpace(geo, 0, dir, delta, mover.x, mover.y, pts);
   }
 
   // aligned: push/pull along the a->b direction
@@ -451,10 +439,80 @@ function applyDimension(geo, dim) {
   const ulen = Math.hypot(ux, uy) || 1;
   ux /= ulen; uy /= ulen;
   const delta = value - current;
-  return translateHalfSpace(geo, ux, uy, delta, pin.x, pin.y, pts);
+  dim._drive = { pinX: pin.x, pinY: pin.y, ux, uy, value };
+  return translateHalfSpace(geo, ux, uy, delta, mover.x, mover.y, pts);
 }
 
 /* ---- Annotation geometry (the visible dimension graphics) ---- */
+
+/* Current endpoints of a linear dimension on the DRIVEN geometry.
+   The originally-picked ax/ay/bx/by become stale after the edge is pushed, so
+   the annotation must use live positions. Strategy: the pinned endpoint (the
+   one on the larger, stationary side) still coincides with a real vertex, so we
+   snap it to the nearest current vertex; the moved endpoint is then placed at
+   the driven distance (`value`) from the pin along the dimension axis. When the
+   dimension has no driving value yet, both anchors snap to their nearest
+   vertices as picked. */
+function drivenLinearEndpoints(pts, dim) {
+  const rawA = resolveAnchor(pts, dim, 'a', 'ax', 'ay');
+  const rawB = resolveAnchor(pts, dim, 'b', 'bx', 'by');
+  if (!rawA || !rawB) return null;
+
+  // If the geometry was actually driven, applyDimension recorded the exact pin
+  // and push direction. Reuse it so the annotation lands on the same edge the
+  // drive moved (the pinned endpoint stays put; the mover is pin + dir*value).
+  // This avoids the annotation re-deriving a different pin than the drive used.
+  if (dim._drive) {
+    const { pinX, pinY, ux, uy, value } = dim._drive;
+    const pin = { x: pinX, y: pinY };
+    const mover = { x: pinX + ux * value, y: pinY + uy * value };
+    // Decide a/b order: whichever raw anchor is closer to the pin is the pin.
+    const dA = dist(rawA.x, rawA.y, pinX, pinY);
+    const dB = dist(rawB.x, rawB.y, pinX, pinY);
+    return dA <= dB ? { a: pin, b: mover } : { a: mover, b: pin };
+  }
+
+  const axis = dim.axis || 'aligned';
+  // Axis unit vector in the picked orientation (a -> b).
+  let ux, uy;
+  if (axis === 'horizontal') { ux = Math.sign(rawB.x - rawA.x) || 1; uy = 0; }
+  else if (axis === 'vertical') { ux = 0; uy = Math.sign(rawB.y - rawA.y) || 1; }
+  else {
+    const dx = rawB.x - rawA.x, dy = rawB.y - rawA.y;
+    const len = Math.hypot(dx, dy) || 1;
+    ux = dx / len; uy = dy / len;
+  }
+
+  // No driving value: just snap both anchors to nearest current vertices.
+  if (dim.value == null || !isFinite(dim.value)) {
+    const sa = nearestPoint(pts, rawA.x, rawA.y) || rawA;
+    const sb = nearestPoint(pts, rawB.x, rawB.y) || rawB;
+    return { a: { x: sa.x, y: sa.y }, b: { x: sb.x, y: sb.y } };
+  }
+
+  // Determine which endpoint was pinned (same rule applyDimension uses): the
+  // side with more vertices stays put. Snap the pin to its live vertex, then
+  // project the mover out to the driven length along the axis.
+  let n0 = 0, n1 = 0;
+  for (const p of pts) {
+    const r0 = (p.x - rawA.x) * ux + (p.y - rawA.y) * uy;
+    const r1 = (p.x - rawB.x) * ux + (p.y - rawB.y) * uy;
+    if (r0 > 1e-6) n1++;
+    if (r1 < -1e-6) n0++;
+  }
+  const aIsPin = n0 >= n1;
+  const pinRaw = aIsPin ? rawA : rawB;
+  const pinSnapped = nearestPoint(pts, pinRaw.x, pinRaw.y) || pinRaw;
+  // Direction from pin toward mover (preserving picked orientation).
+  const dirSign = aIsPin ? 1 : -1;
+  const dvx = ux * dirSign, dvy = uy * dirSign;
+  const moverX = pinSnapped.x + dvx * dim.value;
+  const moverY = pinSnapped.y + dvy * dim.value;
+  const pin = { x: pinSnapped.x, y: pinSnapped.y };
+  const mover = { x: moverX, y: moverY };
+  // Return in the original a/b order so witness lines stay consistent.
+  return aIsPin ? { a: pin, b: mover } : { a: mover, b: pin };
+}
 
 function arrowPath(tipX, tipY, dirX, dirY, size) {
   // dir points from the tip back along the dimension line
@@ -596,9 +654,13 @@ function buildAnnotation(geo, dim, style) {
   }
 
   // linear
-  const a = resolveAnchor(pts, dim, 'a', 'ax', 'ay');
-  const b = resolveAnchor(pts, dim, 'b', 'bx', 'by');
-  if (!a || !b) return null;
+  // After driving, the moved edge no longer sits at the originally-picked
+  // coordinates, so resolving against the stale ax/ay/bx/by leaves the
+  // annotation behind. Re-derive the current endpoints from the live geometry
+  // (pinned point stays put; the moved point is pin + axis*value).
+  const ep = drivenLinearEndpoints(pts, dim);
+  if (!ep) return null;
+  const a = ep.a, b = ep.b;
   const axis = dim.axis || 'aligned';
   const off = dim.labelOffset ?? 30;
   const hasPos = dim.labelPos && isFinite(dim.labelPos.x) && isFinite(dim.labelPos.y);

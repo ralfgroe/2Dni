@@ -39,6 +39,7 @@ export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, 
   const params = node?.data?.params || {};
 
   const [mode, setMode] = useState('linear');
+  const [linearAxis, setLinearAxis] = useState('auto'); // auto | horizontal | vertical | aligned
   const [pending, setPending] = useState([]); // indices being collected for the current dimension
   const [editing, setEditing] = useState(null); // { id, value }
   const inputRef = useRef(null);
@@ -102,7 +103,7 @@ export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, 
     if (mode === 'linear') {
       if (next.length === 2) {
         const pa = points[next[0]], pb = points[next[1]];
-        const axis = inferAxis(pa, pb);
+        const axis = linearAxis === 'auto' ? inferAxis(pa, pb) : linearAxis;
         // Store the picked coordinates so anchors stay correct even after the
         // shape is converted to a booleanResult (whose vertex ordering differs).
         commitDimension({
@@ -124,7 +125,7 @@ export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, 
         setPending(next);
       }
     }
-  }, [mode, pending, commitDimension, points, drivenGeo]);
+  }, [mode, linearAxis, pending, commitDimension, points, drivenGeo]);
 
   const startEdit = useCallback((dim) => {
     // arcRadius is a measured (read-only) value; it can't drive the merged
@@ -215,7 +216,9 @@ export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, 
   }).filter(Boolean);
 
   const modeHint = mode === 'linear'
-    ? 'Click two points'
+    ? (linearAxis === 'auto'
+        ? 'Click two points (auto orientation)'
+        : `Click two points (${linearAxis})`)
     : mode === 'angle'
       ? 'Click vertex, then two arm points'
       : mode === 'radius'
@@ -329,7 +332,7 @@ export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, 
         const padX = viewBox.w * 0.02;
         const padY = viewBox.h * 0.02;
         // Author the panel at a fixed 360x84 px and scale into world units.
-        const PANEL_W = 360, PANEL_H = 90;
+        const PANEL_W = 360, PANEL_H = 128;
         return (
           <foreignObject
             x={viewBox.x + padX}
@@ -373,6 +376,37 @@ export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, 
                   </button>
                 ))}
               </div>
+              {mode === 'linear' && (
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'nowrap' }}>
+                  {[
+                    { id: 'auto', label: 'Smart' },
+                    { id: 'horizontal', label: 'Horizontal' },
+                    { id: 'vertical', label: 'Vertical' },
+                    { id: 'aligned', label: 'Aligned' },
+                  ].map((ax) => {
+                    const active = linearAxis === ax.id;
+                    return (
+                      <button
+                        key={ax.id}
+                        onClick={(e) => { e.stopPropagation(); setLinearAxis(ax.id); setPending([]); }}
+                        style={{
+                          fontSize: 11,
+                          padding: '3px 8px',
+                          borderRadius: 5,
+                          whiteSpace: 'nowrap',
+                          border: `1px solid ${active ? style.color : '#dee2e6'}`,
+                          background: active ? 'rgba(19,102,214,0.12)' : '#fff',
+                          color: active ? style.color : '#868e96',
+                          cursor: 'pointer',
+                          fontWeight: active ? 600 : 400,
+                        }}
+                      >
+                        {ax.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               <div style={{ fontSize: 11, color: '#868e96', background: 'rgba(255,255,255,0.85)', padding: '2px 6px', borderRadius: 4, width: 'fit-content', whiteSpace: 'nowrap' }}>
                 {modeHint}{pending.length > 0 ? ` \u2014 ${pending.length} picked` : ''}. Drag a value to move it; double-click to edit.
               </div>
