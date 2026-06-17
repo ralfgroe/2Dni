@@ -75,6 +75,9 @@ export default function FreeCurveOverlay({ nodeId, screenToSvg, results }) {
   isDrawingRef.current = isDrawing;
   const [preview, setPreview] = useState(null);
   const [snapTarget, setSnapTarget] = useState(null);
+  const [closeSnap, setCloseSnap] = useState(false);
+  const closeSnapRef = useRef(false);
+  closeSnapRef.current = closeSnap;
   const [dragIdx, setDragIdx] = useState(null);
   const dragIdxRef = useRef(dragIdx);
   dragIdxRef.current = dragIdx;
@@ -94,8 +97,10 @@ export default function FreeCurveOverlay({ nodeId, screenToSvg, results }) {
     [results, nodeId]
   );
 
+  const orthoLock = node?.data?.params?.ortho_lock === true;
+
   const constrainToAxis = useCallback((prev, current, shiftKey) => {
-    if (!shiftKey || !prev) return current;
+    if (!(shiftKey || orthoLock) || !prev) return current;
     const dx = Math.abs(current.x - prev.x);
     const dy = Math.abs(current.y - prev.y);
     if (dx >= dy) {
@@ -103,12 +108,20 @@ export default function FreeCurveOverlay({ nodeId, screenToSvg, results }) {
     } else {
       return { x: prev.x, y: current.y };
     }
-  }, []);
+  }, [orthoLock]);
 
   const savePoints = useCallback((newPoints) => {
     updateNodeParams(nodeId, {
       points_data: JSON.stringify(newPoints),
     });
+  }, [nodeId, updateNodeParams]);
+
+  const closePath = useCallback(() => {
+    updateNodeParams(nodeId, { closed: true });
+    setIsDrawing(false);
+    setPreview(null);
+    setSnapTarget(null);
+    setCloseSnap(false);
   }, [nodeId, updateNodeParams]);
 
   // --- Drawing mode handlers ---
@@ -120,6 +133,17 @@ export default function FreeCurveOverlay({ nodeId, screenToSvg, results }) {
     const lastPt = points.length > 0 ? points[points.length - 1] : null;
     let pt = constrainToAxis(lastPt, svgPt, e.shiftKey);
 
+    // Close the loop if the cursor is near the start point (needs >= 3 points)
+    if (points.length >= 3) {
+      const start = points[0];
+      const dx = pt.x - start.x;
+      const dy = pt.y - start.y;
+      if (Math.sqrt(dx * dx + dy * dy) < SNAP_DISTANCE) {
+        closePath();
+        return;
+      }
+    }
+
     const snap = findSnapTarget(pt, snapPoints, SNAP_DISTANCE);
     if (snap) pt = snap;
 
@@ -129,12 +153,26 @@ export default function FreeCurveOverlay({ nodeId, screenToSvg, results }) {
     };
 
     savePoints([...points, rounded]);
-  }, [points, savePoints, screenToSvg, constrainToAxis, snapPoints]);
+  }, [points, savePoints, screenToSvg, constrainToAxis, snapPoints, closePath]);
 
   const handleDrawMove = useCallback((e) => {
     const svgPt = screenToSvg(e.clientX, e.clientY);
     const lastPt = points.length > 0 ? points[points.length - 1] : null;
     let pt = constrainToAxis(lastPt, svgPt, e.shiftKey);
+
+    // Highlight the start point when close enough to close the loop
+    if (points.length >= 3) {
+      const start = points[0];
+      const dx = pt.x - start.x;
+      const dy = pt.y - start.y;
+      if (Math.sqrt(dx * dx + dy * dy) < SNAP_DISTANCE) {
+        setCloseSnap(true);
+        setSnapTarget(null);
+        setPreview({ x: start.x, y: start.y });
+        return;
+      }
+    }
+    setCloseSnap(false);
 
     const snap = findSnapTarget(pt, snapPoints, SNAP_DISTANCE);
     if (snap) {
@@ -290,8 +328,16 @@ export default function FreeCurveOverlay({ nodeId, screenToSvg, results }) {
       {isDrawing && preview && (
         <circle
           cx={preview.x} cy={preview.y} r={4}
-          fill={snapTarget ? '#ff6b6b' : '#339af0'}
+          fill={closeSnap ? '#51cf66' : snapTarget ? '#ff6b6b' : '#339af0'}
           opacity={0.7} pointerEvents="none"
+        />
+      )}
+
+      {isDrawing && closeSnap && points.length > 0 && (
+        <circle
+          cx={points[0].x} cy={points[0].y} r={9}
+          fill="none" stroke="#51cf66" strokeWidth={2.5}
+          pointerEvents="none" opacity={0.9}
         />
       )}
 

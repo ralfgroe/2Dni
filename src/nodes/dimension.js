@@ -147,6 +147,59 @@ function translateHalfSpace(geo, ux, uy, delta, px, py, sharpPts) {
   return out;
 }
 
+/* Move only the single vertex at (px,py) by (tx,ty). Used for general
+   polylines/polygons where a linear dimension should set the length of one
+   picked edge by relocating just its movable endpoint, leaving every other
+   vertex (and the rest of the shape) untouched. A rigid half-space push would
+   instead drag along every vertex beyond a plane, warping an irregular shape.
+   Bezier handles travel with their anchor (Paper stores them relative), so a
+   curved segment that shares this vertex keeps its shape. */
+function translatePoint(geo, tx, ty, px, py) {
+  ensurePaper();
+  if (!isFinite(tx) || !isFinite(ty)) return geo;
+  if (Math.abs(tx) < 1e-9 && Math.abs(ty) < 1e-9) return geo;
+  const path = geoToPaperPath(geo);
+  if (!path) return geo;
+
+  // Match the vertex closest to (px,py) within a small tolerance, so we move
+  // exactly the picked endpoint even after prior edits nudged coordinates.
+  let best = null, bestD = Infinity;
+  const consider = (segs) => {
+    for (const s of segs) {
+      const d = Math.hypot(s.point.x - px, s.point.y - py);
+      if (d < bestD) { bestD = d; best = s; }
+    }
+  };
+  if (path.className === 'CompoundPath') {
+    for (const child of (path.children || [])) consider(child.segments);
+  } else {
+    consider(path.segments);
+  }
+
+  if (best && bestD <= Math.max(2, Math.hypot(path.bounds.width, path.bounds.height) * 0.05)) {
+    best.point = new paper.Point(best.point.x + tx, best.point.y + ty);
+  }
+
+  const out = paperPathToGeo(path, geo);
+  path.remove();
+  if (!out || !out.pathData) return geo;
+  return out;
+}
+
+/* A polygon/polyline (all-sharp corners, not round) should drive a linear
+   dimension by moving a single picked vertex rather than pushing a half-space.
+   Rectangles keep using the half-space push (cleaner for a box edge). */
+function isPolyline(geo, pts) {
+  if (!geo) return false;
+  if (geo.type === 'rect' || geo.type === 'roundedRect') return false;
+  if (isCircular(geo)) return false;
+  if (!pts || pts.length < 3) return false;
+  // Treat as a polyline when (almost) every vertex is a sharp corner — i.e. a
+  // straight-edged polygon, not a shape dominated by arcs.
+  const sharp = pts.filter((p) => p.sharp).length;
+  return sharp >= pts.length - 1;
+}
+
 function paperPathToGeo(path, source) {
   const bounds = path.bounds;
   const hasFill = source.fill && source.fill !== 'none';
@@ -202,6 +255,28 @@ function resolveAnchor(pts, dim, idxKey, xKey, yKey) {
     return { x: dim[xKey], y: dim[yKey], idx: -1, sharp: true };
   }
   return pts[dim[idxKey]];
+}
+
+/* Default gap between a dimension line and the edge it measures, scaled to the
+   geometry so it neither floats far away on a small sketch nor hugs the edge on
+   a large one. A fixed world-unit offset (the old behaviour) looked enormous on
+   a small floorplan-sized polyline, which read as the dimension "floating far"
+   from the edge. */
+function autoOffset(geo, pts) {
+  let diag = 0;
+  const b = geo && geo.bounds;
+  if (b && isFinite(b.width) && isFinite(b.height)) {
+    diag = Math.hypot(b.width, b.height) || 0;
+  } else if (pts && pts.length) {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const p of pts) {
+      if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
+      if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
+    }
+    diag = Math.hypot(maxX - minX, maxY - minY) || 0;
+  }
+  if (diag > 0) return Math.min(40, Math.max(8, diag * 0.12));
+  return 30;
 }
 
 /* A snap tolerance scaled to the geometry so it works at any zoom/size. */
@@ -519,6 +594,13 @@ function applyDimension(geo, dim) {
     if (typeof window !== 'undefined' && window.__DIM_DEBUG) {
       console.log('[applyDimension horizontal]', { current, value, delta, pin, mover, dir });
     }
+    if (isPolyline(geo, pts)) {
+      // Move only the picked endpoint along X; record explicit endpoints so the
+      // annotation spans pin -> moved mover (the two may differ in Y).
+      const movedX = mover.x + dir * delta;
+      dim._drive = { ax: pin.x, ay: pin.y, bx: movedX, by: mover.y, value };
+      return translatePoint(geo, dir * delta, 0, mover.x, mover.y);
+    }
     // Threshold plane at the moving edge so interior features stay fixed.
     return translateHalfSpace(geo, dir, 0, delta, mover.x, mover.y, pts);
   }
@@ -529,6 +611,11 @@ function applyDimension(geo, dim) {
     const dir = Math.sign(mover.y - pin.y) || 1;
     const delta = value - current;
     dim._drive = { pinX: pin.x, pinY: pin.y, ux: 0, uy: dir, value };
+    if (isPolyline(geo, pts)) {
+      const movedY = mover.y + dir * delta;
+      dim._drive = { ax: pin.x, ay: pin.y, bx: mover.x, by: movedY, value };
+      return translatePoint(geo, 0, dir * delta, mover.x, mover.y);
+    }
     return translateHalfSpace(geo, 0, dir, delta, mover.x, mover.y, pts);
   }
 
@@ -542,6 +629,13 @@ function applyDimension(geo, dim) {
   ux /= ulen; uy /= ulen;
   const delta = value - current;
   dim._drive = { pinX: pin.x, pinY: pin.y, ux, uy, value };
+  if (isPolyline(geo, pts)) {
+    // Move only the picked endpoint along the a->b direction so the edge
+    // length becomes `value`; the pin and all other vertices stay put.
+    const movedX = mover.x + ux * delta, movedY = mover.y + uy * delta;
+    dim._drive = { ax: pin.x, ay: pin.y, bx: movedX, by: movedY, value };
+    return translatePoint(geo, ux * delta, uy * delta, mover.x, mover.y);
+  }
   return translateHalfSpace(geo, ux, uy, delta, mover.x, mover.y, pts);
 }
 
@@ -565,6 +659,15 @@ function drivenLinearEndpoints(pts, dim) {
   // drive moved (the pinned endpoint stays put; the mover is pin + dir*value).
   // This avoids the annotation re-deriving a different pin than the drive used.
   if (dim._drive) {
+    // Polyline single-point move stores explicit endpoints (pin + moved mover).
+    if (dim._drive.bx != null) {
+      const { ax, ay, bx, by } = dim._drive;
+      const pin = { x: ax, y: ay };
+      const mover = { x: bx, y: by };
+      const dA = dist(rawA.x, rawA.y, ax, ay);
+      const dB = dist(rawB.x, rawB.y, ax, ay);
+      return dA <= dB ? { a: pin, b: mover } : { a: mover, b: pin };
+    }
     const { pinX, pinY, ux, uy, value } = dim._drive;
     const pin = { x: pinX, y: pinY };
     const mover = { x: pinX + ux * value, y: pinY + uy * value };
@@ -740,7 +843,7 @@ function buildAnnotation(geo, dim, style) {
       ang1 = Math.atan2(a.y - v.y, a.x - v.x);
       ang2 = Math.atan2(b.y - v.y, b.x - v.x);
     }
-    const r = (dim.labelOffset ?? 40);
+    const r = autoOffset(geo, pts) * 1.2;
     // small witness extensions along each arm
     lines.push([v.x, v.y, v.x + Math.cos(ang1) * r, v.y + Math.sin(ang1) * r]);
     lines.push([v.x, v.y, v.x + Math.cos(ang2) * r, v.y + Math.sin(ang2) * r]);
@@ -776,7 +879,7 @@ function buildAnnotation(geo, dim, style) {
   if (!ep) return null;
   const a = ep.a, b = ep.b;
   const axis = dim.axis || 'aligned';
-  const off = dim.labelOffset ?? 30;
+  const off = autoOffset(geo, pts);
   const hasPos = dim.labelPos && isFinite(dim.labelPos.x) && isFinite(dim.labelPos.y);
 
   let ax = a.x, ay = a.y, bx = b.x, by = b.y;
