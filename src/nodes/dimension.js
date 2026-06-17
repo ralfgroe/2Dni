@@ -495,6 +495,16 @@ function applyDimension(geo, dim) {
     // changes, instead of spinning the whole shape (which keeps the angle the
     // same). Arm A stays put as the reference.
     const deltaDeg = (Math.sign(current) || 1) * (value - currentMag);
+    // If the value matches the measured angle (e.g. the dimension was just
+    // placed, not edited), don't rotate or record a drive. Reconstructing arm B
+    // from angA + sign*value can land it on the wrong winding side, which drew
+    // the arc/witness arms off the actual corner. Leaving _angleDrive null lets
+    // the annotation use the real, resolved arm directions.
+    if (Math.abs(deltaDeg) < 1e-6) {
+      dim._drive = null;
+      dim._angleDrive = null;
+      return geo;
+    }
     const rotated = rotateArm(geo, deltaDeg, v, a, b);
     dim._drive = null;
     // Record the driven angle so the annotation draws the NEW angle instead of
