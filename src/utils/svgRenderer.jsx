@@ -251,6 +251,17 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
               {geo.label.text}
             </text>
           )}
+          {geo.marker && geo.marker.type === 'conflict' && (() => {
+            const s = (geo.marker.size || ts) * 0.5;
+            const cx = geo.marker.x + (geo.marker.size || ts) * 1.6;
+            const cy = geo.marker.y;
+            return (
+              <g key="conflict" pointerEvents="none">
+                <line x1={cx - s * 0.5} y1={cy - s * 0.5} x2={cx + s * 0.5} y2={cy + s * 0.5} stroke={color} strokeWidth={ts * 0.12} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+                <line x1={cx - s * 0.5} y1={cy + s * 0.5} x2={cx + s * 0.5} y2={cy - s * 0.5} stroke={color} strokeWidth={ts * 0.12} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+              </g>
+            );
+          })()}
         </g>
       );
     }

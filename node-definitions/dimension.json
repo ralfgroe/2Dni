@@ -2,7 +2,7 @@
   "id": "dimension",
   "label": "Dimension",
   "category": "Sketch",
-  "description": "Add parametric, driven dimensions to a shape \u2014 SolidWorks-style. Select the node, click two points (linear), an edge pair (angle), or a circle/arc (radius) in the viewport, then double-click the dimension number on the canvas and type a new value to resize the geometry to match. The dimension drives the shape.",
+  "description": "Add parametric, driven dimensions to a shape \u2014 SolidWorks-style. Select the node, then place dimensions in the viewport and type a number to drive the geometry. Use the Relation mode to lock an edge Horizontal or Vertical. Dimensions you've set hold their value; if a new dimension can't be satisfied it turns red with an X (over-defined).",
   "inputs": [
     { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }
   ],

@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useGraphStore } from '../../store/graphStore';
 import { extractPoints } from '../../utils/geometryPoints';
-import { driveGeometry, getDimensionLabelPoint, measureDimension, isCircular } from '../../nodes/dimension';
+import { getDimensionLabelPoint, measureDimension, isCircular, solveDimensions } from '../../nodes/dimension';
 
 function parseJSON(str, fallback) {
   try { const v = JSON.parse(str); return v ?? fallback; } catch { return fallback; }
@@ -30,6 +30,7 @@ const MODES = [
   { id: 'radius', label: 'Radius' },
   { id: 'diameter', label: 'Diameter' },
   { id: 'angle', label: 'Angle' },
+  { id: 'relation', label: 'Relation' },
 ];
 
 export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, viewBox }) {
@@ -40,6 +41,7 @@ export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, 
 
   const [mode, setMode] = useState('linear');
   const [linearAxis, setLinearAxis] = useState('auto'); // auto | horizontal | vertical | aligned
+  const [relationKind, setRelationKind] = useState('horizontal'); // horizontal | vertical
   const [pending, setPending] = useState([]); // indices being collected for the current dimension
   const [editing, setEditing] = useState(null); // { id, value }
   const inputRef = useRef(null);
@@ -61,10 +63,12 @@ export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, 
   }), [params.dim_color, params.text_size, params.arrow_size, params.decimals, params.units]);
 
   // The shape as currently driven by existing dimensions.
-  const drivenGeo = useMemo(
-    () => (sourceGeo ? driveGeometry(sourceGeo, dims) : null),
+  const solved = useMemo(
+    () => (sourceGeo ? solveDimensions(sourceGeo, dims) : null),
     [sourceGeo, dims]
   );
+  const drivenGeo = solved ? solved.geo : null;
+  const conflicts = solved ? solved.conflicts : null;
 
   const points = useMemo(() => (drivenGeo ? extractPoints(drivenGeo) : []), [drivenGeo]);
 
@@ -76,6 +80,12 @@ export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, 
   }, [nodeId, updateNodeParams]);
 
   const commitDimension = useCallback((partial) => {
+    if (partial.kind === 'relation') {
+      // Relations carry no editable value; they only lock orientation.
+      persist([...dims, { id: newId(), ...partial }]);
+      setPending([]);
+      return;
+    }
     const measured = measureDimension(drivenGeo, partial);
     const dim = { id: newId(), value: measured != null ? Math.round(measured * 100) / 100 : null, ...partial };
     persist([...dims, dim]);
@@ -100,7 +110,17 @@ export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, 
       return;
     }
     const next = [...pending, idx];
-    if (mode === 'linear') {
+    if (mode === 'relation') {
+      if (next.length === 2) {
+        const pa = points[next[0]], pb = points[next[1]];
+        commitDimension({
+          kind: 'relation', relation: relationKind, a: next[0], b: next[1],
+          ax: pa?.x, ay: pa?.y, bx: pb?.x, by: pb?.y, labelOffset: 24,
+        });
+      } else {
+        setPending(next);
+      }
+    } else if (mode === 'linear') {
       if (next.length === 2) {
         const pa = points[next[0]], pb = points[next[1]];
         const axis = linearAxis === 'auto' ? inferAxis(pa, pb) : linearAxis;
@@ -125,12 +145,11 @@ export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, 
         setPending(next);
       }
     }
-  }, [mode, linearAxis, pending, commitDimension, points, drivenGeo]);
+  }, [mode, linearAxis, relationKind, pending, commitDimension, points, drivenGeo]);
 
   const startEdit = useCallback((dim) => {
-    // arcRadius is a measured (read-only) value; it can't drive the merged
-    // boolean geometry, so don't open an editor for it.
-    if (dim.kind === 'arcRadius') return;
+    // arcRadius is a measured (read-only) value; relations have no value at all.
+    if (dim.kind === 'arcRadius' || dim.kind === 'relation') return;
     setEditing({ id: dim.id, value: dim.value != null ? String(dim.value) : '' });
     setTimeout(() => { inputRef.current?.focus(); inputRef.current?.select(); }, 0);
   }, []);
@@ -219,6 +238,8 @@ export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, 
     ? (linearAxis === 'auto'
         ? 'Click two points (auto orientation)'
         : `Click two points (${linearAxis})`)
+    : mode === 'relation'
+      ? `Click two points on a line to lock it ${relationKind}`
     : mode === 'angle'
       ? 'Click vertex, then two arm points'
       : mode === 'radius'
@@ -250,8 +271,19 @@ export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, 
       })}
 
       {/* Editable value handles over each dimension label */}
-      {labelHandles.map(({ dim, x, y, text }) => (
+      {labelHandles.map(({ dim, x, y, text }) => {
+        const isConflict = conflicts && conflicts.has(dim.id);
+        return (
         <g key={`lbl${dim.id}`}>
+          {isConflict && (
+            <g pointerEvents="none">
+              <circle cx={x} cy={y} r={style.textSize * 1.5} fill="rgba(224,49,49,0.12)" stroke="#e03131" strokeWidth={sw} />
+              <g transform={`translate(${x + style.textSize * 2.6}, ${y})`}>
+                <line x1={-style.textSize * 0.4} y1={-style.textSize * 0.4} x2={style.textSize * 0.4} y2={style.textSize * 0.4} stroke="#e03131" strokeWidth={sw * 1.6} strokeLinecap="round" />
+                <line x1={-style.textSize * 0.4} y1={style.textSize * 0.4} x2={style.textSize * 0.4} y2={-style.textSize * 0.4} stroke="#e03131" strokeWidth={sw * 1.6} strokeLinecap="round" />
+              </g>
+            </g>
+          )}
           <rect
             x={x - style.textSize * 1.8}
             y={y - style.textSize * 0.9}
@@ -321,7 +353,8 @@ export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, 
             </foreignObject>
           )}
         </g>
-      ))}
+      );
+      })}
 
       {/* Mode toolbar + hint, pinned to the top-left of the current view.
           The inner content is authored at a fixed pixel size, then scaled by
@@ -402,6 +435,35 @@ export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, 
                         }}
                       >
                         {ax.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {mode === 'relation' && (
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'nowrap' }}>
+                  {[
+                    { id: 'horizontal', label: 'Horizontal' },
+                    { id: 'vertical', label: 'Vertical' },
+                  ].map((rk) => {
+                    const active = relationKind === rk.id;
+                    return (
+                      <button
+                        key={rk.id}
+                        onClick={(e) => { e.stopPropagation(); setRelationKind(rk.id); setPending([]); }}
+                        style={{
+                          fontSize: 11,
+                          padding: '3px 8px',
+                          borderRadius: 5,
+                          whiteSpace: 'nowrap',
+                          border: `1px solid ${active ? style.color : '#dee2e6'}`,
+                          background: active ? 'rgba(19,102,214,0.12)' : '#fff',
+                          color: active ? style.color : '#868e96',
+                          cursor: 'pointer',
+                          fontWeight: active ? 600 : 400,
+                        }}
+                      >
+                        {rk.label}
                       </button>
                     );
                   })}

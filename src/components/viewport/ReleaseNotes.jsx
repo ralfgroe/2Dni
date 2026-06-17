@@ -1,6 +1,6 @@
 // Release notes for 2Dni. Add a new <Release> block at the top each time we
 // ship new nodes or notable changes, and bump LATEST_RELEASE_DATE below.
-export const LATEST_RELEASE_DATE = 'June 16, 2026';
+export const LATEST_RELEASE_DATE = 'June 17, 2026';
 
 export default function ReleaseNotes({ onClose }) {
   return (
@@ -23,6 +23,39 @@ export default function ReleaseNotes({ onClose }) {
           <h1 style={{ fontSize: 28, fontWeight: 700, color: '#1a1a2e', margin: 0 }}>Release Notes</h1>
           <p style={{ fontSize: 13, color: '#6c757d', marginTop: 8 }}>What's new in 2Dni</p>
         </div>
+
+        <Release version="June 17, 2026" title="Relations, locking & a rebuilt engine">
+          <Item name="Horizontal / Vertical relations" tag="new">
+            A new <b>Relation</b> mode in the Dimension node: pick two points on a
+            line and lock it Horizontal or Vertical, just like SolidWorks sketch
+            relations. The edge snaps to the axis and stays there as you resize.
+          </Item>
+          <Item name="Set dimensions stay put" tag="improved">
+            Dimensions you've already set hold their value. Adding more
+            dimensions no longer silently drifts the ones you locked earlier.
+          </Item>
+          <Item name="Over-defined warning (red X)" tag="new">
+            If a dimension or relation can't be satisfied because it conflicts
+            with one you already set, it turns <b>red</b> and shows an
+            <b> X</b> — so you can see exactly which one breaks the math.
+          </Item>
+          <Item name="Reliable wall driving" tag="fixed">
+            Dimensioning rebuilt from the ground up around stable vertex identity.
+            Setting a wall length on a floorplan now pushes that wall rigidly —
+            connected walls stay orthogonal and joined instead of shearing or
+            disconnecting.
+          </Item>
+          <Item name="Anchors that don't drift" tag="fixed">
+            Each dimension binds to a fixed vertex once per evaluation, so its
+            arrows, witness lines, and value always track the same corner — even
+            after several dimensions are stacked or a primitive is reshaped.
+          </Item>
+          <Item name="Angle &amp; ellipse fixes" tag="fixed">
+            Angle dimensions update their displayed value the moment the geometry
+            changes, and a circle measured by its diameter now scales to the exact
+            number you type for clean circle-to-ellipse edits.
+          </Item>
+        </Release>
 
         <Release version="June 16, 2026" title="Parametric Dimensions (CAD)">
           <Item name="Dimension node" tag="new">

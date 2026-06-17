@@ -684,6 +684,13 @@ function geometryToSVGString(geo, skipAnnotations = false) {
       if (geo.label) {
         parts.push(`<text x="${geo.label.x}" y="${geo.label.y}" font-family="sans-serif" font-size="${ts}" fill="${color}" text-anchor="${geo.label.anchor || 'middle'}" dominant-baseline="middle">${escapeXml(geo.label.text)}</text>`);
       }
+      if (geo.marker && geo.marker.type === 'conflict') {
+        const s = (geo.marker.size || ts) * 0.5;
+        const cx = geo.marker.x + (geo.marker.size || ts) * 1.6;
+        const cy = geo.marker.y;
+        parts.push(`<line x1="${cx - s * 0.5}" y1="${cy - s * 0.5}" x2="${cx + s * 0.5}" y2="${cy + s * 0.5}" stroke="${color}" stroke-width="${ts * 0.12}" stroke-linecap="round" vector-effect="non-scaling-stroke" />`);
+        parts.push(`<line x1="${cx - s * 0.5}" y1="${cy + s * 0.5}" x2="${cx + s * 0.5}" y2="${cy - s * 0.5}" stroke="${color}" stroke-width="${ts * 0.12}" stroke-linecap="round" vector-effect="non-scaling-stroke" />`);
+      }
       return `<g${opAttr}>${parts.join('')}</g>`;
     }
 
