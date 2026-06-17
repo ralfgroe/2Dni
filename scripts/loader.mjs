@@ -1,28 +1,15 @@
-// Custom ESM resolver: lets Node import the app's extensionless ".js" specifiers
-// (Vite resolves these normally) and stubs the browser-only fontLoader so the
-// dimension module's dependency graph loads headless.
-import { fileURLToPath, pathToFileURL } from 'node:url';
-import { existsSync } from 'node:fs';
+// Minimal ESM loader so headless Node tests can import the app's pure modules
+// (the constraint solver) without a DOM. The solver itself has no browser deps;
+// this stub just satisfies any incidental `document`/canvas references pulled in
+// transitively, keeping the solver test fully headless.
+import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 
-const FONT_LOADER = path.resolve('src/utils/fontLoader.js');
-
 export async function resolve(specifier, context, nextResolve) {
-  // Redirect the browser font loader to a headless stub.
-  if (specifier.endsWith('fontLoader') || specifier.endsWith('fontLoader.js')) {
-    return { url: pathToFileURL(path.resolve('scripts/fontLoaderStub.mjs')).href, shortCircuit: true };
-  }
-  if (specifier.startsWith('.') || specifier.startsWith('/')) {
-    let base;
-    try { base = context.parentURL ? path.dirname(fileURLToPath(context.parentURL)) : process.cwd(); }
-    catch { base = process.cwd(); }
-    const abs = path.resolve(base, specifier);
-    for (const ext of ['', '.js', '.jsx', '.mjs']) {
-      const candidate = abs + ext;
-      if (existsSync(candidate) && !candidate.endsWith('/')) {
-        return { url: pathToFileURL(candidate).href, shortCircuit: true };
-      }
-    }
+  // Redirect any 'paper' import to a harmless stub (the solver never needs it,
+  // but a shared util might transitively reference it).
+  if (specifier === 'paper') {
+    return { url: pathToFileURL(path.resolve('scripts/paperStub.mjs')).href, shortCircuit: true };
   }
   return nextResolve(specifier, context);
 }

@@ -24,7 +24,49 @@ export default function ReleaseNotes({ onClose }) {
           <p style={{ fontSize: 13, color: '#6c757d', marginTop: 8 }}>What's new in 2Dni</p>
         </div>
 
-        <Release version="June 17, 2026" title="Relations, locking, grid snap & a rebuilt engine">
+        <Release version="June 17, 2026" title="Dimension node — rebuilt on a real constraint solver">
+          <Item name="Parametric Dimensions (CAD)" tag="new">
+            The <b>Dimension</b> node is back, rebuilt from the ground up on a true
+            geometric constraint solver — the way SolidWorks works. Feed it a
+            shape (try the Polyline node), select the node, then place dimensions
+            in the viewport and type a value to drive the geometry.
+          </Item>
+          <Item name="Solves the whole sketch at once" tag="new">
+            Every vertex is a variable; your dimensions plus auto-inferred
+            Horizontal / Vertical / fixed-angle relations are equations solved
+            together. Editing one dimension changes <i>only what it must</i> —
+            undimensioned diagonals and already-set edges stay put.
+          </Item>
+          <Item name="Status colors (blue / black / red)" tag="new">
+            The sketch is colored by definition state, just like SolidWorks:
+            <b>blue</b> = under-defined (free to move), <b>black</b> = fully
+            defined, <b>red</b> = over-defined. A status badge in the viewport
+            toolbar shows the current state.
+          </Item>
+          <Item name="Over-defined dimensions flagged, not forced" tag="new">
+            A dimension that can't be satisfied without breaking an earlier one —
+            or that adds no new information — turns <b>red with an X</b> and is
+            not applied, so your set dimensions never silently change.
+          </Item>
+          <Item name="Fillets stay cosmetic" tag="fixed">
+            Adding or editing a corner <b>radius/fillet</b> no longer disturbs
+            your linear dimensions. The solver runs on a stable skeleton of the
+            sketch and bakes fillets on top purely for display — so the radius
+            can't shift, detach, or red-flag your other dimensions.
+          </Item>
+          <Item name="Cleaner viewport toolbar" tag="improved">
+            The dimension toolbar is now a single compact row pinned next to the
+            grid toggle (no more stage clutter), and Linear dimensions
+            auto-orient to the edge you pick — no extra axis buttons to fuss with.
+          </Item>
+          <Item name="Linear, angle, radius, diameter & relations" tag="new">
+            Place linear dimensions, corner angles, circle radius/diameter,
+            fillet corners, and lock edges Horizontal or Vertical with the
+            Relation tool. Drag any value to reposition it; double-click to edit.
+          </Item>
+        </Release>
+
+        <Release version="June 17, 2026" title="Polyline grid snap & higher-contrast grid">
           <Item name="Snap to Grid (Polyline)" tag="new">
             The Polyline node now has a <b>Snap to Grid</b> toggle: placed points,
             the live preview, and dragged points lock to the viewport grid —
@@ -34,56 +76,6 @@ export default function ReleaseNotes({ onClose }) {
             The viewport grid is darker and adds heavier major lines every five
             cells, with crisp non-scaling strokes so it stays readable at any
             zoom.
-          </Item>
-          <Item name="Horizontal / Vertical relations" tag="new">
-            A new <b>Relation</b> mode in the Dimension node: pick two points on a
-            line and lock it Horizontal or Vertical, just like SolidWorks sketch
-            relations. The edge snaps to the axis and stays there as you resize.
-          </Item>
-          <Item name="Set dimensions stay put" tag="improved">
-            Dimensions you've already set hold their value. Adding more
-            dimensions no longer silently drifts the ones you locked earlier.
-          </Item>
-          <Item name="Over-defined warning (red X)" tag="new">
-            If a dimension or relation can't be satisfied because it conflicts
-            with one you already set, it turns <b>red</b> and shows an
-            <b> X</b> — so you can see exactly which one breaks the math.
-          </Item>
-          <Item name="Reliable wall driving" tag="fixed">
-            Dimensioning rebuilt from the ground up around stable vertex identity.
-            Setting a wall length on a floorplan now pushes that wall rigidly —
-            connected walls stay orthogonal and joined instead of shearing or
-            disconnecting.
-          </Item>
-          <Item name="Anchors that don't drift" tag="fixed">
-            Each dimension binds to a fixed vertex once per evaluation, so its
-            arrows, witness lines, and value always track the same corner — even
-            after several dimensions are stacked or a primitive is reshaped.
-          </Item>
-          <Item name="Angle &amp; ellipse fixes" tag="fixed">
-            Angle dimensions update their displayed value the moment the geometry
-            changes, and a circle measured by its diameter now scales to the exact
-            number you type for clean circle-to-ellipse edits.
-          </Item>
-        </Release>
-
-        <Release version="June 16, 2026" title="Parametric Dimensions (CAD)">
-          <Item name="Dimension node" tag="new">
-            A SolidWorks-style sketch tool: connect a shape, then place dimensions
-            in the viewport and type a number to drive the geometry. Supports
-            <b> Linear</b> (with Smart / Horizontal / Vertical / Aligned axis lock),
-            <b> Radius</b>, <b>Diameter</b>, and <b>Angle</b>. Double-click a value on
-            the canvas to edit it; drag a value to reposition it.
-          </Item>
-          <Item name="Smart edge push/pull" tag="new">
-            Editing a linear dimension moves only the dimensioned edge — interior
-            features (like a centered arc) stay put and curved segments keep their
-            shape instead of distorting.
-          </Item>
-          <Item name="Circle &amp; ellipse driving" tag="new">
-            A linear dimension on a circle scales it cleanly; add a horizontal and a
-            vertical dimension to turn a circle into an ellipse. Angle dimensions
-            open or close the angle between two lines.
           </Item>
         </Release>
 

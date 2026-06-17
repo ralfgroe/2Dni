@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useGraphStore } from '../../store/graphStore';
 import { extractPoints } from '../../utils/geometryPoints';
 import { getDimensionLabelPoint, measureDimension, isCircular, solveDimensions } from '../../nodes/dimension';
@@ -11,15 +12,14 @@ let idCounter = 0;
 function newId() { return `d${Date.now().toString(36)}${(idCounter++).toString(36)}`; }
 
 // Decide how a two-point linear dimension should be measured/drawn based on the
-// edge the user picked. A near-vertical edge measures its vertical extent (and
-// the dimension line sits to the side); a near-horizontal edge measures its
-// horizontal extent; anything clearly diagonal stays 'aligned'.
+// edge the user picked. A near-vertical edge measures its vertical extent; a
+// near-horizontal edge measures its horizontal extent; clearly diagonal stays
+// 'aligned'.
 function inferAxis(a, b) {
   if (!a || !b) return 'aligned';
   const dx = Math.abs(b.x - a.x);
   const dy = Math.abs(b.y - a.y);
   if (dx <= 1e-6 && dy <= 1e-6) return 'aligned';
-  // Treat as axis-aligned when one delta clearly dominates the other.
   if (dy >= dx * 3) return 'vertical';
   if (dx >= dy * 3) return 'horizontal';
   return 'aligned';
@@ -33,6 +33,13 @@ const MODES = [
   { id: 'relation', label: 'Relation' },
 ];
 
+// SolidWorks-style status colors.
+const STATUS = {
+  under: { color: '#1366d6', label: 'Under-defined' },
+  fully: { color: '#1a1a1a', label: 'Fully defined' },
+  over: { color: '#e03131', label: 'Over-defined' },
+};
+
 export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, viewBox }) {
   const updateNodeParams = useGraphStore((s) => s.updateNodeParams);
   const nodes = useGraphStore((s) => s.nodes);
@@ -40,10 +47,9 @@ export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, 
   const params = node?.data?.params || {};
 
   const [mode, setMode] = useState('linear');
-  const [linearAxis, setLinearAxis] = useState('auto'); // auto | horizontal | vertical | aligned
-  const [relationKind, setRelationKind] = useState('horizontal'); // horizontal | vertical
-  const [pending, setPending] = useState([]); // indices being collected for the current dimension
-  const [editing, setEditing] = useState(null); // { id, value }
+  const [relationKind, setRelationKind] = useState('horizontal');
+  const [pending, setPending] = useState([]);
+  const [editing, setEditing] = useState(null);
   const inputRef = useRef(null);
 
   const sourceEdge = edges.find((e) => e.target === nodeId && e.targetHandle === 'geometry_in');
@@ -62,15 +68,19 @@ export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, 
     units: params.units ?? '',
   }), [params.dim_color, params.text_size, params.arrow_size, params.decimals, params.units]);
 
-  // The shape as currently driven by existing dimensions.
   const solved = useMemo(
     () => (sourceGeo ? solveDimensions(sourceGeo, dims) : null),
     [sourceGeo, dims]
   );
-  const drivenGeo = solved ? solved.geo : null;
+  // The skeleton (solved polygon WITHOUT fillets) is the stable surface for
+  // picking, anchoring and measuring — fillets would otherwise add arc points
+  // that shift vertex indices and break dimension anchors.
+  const skeletonGeo = solved ? solved.skeleton : null;
   const conflicts = solved ? solved.conflicts : null;
+  const status = solved ? solved.status : 'under';
+  const statusInfo = STATUS[status] || STATUS.under;
 
-  const points = useMemo(() => (drivenGeo ? extractPoints(drivenGeo) : []), [drivenGeo]);
+  const points = useMemo(() => (skeletonGeo ? extractPoints(skeletonGeo) : []), [skeletonGeo]);
 
   const persist = useCallback((nextDims) => {
     const { beginOperation, endOperation } = useGraphStore.getState();
@@ -81,24 +91,20 @@ export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, 
 
   const commitDimension = useCallback((partial) => {
     if (partial.kind === 'relation') {
-      // Relations carry no editable value; they only lock orientation.
       persist([...dims, { id: newId(), ...partial }]);
       setPending([]);
       return;
     }
-    const measured = measureDimension(drivenGeo, partial);
+    const measured = measureDimension(skeletonGeo, partial);
     const dim = { id: newId(), value: measured != null ? Math.round(measured * 100) / 100 : null, ...partial };
     persist([...dims, dim]);
     setPending([]);
-  }, [drivenGeo, dims, persist]);
+  }, [skeletonGeo, dims, persist]);
 
   const handlePointClick = useCallback((idx) => {
     if (mode === 'radius' || mode === 'diameter') {
       const pt = points[idx];
-      // On a genuinely round shape, drive the circle's radius/diameter. On a
-      // compound/boolean shape: clicking a smooth point (on an arc) measures
-      // that arc's radius (read-only); clicking a sharp corner fillets it.
-      if (mode === 'radius' && !isCircular(drivenGeo) && pt) {
+      if (mode === 'radius' && !isCircular(skeletonGeo) && pt) {
         if (pt.sharp) {
           commitDimension({ kind: 'fillet', a: idx, ax: pt.x, ay: pt.y, labelOffset: 30 });
         } else {
@@ -123,9 +129,7 @@ export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, 
     } else if (mode === 'linear') {
       if (next.length === 2) {
         const pa = points[next[0]], pb = points[next[1]];
-        const axis = linearAxis === 'auto' ? inferAxis(pa, pb) : linearAxis;
-        // Store the picked coordinates so anchors stay correct even after the
-        // shape is converted to a booleanResult (whose vertex ordering differs).
+        const axis = inferAxis(pa, pb);
         commitDimension({
           kind: 'linear', a: next[0], b: next[1], axis, labelOffset: 30,
           ax: pa?.x, ay: pa?.y, bx: pb?.x, by: pb?.y,
@@ -135,7 +139,6 @@ export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, 
       }
     } else if (mode === 'angle') {
       if (next.length === 3) {
-        // first click = vertex, then the two arms
         const pv = points[next[0]], pa = points[next[1]], pb = points[next[2]];
         commitDimension({
           kind: 'angle', v: next[0], a: next[1], b: next[2], labelOffset: 40,
@@ -145,10 +148,9 @@ export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, 
         setPending(next);
       }
     }
-  }, [mode, linearAxis, relationKind, pending, commitDimension, points, drivenGeo]);
+  }, [mode, relationKind, pending, commitDimension, points, skeletonGeo]);
 
   const startEdit = useCallback((dim) => {
-    // arcRadius is a measured (read-only) value; relations have no value at all.
     if (dim.kind === 'arcRadius' || dim.kind === 'relation') return;
     setEditing({ id: dim.id, value: dim.value != null ? String(dim.value) : '' });
     setTimeout(() => { inputRef.current?.focus(); inputRef.current?.select(); }, 0);
@@ -159,9 +161,6 @@ export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, 
     const num = parseFloat(editing.value);
     const next = dims.map((d) => {
       if (d.id !== editing.id) return d;
-      // Linear/radius/diameter lengths must be positive; angles may be any
-      // finite value. Reject anything else and keep the previous value so a
-      // stray 0/negative/blank entry can't collapse the geometry.
       const isAngle = d.kind === 'angle';
       const valid = isFinite(num) && (isAngle || num > 0);
       return { ...d, value: valid ? num : d.value };
@@ -174,20 +173,16 @@ export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, 
     persist(dims.filter((d) => d.id !== id));
   }, [dims, persist]);
 
-  // --- Label dragging (SolidWorks-style: reposition a dimension's text) ---
-  const dragRef = useRef(null); // { id, moved }
+  const dragRef = useRef(null);
 
   const beginLabelDrag = useCallback((e, dim) => {
     e.stopPropagation();
-    // Don't preventDefault here: that would swallow the dblclick used to edit.
     const startX = e.clientX, startY = e.clientY;
     dragRef.current = { id: dim.id, moved: false, startX, startY };
 
     const onMove = (ev) => {
       const d = dragRef.current;
       if (!d) return;
-      // Require a small drag past a threshold before we treat it as a move, so
-      // a plain click (or double-click to edit) is never mistaken for a drag.
       if (!d.moved) {
         const dpx = Math.abs(ev.clientX - d.startX);
         const dpy = Math.abs(ev.clientY - d.startY);
@@ -195,8 +190,6 @@ export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, 
         d.moved = true;
       }
       const p = screenToSvg(ev.clientX, ev.clientY);
-      // Update only the dragged dimension; write straight to params so the
-      // label tracks the cursor live without flooding the undo stack.
       const next = parseJSON(node?.data?.params?.dimensions || '[]', []).map((dd) =>
         dd.id === d.id ? { ...dd, labelPos: { x: p.x, y: p.y } } : dd
       );
@@ -207,7 +200,6 @@ export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, 
       window.removeEventListener('mouseup', onUp);
       const d = dragRef.current;
       dragRef.current = null;
-      // Commit one undo step only if the label actually moved.
       if (d && d.moved) {
         const { beginOperation, endOperation } = useGraphStore.getState();
         beginOperation();
@@ -228,16 +220,13 @@ export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, 
   const ptR = Math.max(3, (viewBox?.w ?? 800) * 0.006);
   const accent = '#e64980';
 
-  // Compute editable label positions for each existing dimension.
   const labelHandles = dims.map((d) => {
-    const lp = getDimensionLabelPoint(drivenGeo, d, style);
+    const lp = getDimensionLabelPoint(skeletonGeo, d, style);
     return lp ? { dim: d, ...lp } : null;
   }).filter(Boolean);
 
   const modeHint = mode === 'linear'
-    ? (linearAxis === 'auto'
-        ? 'Click two points (auto orientation)'
-        : `Click two points (${linearAxis})`)
+    ? 'Click two points to dimension'
     : mode === 'relation'
       ? `Click two points on a line to lock it ${relationKind}`
     : mode === 'angle'
@@ -246,9 +235,9 @@ export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, 
         ? 'Click a circle, an arc to measure its radius, or a sharp corner to fillet it'
         : 'Click the shape to dimension its diameter';
 
-  return (
+  const handles = (
     <g onClick={(e) => e.stopPropagation()} style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>
-      {/* Picking handles on the driven shape */}
+      {/* Picking handles on the driven shape, tinted by sketch status. */}
       {points.map((pt) => {
         const isPending = pending.includes(pt.idx);
         return (
@@ -262,7 +251,7 @@ export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, 
             <circle
               cx={pt.x} cy={pt.y} r={ptR}
               fill={isPending ? accent : '#ffffff'}
-              stroke={isPending ? accent : style.color}
+              stroke={isPending ? accent : statusInfo.color}
               strokeWidth={sw * 1.5}
               style={{ pointerEvents: 'none' }}
             />
@@ -271,7 +260,7 @@ export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, 
       })}
 
       {/* Editable value handles over each dimension label */}
-      {labelHandles.map(({ dim, x, y, text }) => {
+      {labelHandles.map(({ dim, x, y }) => {
         const isConflict = conflicts && conflicts.has(dim.id);
         return (
         <g key={`lbl${dim.id}`}>
@@ -294,7 +283,6 @@ export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, 
             onMouseDown={(e) => { beginLabelDrag(e, dim); }}
             onDoubleClick={(e) => { e.stopPropagation(); startEdit(dim); }}
           />
-          {/* small delete affordance */}
           <g
             transform={`translate(${x + style.textSize * 2}, ${y - style.textSize * 0.9})`}
             style={{ cursor: 'pointer' }}
@@ -304,7 +292,6 @@ export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, 
             <line x1={-ptR * 0.4} y1={-ptR * 0.4} x2={ptR * 0.4} y2={ptR * 0.4} stroke={accent} strokeWidth={sw} />
             <line x1={-ptR * 0.4} y1={ptR * 0.4} x2={ptR * 0.4} y2={-ptR * 0.4} stroke={accent} strokeWidth={sw} />
           </g>
-          {/* reset-position affordance, shown only once the label has been moved */}
           {dim.labelPos && (
             <g
               transform={`translate(${x - style.textSize * 2.4}, ${y - style.textSize * 0.9})`}
@@ -355,127 +342,77 @@ export default function DimensionOverlay({ nodeId, screenToSvg, edges, results, 
         </g>
       );
       })}
-
-      {/* Mode toolbar + hint, pinned to the top-left of the current view.
-          The inner content is authored at a fixed pixel size, then scaled by
-          the world-units-per-reference-width ratio so it stays a stable size
-          on screen at any zoom and never gets cropped. */}
-      {(() => {
-        const s = viewBox.w / 800; // world units per "design pixel"
-        const padX = viewBox.w * 0.02;
-        const padY = viewBox.h * 0.02;
-        // Author the panel at a fixed 360x84 px and scale into world units.
-        const PANEL_W = 360, PANEL_H = 128;
-        return (
-          <foreignObject
-            x={viewBox.x + padX}
-            y={viewBox.y + padY}
-            width={PANEL_W * s}
-            height={PANEL_H * s}
-            style={{ overflow: 'visible' }}
-          >
-            <div
-              style={{
-                width: PANEL_W,
-                height: PANEL_H,
-                transform: `scale(${s})`,
-                transformOrigin: 'top left',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 6,
-                fontFamily: 'system-ui, sans-serif',
-              }}
-              onMouseDown={(e) => e.stopPropagation()}
-            >
-              <div style={{ display: 'flex', gap: 4, flexWrap: 'nowrap' }}>
-                {MODES.map((m) => (
-                  <button
-                    key={m.id}
-                    onClick={(e) => { e.stopPropagation(); setMode(m.id); setPending([]); }}
-                    style={{
-                      fontSize: 12,
-                      padding: '4px 10px',
-                      borderRadius: 6,
-                      whiteSpace: 'nowrap',
-                      border: `1px solid ${mode === m.id ? style.color : '#ced4da'}`,
-                      background: mode === m.id ? style.color : '#fff',
-                      color: mode === m.id ? '#fff' : '#495057',
-                      cursor: 'pointer',
-                      fontWeight: mode === m.id ? 600 : 400,
-                      boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
-                    }}
-                  >
-                    {m.label}
-                  </button>
-                ))}
-              </div>
-              {mode === 'linear' && (
-                <div style={{ display: 'flex', gap: 4, flexWrap: 'nowrap' }}>
-                  {[
-                    { id: 'auto', label: 'Smart' },
-                    { id: 'horizontal', label: 'Horizontal' },
-                    { id: 'vertical', label: 'Vertical' },
-                    { id: 'aligned', label: 'Aligned' },
-                  ].map((ax) => {
-                    const active = linearAxis === ax.id;
-                    return (
-                      <button
-                        key={ax.id}
-                        onClick={(e) => { e.stopPropagation(); setLinearAxis(ax.id); setPending([]); }}
-                        style={{
-                          fontSize: 11,
-                          padding: '3px 8px',
-                          borderRadius: 5,
-                          whiteSpace: 'nowrap',
-                          border: `1px solid ${active ? style.color : '#dee2e6'}`,
-                          background: active ? 'rgba(19,102,214,0.12)' : '#fff',
-                          color: active ? style.color : '#868e96',
-                          cursor: 'pointer',
-                          fontWeight: active ? 600 : 400,
-                        }}
-                      >
-                        {ax.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-              {mode === 'relation' && (
-                <div style={{ display: 'flex', gap: 4, flexWrap: 'nowrap' }}>
-                  {[
-                    { id: 'horizontal', label: 'Horizontal' },
-                    { id: 'vertical', label: 'Vertical' },
-                  ].map((rk) => {
-                    const active = relationKind === rk.id;
-                    return (
-                      <button
-                        key={rk.id}
-                        onClick={(e) => { e.stopPropagation(); setRelationKind(rk.id); setPending([]); }}
-                        style={{
-                          fontSize: 11,
-                          padding: '3px 8px',
-                          borderRadius: 5,
-                          whiteSpace: 'nowrap',
-                          border: `1px solid ${active ? style.color : '#dee2e6'}`,
-                          background: active ? 'rgba(19,102,214,0.12)' : '#fff',
-                          color: active ? style.color : '#868e96',
-                          cursor: 'pointer',
-                          fontWeight: active ? 600 : 400,
-                        }}
-                      >
-                        {rk.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-              <div style={{ fontSize: 11, color: '#868e96', background: 'rgba(255,255,255,0.85)', padding: '2px 6px', borderRadius: 4, width: 'fit-content', whiteSpace: 'nowrap' }}>
-                {modeHint}{pending.length > 0 ? ` \u2014 ${pending.length} picked` : ''}. Drag a value to move it; double-click to edit.
-              </div>
-            </div>
-          </foreignObject>
-        );
-      })()}
     </g>
+  );
+
+  // Screen-fixed compact toolbar, mounted next to the # grid button so it never
+  // eats stage space and doesn't scale with zoom.
+  const canvasEl = typeof document !== 'undefined'
+    ? document.querySelector('[data-viewport-canvas]')
+    : null;
+  const btn = (active) => ({
+    fontSize: 11,
+    padding: '3px 9px',
+    height: 22,
+    borderRadius: 5,
+    whiteSpace: 'nowrap',
+    border: `1px solid ${active ? style.color : '#ced4da'}`,
+    background: active ? style.color : '#fff',
+    color: active ? '#fff' : '#495057',
+    cursor: 'pointer',
+    fontWeight: active ? 600 : 400,
+    lineHeight: 1,
+  });
+  const subBtn = (active) => ({
+    fontSize: 11,
+    padding: '3px 8px',
+    height: 22,
+    borderRadius: 5,
+    whiteSpace: 'nowrap',
+    border: `1px solid ${active ? style.color : '#dee2e6'}`,
+    background: active ? 'rgba(19,102,214,0.12)' : '#fff',
+    color: active ? style.color : '#868e96',
+    cursor: 'pointer',
+    fontWeight: active ? 600 : 400,
+    lineHeight: 1,
+  });
+
+  const toolbar = (
+    <div
+      className="absolute top-2 z-10"
+      style={{ left: 44, display: 'flex', flexDirection: 'column', gap: 5, fontFamily: 'system-ui, sans-serif', pointerEvents: 'auto' }}
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'nowrap' }}>
+        {MODES.map((m) => (
+          <button key={m.id} onClick={() => { setMode(m.id); setPending([]); }} style={btn(mode === m.id)}>
+            {m.label}
+          </button>
+        ))}
+        {mode === 'relation' && [
+          { id: 'horizontal', label: 'Horizontal' },
+          { id: 'vertical', label: 'Vertical' },
+        ].map((rk) => (
+          <button key={rk.id} onClick={() => { setRelationKind(rk.id); setPending([]); }} style={subBtn(relationKind === rk.id)}>
+            {rk.label}
+          </button>
+        ))}
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginLeft: 6 }}>
+          <span style={{ width: 9, height: 9, borderRadius: '50%', background: statusInfo.color, border: '1px solid rgba(0,0,0,0.15)' }} />
+          <span style={{ fontSize: 11, fontWeight: 600, color: statusInfo.color }}>{statusInfo.label}</span>
+        </span>
+      </div>
+      <div style={{ fontSize: 10, color: '#868e96', background: 'rgba(255,255,255,0.85)', padding: '2px 6px', borderRadius: 4, width: 'fit-content', whiteSpace: 'nowrap' }}>
+        {modeHint}{pending.length > 0 ? ` \u2014 ${pending.length} picked` : ''}. Drag a value to move it; double-click to edit.
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      {handles}
+      {canvasEl ? createPortal(toolbar, canvasEl) : null}
+    </>
   );
 }

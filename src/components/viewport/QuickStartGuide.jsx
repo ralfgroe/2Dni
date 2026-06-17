@@ -74,16 +74,18 @@ export default function QuickStartGuide({ onClose }) {
         </Section>
 
         <Section number="8" title="Parametric Dimensions (CAD)">
-          <P>The <B>Dimension</B> node lets you measure and <B>drive</B> geometry by typing numbers — like a SolidWorks sketch. Connect a shape to its input, select the node, and use the toolbar in the Viewport to place dimensions.</P>
-          <DimensionDiagram />
+          <P>The <B>Dimension</B> node lets you drive a shape by its measurements, SolidWorks-style. It runs a real geometric constraint solver: every vertex is a variable, and your dimensions plus auto-inferred Horizontal/Vertical/fixed-angle relations are equations solved together — so changing one dimension moves <B>only what it must</B>.</P>
+          <ChainDiagram nodes={['Polyline','Dimension']} />
           <Steps>
-            <Step>Add a shape (e.g. <B>Rectangle</B> or <B>Circle</B>) and a <B>Dimension</B> node below it</Step>
-            <Step>Select Dimension — a toolbar appears in the Viewport: <B>Linear</B>, <B>Radius</B>, <B>Diameter</B>, <B>Angle</B></Step>
-            <Step>For <B>Linear</B>, pick <B>Smart / Horizontal / Vertical / Aligned</B>, then click two points</Step>
-            <Step><B>Double-click</B> the value on the canvas, type a new number, and press <B>Enter</B> — the geometry updates to match</Step>
+            <Step>Sketch a shape (the <B>Polyline</B> node is great for floorplans)</Step>
+            <Step>Add a <B>Dimension</B> node below it and select it</Step>
+            <Step>Use the viewport toolbar to pick <B>Linear</B>, <B>Angle</B>, <B>Radius</B>, <B>Diameter</B>, or <B>Relation</B></Step>
+            <Step>Click points to place a dimension, then <B>double-click its value</B> and type a new number to drive the geometry</Step>
+            <Step>Drag a value to reposition it; the small <B>×</B> deletes it</Step>
           </Steps>
-          <Tip>A linear dimension across a circle scales it; add a horizontal <B>and</B> a vertical one to turn a circle into an ellipse. <B>Angle</B> dimensions open or close the angle between two lines.</Tip>
-          <Tip>Drag a dimension's number to reposition it. Use the small <B>↺</B> button to snap it back to its default spot.</Tip>
+          <Tip>Linear dimensions auto-orient to the edge you pick — horizontal, vertical, or aligned — so there's nothing extra to choose.</Tip>
+          <Tip>The sketch is colored by state, like SolidWorks: <B style={{ color: '#1366d6' }}>blue</B> = under-defined, <B style={{ color: '#1a1a1a' }}>black</B> = fully defined, <B style={{ color: '#e03131' }}>red</B> = over-defined. A dimension that can't be satisfied turns red with an <B>X</B> and is not applied, so your set dimensions never silently change.</Tip>
+          <Tip>Use the <B>Relation</B> tool to lock an edge Horizontal or Vertical. Undimensioned diagonals stay fixed when you resize other edges, and corner <B>fillets</B> are cosmetic — adding one never disturbs your other dimensions.</Tip>
         </Section>
 
         <Section number="9" title="Exporting Your Work">
@@ -133,7 +135,6 @@ export default function QuickStartGuide({ onClose }) {
             <Tip>Use <B>arrow keys</B> to navigate the toolbox, press <B>Enter</B> to add.</Tip>
             <Tip><B>Split</B> separates compound geometry into individual pieces you can color independently.</Tip>
             <Tip><B>Point Transform</B> lets you select and drag individual vertices for precise control.</Tip>
-            <Tip><B>Dimension</B> (CAD) drives geometry by number — type a length, radius, or angle to resize the shape parametrically.</Tip>
           </div>
         </Section>
 
@@ -297,35 +298,6 @@ function MergeDiagram() {
       <SvgWire x1={320} y1={44} x2={272} y2={96} />
       <SvgNode x={260} y={112} label="Boolean" inputs={2} outputs={1} />
       <text x={260} y={148} textAnchor="middle" fontSize="8" fill="#868e96" fontFamily="system-ui">Two inputs → one combined output</text>
-    </Illust>
-  );
-}
-
-function DimensionDiagram() {
-  return (
-    <Illust width={520} height={150}>
-      {/* The shape being driven */}
-      <rect x={150} y={30} width={150} height={60} rx={4} fill="#dbe4ff" stroke="#4263eb" strokeWidth={1.5} />
-
-      {/* Horizontal dimension below */}
-      <line x1={150} y1={90} x2={150} y2={120} stroke="#1366d6" strokeWidth={0.8} />
-      <line x1={300} y1={90} x2={300} y2={120} stroke="#1366d6" strokeWidth={0.8} />
-      <line x1={150} y1={114} x2={300} y2={114} stroke="#1366d6" strokeWidth={0.9} />
-      <polygon points="150,114 158,111 158,117" fill="#1366d6" />
-      <polygon points="300,114 292,111 292,117" fill="#1366d6" />
-      <rect x={205} y={104} width={40} height={18} rx={3} fill="#fff" stroke="#1366d6" strokeWidth={1} />
-      <text x={225} y={117} textAnchor="middle" fontSize="11" fontWeight="600" fill="#1366d6" fontFamily="system-ui">200</text>
-
-      {/* Vertical dimension on the right */}
-      <line x1={300} y1={30} x2={330} y2={30} stroke="#1366d6" strokeWidth={0.8} />
-      <line x1={300} y1={90} x2={330} y2={90} stroke="#1366d6" strokeWidth={0.8} />
-      <line x1={324} y1={30} x2={324} y2={90} stroke="#1366d6" strokeWidth={0.9} />
-      <polygon points="324,30 321,38 327,38" fill="#1366d6" />
-      <polygon points="324,90 321,82 327,82" fill="#1366d6" />
-      <text x={340} y={63} fontSize="11" fontWeight="600" fill="#1366d6" fontFamily="system-ui">80</text>
-
-      {/* Hint */}
-      <text x={225} y={142} textAnchor="middle" fontSize="8" fill="#868e96" fontFamily="system-ui">Double-click a value, type a number — the shape resizes</text>
     </Illust>
   );
 }

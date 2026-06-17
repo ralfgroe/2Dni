@@ -417,7 +417,7 @@ export default function Viewport() {
 
   return (
     <div className="flex h-full w-full flex-col">
-      <div className="relative flex-1 w-full bg-bg-primary" style={{ minHeight: 0 }}>
+      <div className="relative flex-1 w-full bg-bg-primary" style={{ minHeight: 0 }} data-viewport-canvas>
       <button
         onClick={() => setShowGrid((v) => !v)}
         className="absolute top-2 left-2 z-10 flex items-center gap-1 rounded border border-border-primary bg-bg-secondary text-[10px] text-text-secondary hover:bg-bg-tertiary"

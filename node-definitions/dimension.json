@@ -2,7 +2,7 @@
   "id": "dimension",
   "label": "Dimension",
   "category": "Sketch",
-  "description": "Add parametric, driven dimensions to a shape \u2014 SolidWorks-style. Select the node, then place dimensions in the viewport and type a number to drive the geometry. Use the Relation mode to lock an edge Horizontal or Vertical. Dimensions you've set hold their value; if a new dimension can't be satisfied it turns red with an X (over-defined).",
+  "description": "Add parametric, driven dimensions to a shape \u2014 SolidWorks-style. Select the node, then place dimensions in the viewport and type a number to drive the geometry. A full constraint solver treats vertices as variables and your dimensions plus auto-inferred Horizontal/Vertical/fixed-angle relations as equations, so editing one dimension changes only what it must. The sketch is colored by status: blue = under-defined, black = fully defined, red = over-defined. A dimension that can't be satisfied turns red with an X and is not applied. Use Relation mode to lock an edge Horizontal or Vertical.",
   "inputs": [
     { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }
   ],
@@ -12,6 +12,7 @@
   "parameters": [
     { "id": "dimensions", "label": "Dimensions", "type": "text", "default": "[]" },
     { "id": "show_dimensions", "label": "Show Dimensions", "type": "boolean", "default": true },
+    { "id": "show_status", "label": "Show Status Colors", "type": "boolean", "default": true },
     { "id": "dim_color", "label": "Dimension Color", "type": "color", "default": "#1366d6" },
     { "id": "text_size", "label": "Text Size", "type": "number", "default": 14, "min": 6, "max": 48, "step": 1 },
     { "id": "arrow_size", "label": "Arrow Size", "type": "number", "default": 8, "min": 2, "max": 30, "step": 1 },

@@ -2,21 +2,31 @@ import paper from 'paper';
 import { geoToPaperPath, flattenGeoToPathData } from '../utils/geoPathUtils';
 import { extractPoints } from '../utils/geometryPoints';
 import { filletCornersAt } from './radius';
+import { buildSystem, solve, tryAddConstraint, analyzeDOF, buildStiffness } from './constraintSolver';
 
 /*
- * Clean dimensioning core.
+ * Dimensioning core, rebuilt on a real geometric constraint solver.
  *
- * Single source of truth: every dimension stores the coordinates the user
- * picked (ax,ay,bx,by for linear; vx,vy,ax,ay,bx,by for angle; ax,ay for
- * radial/fillet). On each evaluation those coordinates are resolved against the
- * LIVE geometry's vertices (nearest match). The drive step and the annotation
- * step BOTH read from the same resolveAnchor result, so they can never disagree
- * (which was the root cause of every prior glitch).
+ * The previous heuristic "push one vertex" approach could never reliably mimic
+ * SolidWorks, so this version models the sketch the way a CAD kernel does:
+ *   - every sketch vertex is a pair of unknowns (x, y);
+ *   - each edge gets an implicit relation (Horizontal / Vertical / fixed-angle)
+ *     inferred from how it was drawn, so undimensioned geometry stays rigid;
+ *   - each user dimension/relation is a constraint equation;
+ *   - constraintSolver.js solves the whole system numerically, returning the
+ *     minimal-movement configuration that satisfies everything.
  *
- * Drive model: a linear dimension moves ONLY its second vertex (B) along the
- * dimension axis so the measured span equals the typed value. A and every other
- * vertex stay fixed. Circles/ellipses scale per-axis about their centre.
+ * Dimensions are added incrementally (creation order). A new dimension that the
+ * solver cannot satisfy without breaking an earlier one — or that adds no new
+ * information — is OVER-DEFINED: it is flagged red with an "X" and NOT applied,
+ * exactly like SolidWorks. The whole sketch is also classified under/fully/over-
+ * defined for status coloring (blue / black / red).
  */
+
+const CONFLICT_DIM_COLOR = '#e03131';
+const PASSIVE_DIM_COLOR = '#868e96';
+const UNDER_COLOR = '#1366d6';  // blue: under-defined (free DOF remain)
+const FULLY_COLOR = '#1a1a1a';  // black: fully defined
 
 let paperInitialized = false;
 const canvas = typeof document !== 'undefined' ? document.createElement('canvas') : null;
@@ -63,9 +73,92 @@ function paperPathToGeo(path, source) {
   };
 }
 
-/* ---- anchor resolution (the single source of truth) ---- */
+/* Normalize any input geometry to a canonical booleanResult so its vertex order
+   is fixed for the whole drive sequence. */
+function normalizeInput(geo) {
+  if (!geo) return geo;
+  if (geo.type === 'booleanResult') return geo;
+  ensurePaper();
+  const path = geoToPaperPath(geo);
+  if (!path) return geo;
+  const out = paperPathToGeo(path, geo);
+  path.remove();
+  return out && out.pathData ? out : geo;
+}
 
-/* Find the vertex in `pts` nearest to (x, y). */
+/* ---- sketch extraction: geometry -> {vertices, edges, closed, subpaths} ----
+   The solver works on a flat list of vertices and the edges (vertex-index pairs)
+   connecting them. We pull these from the path's segments, preserving order so a
+   vertex index is stable across edits (driving never reorders segments). Each
+   subpath records its [startIdx, endIdx, closed] so we can rebuild pathData. */
+function geoToSketch(geo) {
+  ensurePaper();
+  const path = geoToPaperPath(geo);
+  if (!path) return null;
+  try {
+    const children = path.className === 'CompoundPath' ? (path.children || []) : [path];
+    const vertices = [];
+    const edges = [];
+    const subpaths = [];
+    let gi = 0;
+    for (const child of children) {
+      const segs = child.segments || [];
+      if (segs.length === 0) continue;
+      const start = gi;
+      for (const s of segs) {
+        vertices.push({
+          x: s.point.x,
+          y: s.point.y,
+          // store relative bezier handles so curved edges keep their shape when
+          // their anchor vertex moves.
+          hin: s.handleIn ? { x: s.handleIn.x, y: s.handleIn.y } : null,
+          hout: s.handleOut ? { x: s.handleOut.x, y: s.handleOut.y } : null,
+        });
+        gi++;
+      }
+      const end = gi - 1;
+      const closed = !!child.closed;
+      for (let i = start; i < end; i++) edges.push([i, i + 1]);
+      if (closed && end > start) edges.push([end, start]);
+      subpaths.push({ start, end, closed });
+    }
+    return { vertices, edges, subpaths, source: geo };
+  } finally {
+    path.remove();
+  }
+}
+
+/* Rebuild a booleanResult from solved vertex positions, reusing the stored
+   bezier handles so curves are preserved. */
+function sketchToGeo(sketch, V, source) {
+  ensurePaper();
+  const children = [];
+  for (const sp of sketch.subpaths) {
+    const p = new paper.Path();
+    for (let i = sp.start; i <= sp.end; i++) {
+      const v = sketch.vertices[i];
+      const pt = new paper.Point(V[2 * i], V[2 * i + 1]);
+      const seg = new paper.Segment(pt,
+        v.hin ? new paper.Point(v.hin.x, v.hin.y) : null,
+        v.hout ? new paper.Point(v.hout.x, v.hout.y) : null);
+      p.add(seg);
+    }
+    if (sp.closed) p.closePath();
+    children.push(p);
+  }
+  let item;
+  if (children.length === 1) {
+    item = children[0];
+  } else {
+    item = new paper.CompoundPath({ children });
+  }
+  const out = paperPathToGeo(item, source);
+  item.remove();
+  return out;
+}
+
+/* ---- anchor resolution (single source of truth for drive + annotation) ---- */
+
 function nearestPoint(pts, x, y) {
   if (!isFinite(x) || !isFinite(y)) return null;
   let best = null, bestD = Infinity;
@@ -76,28 +169,18 @@ function nearestPoint(pts, x, y) {
   return best;
 }
 
-/* A snap tolerance scaled to the geometry so it works at any zoom/size. */
-function anchorSnapTolerance(pts) {
-  if (!pts || pts.length === 0) return 1;
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+function nearestPointExcept(pts, x, y, exceptIdx) {
+  let best = null, bestD = Infinity;
   for (const p of pts) {
-    if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
-    if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
+    if (p.idx === exceptIdx) continue;
+    const d = (p.x - x) * (p.x - x) + (p.y - y) * (p.y - y);
+    if (d < bestD) { bestD = d; best = p; }
   }
-  const diag = Math.hypot(maxX - minX, maxY - minY) || 1;
-  return Math.max(2, diag * 0.05);
+  return best;
 }
 
-/* Resolve a dimension anchor to a live vertex.
-
-   Vertex IDENTITY is a canonical index computed once per evaluation against the
-   normalized input (see bindAnchors): the drive operations (rigid translation /
-   arm rotation) never add, remove, or reorder vertices, and the pathData
-   round-trip preserves segment order, so that index refers to the same corner
-   after any number of edits. We therefore trust the bound index (_ai/_bi/_vi)
-   first. If it is missing (not yet bound) we fall back to coordinate-nearest,
-   then to the raw stored coordinate. Drive and annotation both call this, so
-   they always read the identical vertex. */
+/* Resolve a dimension anchor to a live vertex, trusting the bound canonical
+   index first, then coordinate-nearest, then the raw stored coordinate. */
 function resolveAnchor(pts, dim, idxKey, xKey, yKey) {
   const boundKey = '_' + idxKey + 'i';
   const bi = dim[boundKey];
@@ -114,12 +197,8 @@ function resolveAnchor(pts, dim, idxKey, xKey, yKey) {
   return p ? { x: p.x, y: p.y, idx: p.idx, sharp: p.sharp } : null;
 }
 
-/* Bind each dimension's anchors to canonical vertex indices of the normalized
-   input, ONCE, before any driving. After this every resolveAnchor call uses the
-   stable index, so a dimension keeps referring to the same corner even though
-   primitives (rect/ellipse) get reindexed when converted to a booleanResult and
-   even though earlier dimensions move vertices around. Radial/fillet/arcRadius
-   dims don't use vertex anchors, so they are skipped. */
+/* Bind each dimension's anchors to canonical vertex indices once, before any
+   solving, so a dimension keeps referring to the same corner across edits. */
 function bindAnchors(canonicalPts, dims) {
   const bind = (dim, idxKey, xKey, yKey) => {
     if (dim[xKey] != null && dim[yKey] != null) {
@@ -139,12 +218,6 @@ function bindAnchors(canonicalPts, dims) {
     } else if (dim.kind === 'relation' || dim.kind === 'linear' || !dim.kind) {
       bind(dim, 'a', 'ax', 'ay');
       bind(dim, 'b', 'bx', 'by');
-      // Safety net for a SECOND dimension placed after an earlier one moved a
-      // vertex: the stored coordinates are captured against the driven shape, so
-      // both ends can snap (nearest) onto the SAME canonical vertex, collapsing
-      // the dimension to length 0 and raising a false red conflict. If that
-      // happens, re-resolve the second end to its nearest DISTINCT vertex, and
-      // prefer the stored vertex index when it disagrees with the collapse.
       if (dim._ai != null && dim._ai === dim._bi) {
         if (Number.isInteger(dim.a) && Number.isInteger(dim.b)
             && dim.a !== dim.b
@@ -158,85 +231,6 @@ function bindAnchors(canonicalPts, dims) {
         }
       }
     }
-  }
-}
-
-/* nearestPoint but skipping one vertex index (used to break a collapsed pair). */
-function nearestPointExcept(pts, x, y, exceptIdx) {
-  let best = null, bestD = Infinity;
-  for (const p of pts) {
-    if (p.idx === exceptIdx) continue;
-    const d = (p.x - x) * (p.x - x) + (p.y - y) * (p.y - y);
-    if (d < bestD) { bestD = d; best = p; }
-  }
-  return best;
-}
-
-/* Normalize any input geometry to a canonical booleanResult so its vertex order
-   is fixed for the whole drive sequence. Primitives (rect/ellipse) otherwise
-   get reindexed on their first conversion, which would break index identity. */
-function normalizeInput(geo) {
-  if (!geo) return geo;
-  if (geo.type === 'booleanResult') return geo;
-  ensurePaper();
-  const path = geoToPaperPath(geo);
-  if (!path) return geo;
-  const out = paperPathToGeo(path, geo);
-  path.remove();
-  return out && out.pathData ? out : geo;
-}
-
-/* Resolve an angle's three points by TOPOLOGY rather than absolute coordinate.
-   The corner vertex V is found by nearest match (it stays fixed), then arms A
-   and B are taken as V's two adjacent vertices along the path. After driving
-   rotates arm B, B is still V's neighbour, so the annotation tracks the rotated
-   edge instead of re-measuring a stale stored coordinate. The stored arm
-   directions only decide which neighbour is labelled A vs B (stable
-   orientation); the positions used are always the live ones. Falls back to the
-   plain coordinate anchors if topology can't be recovered. */
-function resolveCornerArms(geo, dim) {
-  ensurePaper();
-  const vx = dim.vx, vy = dim.vy;
-  if (vx == null || vy == null) return null;
-  const path = geoToPaperPath(geo);
-  if (!path) return null;
-  try {
-    const children = path.className === 'CompoundPath' ? (path.children || []) : [path];
-    let bestSeg = null, bestD = Infinity;
-    for (const child of children) {
-      for (const s of child.segments) {
-        const d = Math.hypot(s.point.x - vx, s.point.y - vy);
-        if (d < bestD) { bestD = d; bestSeg = s; }
-      }
-    }
-    if (!bestSeg) return null;
-    const prev = bestSeg.previous;
-    const next = bestSeg.next;
-    if (!prev || !next) return null;
-    const v = { x: bestSeg.point.x, y: bestSeg.point.y };
-    const n1 = { x: prev.point.x, y: prev.point.y };
-    const n2 = { x: next.point.x, y: next.point.y };
-    // Decide which neighbour is arm A using the originally-picked direction, so
-    // the labelled angle keeps a stable orientation across edits.
-    let aDir;
-    if (dim.ax != null && dim.ay != null) {
-      aDir = Math.atan2(dim.ay - vy, dim.ax - vx);
-    } else {
-      aDir = Math.atan2(n1.y - v.y, n1.x - v.x);
-    }
-    const angDiff = (p, q) => {
-      let d = p - q;
-      while (d <= -Math.PI) d += 2 * Math.PI;
-      while (d > Math.PI) d -= 2 * Math.PI;
-      return Math.abs(d);
-    };
-    const ang1 = Math.atan2(n1.y - v.y, n1.x - v.x);
-    const ang2 = Math.atan2(n2.y - v.y, n2.x - v.x);
-    const a = angDiff(ang1, aDir) <= angDiff(ang2, aDir) ? n1 : n2;
-    const b = a === n1 ? n2 : n1;
-    return { v, a, b };
-  } finally {
-    path.remove();
   }
 }
 
@@ -259,10 +253,54 @@ function autoOffset(geo, pts) {
   return 30;
 }
 
-/* ---- circular-shape detection (kept from the original; sound) ---- */
+/* Resolve an angle's three points by topology so the annotation tracks the
+   rotated arm after driving instead of a stale stored coordinate. */
+function resolveCornerArms(geo, dim) {
+  ensurePaper();
+  const vx = dim.vx, vy = dim.vy;
+  if (vx == null || vy == null) return null;
+  const path = geoToPaperPath(geo);
+  if (!path) return null;
+  try {
+    const children = path.className === 'CompoundPath' ? (path.children || []) : [path];
+    let bestSeg = null, bestD = Infinity;
+    for (const child of children) {
+      for (const s of child.segments) {
+        const d = Math.hypot(s.point.x - vx, s.point.y - vy);
+        if (d < bestD) { bestD = d; bestSeg = s; }
+      }
+    }
+    if (!bestSeg) return null;
+    const prev = bestSeg.previous;
+    const next = bestSeg.next;
+    if (!prev || !next) return null;
+    const v = { x: bestSeg.point.x, y: bestSeg.point.y };
+    const n1 = { x: prev.point.x, y: prev.point.y };
+    const n2 = { x: next.point.x, y: next.point.y };
+    let aDir;
+    if (dim.ax != null && dim.ay != null) {
+      aDir = Math.atan2(dim.ay - vy, dim.ax - vx);
+    } else {
+      aDir = Math.atan2(n1.y - v.y, n1.x - v.x);
+    }
+    const angDiff = (p, q) => {
+      let d = p - q;
+      while (d <= -Math.PI) d += 2 * Math.PI;
+      while (d > Math.PI) d -= 2 * Math.PI;
+      return Math.abs(d);
+    };
+    const ang1 = Math.atan2(n1.y - v.y, n1.x - v.x);
+    const ang2 = Math.atan2(n2.y - v.y, n2.x - v.x);
+    const a = angDiff(ang1, aDir) <= angDiff(ang2, aDir) ? n1 : n2;
+    const b = a === n1 ? n2 : n1;
+    return { v, a, b };
+  } finally {
+    path.remove();
+  }
+}
 
-/* Detect the center + radius of a roughly-circular shape so radius/diameter
-   and per-axis linear dimensions can drive it. */
+/* ---- circular-shape detection ---- */
+
 function detectCircle(geo) {
   if (geo.type === 'ellipse') {
     return { cx: geo.cx, cy: geo.cy, r: (geo.rx + geo.ry) / 2 };
@@ -277,9 +315,6 @@ function detectCircle(geo) {
   return { cx, cy, r: (b.width + b.height) / 4 };
 }
 
-/* Is the shape actually round (circle/ellipse/arc) vs a sharp-cornered polygon?
-   Decides whether a linear dim scales the whole shape or moves one vertex, and
-   whether the Radius tool drives the shape or fillets a corner. */
 export function isCircular(geo) {
   if (!geo) return false;
   if (geo.type === 'ellipse' || geo.type === 'arc') return true;
@@ -290,13 +325,6 @@ export function isCircular(geo) {
     if (!path) return false;
     const b = path.bounds;
     const area = Math.abs(path.area);
-
-    // A circle/ellipse is built from curved segments with (almost) no sharp
-    // corners; a polygon (rect, L-shape, floorplan) is straight edges meeting at
-    // sharp corners. The area ratio alone can't tell an L-shape (~0.79) from a
-    // circle (~0.785), so require the outline to be mostly curved before we ever
-    // treat a linear dim as a circle scale. This prevents floorplans from being
-    // distorted as if they were circles.
     const segs = path.className === 'CompoundPath'
       ? (path.children || []).flatMap((c) => c.segments)
       : path.segments;
@@ -310,17 +338,15 @@ export function isCircular(geo) {
     path.remove();
     if (total === 0) return false;
     const curvedFrac = curved / total;
-    if (curvedFrac < 0.6) return false; // mostly straight => polygon, not round
-
+    if (curvedFrac < 0.6) return false;
     if (b.width < 1e-6 || b.height < 1e-6) return false;
-    const ratio = area / (b.width * b.height); // circle ~0.785, square 1.0
+    const ratio = area / (b.width * b.height);
     return ratio > 0.70 && ratio < 0.92;
   } catch {
     return false;
   }
 }
 
-/* Solve a 3x3 linear system via Cramer's rule; returns [x,y,z] or null. */
 function solve3x3(m, b) {
   const det = (a) =>
     a[0][0] * (a[1][1] * a[2][2] - a[1][2] * a[2][1])
@@ -332,7 +358,6 @@ function solve3x3(m, b) {
   return [det(col(m, 0, b)) / D, det(col(m, 1, b)) / D, det(col(m, 2, b)) / D];
 }
 
-/* Circle through three points; returns {cx, cy, r} or null if collinear. */
 function circleThrough3(ax, ay, bx, by, cx2, cy2) {
   const d = 2 * (ax * (by - cy2) + bx * (cy2 - ay) + cx2 * (ay - by));
   if (Math.abs(d) < 1e-9) return null;
@@ -344,7 +369,6 @@ function circleThrough3(ax, ay, bx, by, cx2, cy2) {
   return { cx: ux, cy: uy, r };
 }
 
-/* Least-squares (Kasa) circle fit over many sample points. */
 function fitCircleLSQ(pts) {
   const n = pts.length;
   if (n < 3) return null;
@@ -366,8 +390,6 @@ function fitCircleLSQ(pts) {
   return { cx, cy, r };
 }
 
-/* Fit a circle to the arc nearest a clicked point (measure-only radius of a
-   curved sub-feature on a compound/boolean shape). */
 function fitCircleAt(geo, clickX, clickY) {
   ensurePaper();
   const path = geoToPaperPath(geo);
@@ -405,450 +427,226 @@ function fitCircleAt(geo, clickX, clickY) {
   }
 }
 
-/* ---- drive primitives ---- */
+/* ---- constraint assembly ---------------------------------------------------
+   Build the solver constraint list for a sketch + the user's dimensions.
 
-/* Rigid half-space translation: shift every vertex on the mover's side of the
-   dividing plane by (tx,ty). The plane passes through the pinned point (pinX,
-   pinY) and is perpendicular to the push direction (ux,uy). Because an entire
-   sub-chain of the polygon translates together, every edge keeps its original
-   direction — a rectilinear floorplan stays rectilinear (walls remain
-   orthogonal) instead of shearing, which is what moving a single shared vertex
-   would do. Bezier handles travel with their anchor (Paper stores them
-   relative), so curved segments that move keep their shape. */
-function translateHalfSpace(geo, ux, uy, delta, pinX, pinY) {
-  ensurePaper();
-  if (!isFinite(ux) || !isFinite(uy) || !isFinite(delta)) return geo;
-  if (Math.abs(delta) < 1e-9) return geo;
-  const path = geoToPaperPath(geo);
-  if (!path) return geo;
+   Order matters for SolidWorks-style behavior:
+     1. Anchor the first vertex of the first subpath (grounds translation).
+     2. Add an implicit relation per edge (H / V / fixed-angle) so undimensioned
+        geometry stays rigid. A directional explicit relation on the same edge
+        supersedes its implicit one; a distance dimension does NOT (a dimensioned
+        horizontal wall is still horizontal).
+     3. Add the user's driving dimensions in creation order via tryAddConstraint,
+        so any that can't be satisfied are detected as conflicts and skipped. */
 
-  const tx = ux * delta, ty = uy * delta;
-  const eps = 1e-6;
-  const move = (segs) => {
-    for (const s of segs) {
-      const rel = (s.point.x - pinX) * ux + (s.point.y - pinY) * uy;
-      if (rel > eps) s.point = new paper.Point(s.point.x + tx, s.point.y + ty);
-    }
-  };
-  if (path.className === 'CompoundPath') {
-    for (const child of (path.children || [])) move(child.segments);
-  } else {
-    move(path.segments);
+const EDGE_KEY = (a, b) => `${Math.min(a, b)}-${Math.max(a, b)}`;
+
+/* Map a dimension's resolved anchor vertices back to sketch vertex indices.
+   The sketch vertex order matches extractPoints' idx order (both come from the
+   same path segment walk), so the bound index is directly usable. */
+function dimVertexIndices(dim, pts) {
+  const out = {};
+  for (const [ik, xk, yk] of [['a', 'ax', 'ay'], ['b', 'bx', 'by'], ['v', 'vx', 'vy']]) {
+    const r = resolveAnchor(pts, dim, ik, xk, yk);
+    if (r && r.idx >= 0) out[ik] = r.idx;
   }
-  const out = paperPathToGeo(path, geo);
-  path.remove();
-  if (!out || !out.pathData) return geo;
   return out;
 }
 
-/* Translate the mover endpoint and the connected run of vertices that must
-   follow it to keep the sketch rigid, WITHOUT crossing a frozen vertex (one
-   pinned by a locked dimension). This is the CAD-correct way to resize one
-   feature of an orthogonal floorplan: pushing a bottom step out lengthens that
-   step and slides only its attached wall, leaving every other edge — including
-   already-dimensioned ones — exactly where it was. So an unrelated, undefined
-   edge can always be set even when other edges are locked.
+/* Implicit per-edge relations from the seed geometry. */
+function implicitRelations(sketch, V) {
+  const rels = [];
+  for (const [a, b] of sketch.edges) {
+    const dx = V[2 * b] - V[2 * a];
+    const dy = V[2 * b + 1] - V[2 * a + 1];
+    const adx = Math.abs(dx), ady = Math.abs(dy);
+    let rel;
+    if (ady < 1e-4 && adx > 1e-4) rel = { type: 'horizontal', a, b };
+    else if (adx < 1e-4 && ady > 1e-4) rel = { type: 'vertical', a, b };
+    else rel = { type: 'fixedAngle', a, b, theta0: Math.atan2(dy, dx) };
+    rel._edge = [a, b];
+    rels.push(rel);
+  }
+  return rels;
+}
 
-   Propagation rule for an axis-aligned motion (unit ux,uy): a neighbour vertex
-   must move with the current one across any edge that is NOT parallel to the
-   motion. A PERPENDICULAR edge (e.g. a vertical wall for a horizontal push)
-   carries the shift to stay vertical; an ANGLED edge (a diagonal) is carried
-   rigidly so its angle is preserved — undimensioned angles are held fixed and
-   never rotated. Only an edge PARALLEL to the motion just changes length, so its
-   far end stays put. We never step onto a frozen vertex or the pin; if an angled
-   edge would have to cross a frozen vertex to stay rigid, the move is impossible
-   and the solver flags the dimension as over-constrained. */
-function translateVertexRange(geo, ux, uy, delta, pin, mover, frozen) {
+/* Convert one driving dimension to a solver constraint (or null if it doesn't
+   drive vertices, e.g. arcRadius/fillet which are cosmetic/measure-only). */
+function dimToConstraint(dim, idx) {
+  if (dim.value == null || !isFinite(dim.value)) return null;
+  if (dim.kind === 'relation') {
+    if (dim.relation === 'horizontal' && idx.a != null && idx.b != null) return { type: 'horizontal', a: idx.a, b: idx.b, _edge: [idx.a, idx.b] };
+    if (dim.relation === 'vertical' && idx.a != null && idx.b != null) return { type: 'vertical', a: idx.a, b: idx.b, _edge: [idx.a, idx.b] };
+    return null;
+  }
+  if (dim.kind === 'angle') {
+    if (idx.v == null || idx.a == null || idx.b == null) return null;
+    return { type: 'angle', v: idx.v, a: idx.a, b: idx.b, value: dim.value };
+  }
+  if (dim.kind === 'linear' || !dim.kind) {
+    if (idx.a == null || idx.b == null) return null;
+    const axis = dim.axis === 'horizontal' ? 'horizontal' : dim.axis === 'vertical' ? 'vertical' : 'aligned';
+    return { type: 'distance', a: idx.a, b: idx.b, axis, value: dim.value };
+  }
+  return null;
+}
+
+/* The public solve. Returns { geo, skeleton, conflicts:Set<id>, status, perDim }.
+   `geo` is the display geometry (fillets baked in); `skeleton` is the solved
+   polygon WITHOUT fillets, used for picking/anchoring/measuring. */
+export function solveDimensions(inputGeo, dimsRaw) {
+  const input = normalizeInput(inputGeo);
+  if (!input) return { geo: inputGeo, skeleton: inputGeo, conflicts: new Set(), status: 'under', perDim: {} };
+
+  // Radial / fillet dims don't drive vertices; split them out (applied later).
+  const dims = (dimsRaw || []).slice();
+  const driveDims = dims.filter((d) => d.kind !== 'arcRadius' && d.kind !== 'fillet' && d.kind !== 'radius' && d.kind !== 'diameter');
+
+  const sketch = geoToSketch(input);
+  if (!sketch || sketch.vertices.length < 2) {
+    // Nothing to solve numerically (e.g. a circle) — fall back to circle drive.
+    const geo = driveCircles(input, dims);
+    return { geo, skeleton: geo, conflicts: new Set(), status: 'under', perDim: {} };
+  }
+
+  // Canonical points for anchor binding (idx order matches sketch vertex order).
+  const canonicalPts = sketch.vertices.map((v, i) => ({ x: v.x, y: v.y, idx: i, sharp: true }));
+  bindAnchors(canonicalPts, driveDims);
+
+  const n = sketch.vertices.length;
+  const sys0 = buildSystem(sketch.vertices, []);
+  const V0 = sys0.V;
+
+  // Base constraints: ground + implicit relations (minus those superseded by an
+  // explicit directional relation dimension on the same edge).
+  const explicitDirEdges = new Set();
+  for (const d of driveDims) {
+    if (d.kind === 'relation') {
+      const idx = dimVertexIndices(d, canonicalPts);
+      if (idx.a != null && idx.b != null) explicitDirEdges.add(EDGE_KEY(idx.a, idx.b));
+    }
+  }
+  const base = [{ type: 'anchor', v: 0, x: V0[0], y: V0[1] }];
+  for (const rel of implicitRelations(sketch, V0)) {
+    if (explicitDirEdges.has(EDGE_KEY(rel._edge[0], rel._edge[1]))) continue;
+    base.push(rel);
+  }
+
+  // Add each driving dimension in creation order. Over-defined ones are skipped
+  // and flagged; the rest accumulate into the satisfied constraint set.
+  const conflicts = new Set();
+  const perDim = {};
+  let active = base.slice();
+
+  for (const d of driveDims) {
+    const idx = dimVertexIndices(d, canonicalPts);
+    const c = dimToConstraint(d, idx);
+    if (!c) { perDim[d.id] = 'inactive'; continue; }
+    const res = tryAddConstraint(active, c, sketch.vertices, {
+      stiffness: buildStiffness(n, [...active, c]),
+    });
+    if (res.conflict) {
+      conflicts.add(d.id);
+      perDim[d.id] = 'conflict';
+      // keep prior solution; do not add the conflicting constraint
+    } else {
+      active.push(c);
+      perDim[d.id] = 'driving';
+    }
+  }
+
+  // Final solve of all accepted constraints for a clean configuration.
+  const sysF = buildSystem(sketch.vertices, active);
+  const solvedF = solve(sysF, { stiffness: buildStiffness(n, active) });
+  const dof = analyzeDOF(sysF, solvedF);
+  const status = conflicts.size > 0 ? 'over' : dof.status;
+
+  let skeleton = sketchToGeo(sketch, solvedF.V, input);
+  if (!skeleton || !skeleton.pathData) skeleton = input;
+
+  // The display geometry has cosmetic fillets baked in, but the SKELETON (the
+  // solved polygon without fillets) is what the overlay must pick/anchor/measure
+  // against — fillets add arc points that would otherwise shift vertex indices
+  // and corrupt every dimension's anchor. Keep the two separate.
+  const geo = applyFillets(skeleton, dims);
+  return { geo, skeleton, conflicts, status, perDim };
+}
+
+/* Circle/ellipse driving for round shapes (no polygon vertices to solve). A
+   radius/diameter dim scales uniformly; a per-axis linear dim scales that axis
+   (lets you turn a circle into an ellipse), about the shape center. */
+function driveCircles(geo, dims) {
+  const circle = detectCircle(geo);
+  if (!circle) return geo;
+  let sx = 1, sy = 1;
+  for (const d of dims) {
+    if (d.value == null || !isFinite(d.value) || d.value <= 0) continue;
+    if (d.kind === 'radius') { sx = sy = d.value / circle.r; }
+    else if (d.kind === 'diameter') { sx = sy = (d.value / 2) / circle.r; }
+    else if (d.kind === 'linear' || !d.kind) {
+      const target = d.value / 2; // half-extent
+      if (d.axis === 'vertical') sy = target / circle.r;
+      else sx = target / circle.r;
+    }
+  }
+  if (sx === 1 && sy === 1) return geo;
   ensurePaper();
-  if (!isFinite(ux) || !isFinite(uy) || !isFinite(delta)) return geo;
-  if (Math.abs(delta) < 1e-9) return geo;
   const path = geoToPaperPath(geo);
   if (!path) return geo;
-
-  const children = path.className === 'CompoundPath' ? (path.children || []) : [path];
-  const tx = ux * delta, ty = uy * delta;
-  const TOL = 1e-3;
-  const isFrozen = (pt) => frozen && frozen.some(
-    (f) => Math.hypot(f.x - pt.x, f.y - pt.y) < TOL);
-  const isPin = (pt) => Math.hypot(pt.x - pin.x, pt.y - pin.y) < TOL;
-
-  let moved = false;
-  for (const child of children) {
-    const segs = child.segments;
-    const n = segs.length;
-    let start = -1;
-    for (let i = 0; i < n; i++) {
-      if (Math.hypot(segs[i].point.x - mover.x, segs[i].point.y - mover.y) < TOL) { start = i; break; }
-    }
-    if (start < 0) continue;
-    if (isFrozen(segs[start].point) || isPin(segs[start].point)) continue;
-
-    // Snapshot original positions so the perpendicularity test uses the
-    // pre-move edge directions.
-    const orig = segs.map((s) => ({ x: s.point.x, y: s.point.y }));
-    const visited = new Set([start]);
-    const queue = [start];
-    while (queue.length) {
-      const i = queue.shift();
-      for (const j of [(i + 1) % n, (i - 1 + n) % n]) {
-        if (visited.has(j)) continue;
-        if (isFrozen(segs[j].point) || isPin(segs[j].point)) continue;
-        // Edge i-j direction. Carry the shift across every edge EXCEPT one that
-        // is (nearly) PARALLEL to the motion axis — parallel edges absorb the
-        // change as length, so their far end stays put. Perpendicular walls and
-        // angled diagonals are carried rigidly so their orientation is preserved.
-        const ex = orig[j].x - orig[i].x, ey = orig[j].y - orig[i].y;
-        const elen = Math.hypot(ex, ey) || 1;
-        const along = Math.abs((ex / elen) * ux + (ey / elen) * uy); // 0=perp,1=parallel
-        if (along > 0.98) continue; // parallel edge: just changes length
-        visited.add(j);
-        queue.push(j);
-      }
-    }
-    for (const i of visited) {
-      const s = segs[i];
-      s.point = new paper.Point(s.point.x + tx, s.point.y + ty);
-      moved = true;
-    }
-  }
-
-  if (!moved) { path.remove(); return geo; }
+  path.scale(sx, sy, new paper.Point(circle.cx, circle.cy));
   const out = paperPathToGeo(path, geo);
   path.remove();
-  if (!out || !out.pathData) return geo;
-  return out;
+  return out && out.pathData ? out : geo;
 }
 
-/* Scale about a pivot (drives radius/diameter and round-shape linear dims). */
-function scaleGeo(geo, sx, sy, pivotX, pivotY) {
-  ensurePaper();
-  if (!isFinite(sx) || !isFinite(sy) || !isFinite(pivotX) || !isFinite(pivotY)) return geo;
-  if (sx === 0 || sy === 0) return geo;
-  const path = geoToPaperPath(geo);
-  if (!path) return geo;
-  path.scale(sx, sy, new paper.Point(pivotX, pivotY));
-  const out = paperPathToGeo(path, geo);
-  path.remove();
-  if (!out || !out.pathData) return geo;
-  return out;
-}
+/* ---- fillets (cosmetic corners, applied after solving) ---- */
 
-/* Rotate ONLY arm B about the vertex, leaving arm A fixed, so an angle
-   dimension opens/closes the angle between two arms instead of spinning the
-   whole shape. A segment belongs to arm B if its direction from the vertex is
-   angularly closer to B's direction than to A's. */
-function rotateArm(geo, deg, v, a, b) {
-  ensurePaper();
-  if (!isFinite(deg) || Math.abs(deg) < 1e-9) return geo;
-  const path = geoToPaperPath(geo);
-  if (!path) return geo;
-
-  const angA = Math.atan2(a.y - v.y, a.x - v.x);
-  const angB = Math.atan2(b.y - v.y, b.x - v.x);
-  const angDiff = (p, q) => {
-    let d = p - q;
-    while (d <= -Math.PI) d += 2 * Math.PI;
-    while (d > Math.PI) d -= 2 * Math.PI;
-    return Math.abs(d);
-  };
-  const rad = deg * Math.PI / 180;
-  const cos = Math.cos(rad), sin = Math.sin(rad);
-  const rot = (pt) => {
-    const dx = pt.x - v.x, dy = pt.y - v.y;
-    return new paper.Point(v.x + dx * cos - dy * sin, v.y + dx * sin + dy * cos);
-  };
-  const rotateSegs = (segs) => {
-    for (const s of segs) {
-      const dx = s.point.x - v.x, dy = s.point.y - v.y;
-      if (Math.hypot(dx, dy) < 1e-6) continue;
-      const ang = Math.atan2(dy, dx);
-      if (angDiff(ang, angB) < angDiff(ang, angA)) s.point = rot(s.point);
-    }
-  };
-  if (path.className === 'CompoundPath') {
-    for (const child of (path.children || [])) rotateSegs(child.segments);
-  } else {
-    rotateSegs(path.segments);
+function resolveFilletCorners(geo, dims) {
+  const fillets = dims.filter((d) => d.kind === 'fillet' && d.ax != null && d.ay != null);
+  if (fillets.length === 0) return;
+  let pts = [];
+  try { pts = extractPoints(geo) || []; } catch { pts = []; }
+  for (const d of fillets) {
+    const near = pts.length ? nearestPoint(pts, d.ax, d.ay) : null;
+    d._corner = near ? { x: near.x, y: near.y } : { x: d.ax, y: d.ay };
   }
-  const out = paperPathToGeo(path, geo);
-  path.remove();
-  if (!out || !out.pathData) return geo;
-  return out;
 }
 
-/* ---- drive dispatch ---- */
-
-/* Span of A -> B measured along the axis direction. */
-function axisSpan(axis, a, b) {
-  if (axis === 'horizontal') return Math.abs(b.x - a.x);
-  if (axis === 'vertical') return Math.abs(b.y - a.y);
-  return dist(a.x, a.y, b.x, b.y);
-}
-
-/* Pick which endpoint to pin (hold fixed) for a linear drive. We pin the side
-   that has MORE of the shape's vertices, so the smaller side moves. This makes
-   the result independent of the order the two points were picked, and keeps the
-   bulk of a floorplan stationary while one wall is pushed out. */
-/* Pick which endpoint to pin (hold fixed) for a linear drive.
-
-   translateHalfSpace moves every vertex strictly beyond the pin along the push
-   axis (i.e. on the mover's side of the plane through the pin). So the choice of
-   pin decides which vertices move.
-
-   `frozen` (optional) lists points that earlier LOCKED dimensions depend on.
-   For each candidate pin we count how many frozen points sit in the half-space
-   that would be translated; we pick the pin that disturbs the FEWEST frozen
-   points, so a new dimension reshapes only the still-free part of the sketch and
-   never moves an already-set dimension's vertices. When neither choice touches a
-   frozen point (or there are none), we fall back to pinning the side with more
-   vertices so the bulk of the shape stays put. */
-function choosePin(pts, a, b, ux, uy, frozen, adjacency) {
-  // Count vertices strictly on each side of the mid plane (for the tie-break).
-  const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
-  let nA = 0, nB = 0;
-  for (const p of pts) {
-    const rel = (p.x - mx) * ux + (p.y - my) * uy;
-    if (rel < -1e-6) nA++;
-    else if (rel > 1e-6) nB++;
+function applyFillets(geo, dims) {
+  const fillets = dims.filter((d) => d.kind === 'fillet' && d.value > 0 && d.ax != null && d.ay != null);
+  if (fillets.length === 0) return geo;
+  resolveFilletCorners(geo, dims);
+  let pathData = geo.type === 'booleanResult' ? geo.pathData : null;
+  if (!pathData) {
+    const flat = flattenGeoToPathData(geo);
+    pathData = flat?.pathData || null;
   }
-
-  // Angle-preservation rule (highest priority): an UNdimensioned angled
-  // (diagonal) edge must stay rigid, so PIN the endpoint that touches an angled
-  // edge and MOVE the endpoint whose other edges are axis-aligned (those just
-  // change length). Moving a vertex that sits on a diagonal would rotate that
-  // diagonal — an angle change the user never asked for. This wins over the
-  // frozen-count heuristic because translateVertexRange only shifts a localized,
-  // connected run and stops at frozen vertices anyway.
-  if (adjacency) {
-    const angA = touchesAngledEdge(adjacency, a, ux, uy);
-    const angB = touchesAngledEdge(adjacency, b, ux, uy);
-    if (angA !== angB) {
-      return angA ? { pin: a, mover: b } : { pin: b, mover: a };
-    }
-  }
-
-  if (frozen && frozen.length) {
-    // The push axis runs from pin toward mover. Whichever endpoint is the pin,
-    // the moved half-space is the points strictly on the mover's side of the
-    // plane through the pin. Evaluate both options and count disturbed frozen
-    // points for each.
-    const disturbed = (pin, mover) => {
-      const dx = mover.x - pin.x, dy = mover.y - pin.y;
-      const dlen = Math.hypot(dx, dy) || 1;
-      const px = dx / dlen, py = dy / dlen; // unit pin->mover
-      let n = 0;
-      for (const f of frozen) {
-        const rel = (f.x - pin.x) * px + (f.y - pin.y) * py;
-        if (rel > 1e-6) n++;
-      }
-      return n;
+  if (!pathData) return geo;
+  try {
+    const corners = fillets.map((d) => ({
+      x: d._corner?.x ?? d.ax,
+      y: d._corner?.y ?? d.ay,
+      radius: d.value,
+    }));
+    const res = filletCornersAt(pathData, corners);
+    if (!res || !res.pathData) return geo;
+    return {
+      type: 'booleanResult',
+      pathData: res.pathData,
+      fill: geo.fill && geo.fill !== 'none' ? geo.fill : 'none',
+      stroke: geo.stroke || '#000000',
+      strokeWidth: geo.strokeWidth ?? 1,
+      opacity: geo.opacity,
+      bounds: res.bounds,
     };
-    const dPinA = disturbed(a, b); // pin a, move b's side
-    const dPinB = disturbed(b, a); // pin b, move a's side
-    if (dPinA !== dPinB) {
-      return dPinA < dPinB ? { pin: a, mover: b } : { pin: b, mover: a };
-    }
-  }
-
-  // Pin the side with more vertices; push the lighter side.
-  return nA >= nB ? { pin: a, mover: b } : { pin: b, mover: a };
-}
-
-/* Does this endpoint have an adjacent edge that is neither parallel nor
-   perpendicular to the drive axis (i.e. a diagonal whose angle would change if
-   the endpoint moved along the axis)? The dimensioned edge itself is ignored. */
-function touchesAngledEdge(adjacency, pt, ux, uy) {
-  const TOL = 1e-3;
-  const adj = adjacency.find((e) => Math.hypot(e.x - pt.x, e.y - pt.y) < TOL);
-  if (!adj) return false;
-  for (const nb of adj.neighbours) {
-    const ex = nb.x - pt.x, ey = nb.y - pt.y;
-    const elen = Math.hypot(ex, ey);
-    if (elen < TOL) continue;
-    const dot = Math.abs((ex / elen) * ux + (ey / elen) * uy); // 1=parallel,0=perp
-    // Skip the dimensioned edge (parallel to axis) and clean perpendicular walls.
-    if (dot > 0.98 || dot < 0.02) continue;
-    return true; // a genuine diagonal
-  }
-  return false;
-}
-
-/* Build vertex adjacency (each vertex -> its two path neighbours) for the
-   geometry, used to reason about which edges are diagonals. */
-function buildAdjacency(geo) {
-  ensurePaper();
-  const path = geoToPaperPath(geo);
-  if (!path) return [];
-  const children = path.className === 'CompoundPath' ? (path.children || []) : [path];
-  const out = [];
-  for (const child of children) {
-    const segs = child.segments;
-    const n = segs.length;
-    for (let i = 0; i < n; i++) {
-      const p = segs[i].point;
-      const pn = segs[(i + 1) % n].point;
-      const pp = segs[(i - 1 + n) % n].point;
-      out.push({ x: p.x, y: p.y, neighbours: [{ x: pn.x, y: pn.y }, { x: pp.x, y: pp.y }] });
-    }
-  }
-  path.remove();
-  return out;
-}
-
-function driveLinear(geo, dim, frozen) {
-  const value = dim.value;
-  if (value == null || !isFinite(value) || value <= 0) return geo;
-  const pts = extractPoints(geo);
-  const a = resolveAnchor(pts, dim, 'a', 'ax', 'ay');
-  const b = resolveAnchor(pts, dim, 'b', 'bx', 'by');
-  if (!a || !b) return geo;
-  const axis = dim.axis || 'aligned';
-
-  // Round shapes: scale about centre so a horizontal + vertical pair makes an
-  // ellipse and a single dim keeps the shape round, instead of tearing it. The
-  // measured span is the shape's extent along the axis (diameter), not the gap
-  // between two adjacent ellipse vertices.
-  if (isCircular(geo)) {
-    const circle = detectCircle(geo);
-    if (circle && circle.r > 1e-6 && geo.bounds) {
-      let current;
-      if (axis === 'horizontal') current = geo.bounds.width;
-      else if (axis === 'vertical') current = geo.bounds.height;
-      else current = axisSpan(axis, a, b);
-      if (current > 1e-6) {
-        const factor = value / current;
-        if (isFinite(factor) && factor > 0) {
-          if (axis === 'horizontal') return scaleGeo(geo, factor, 1, circle.cx, circle.cy);
-          if (axis === 'vertical') return scaleGeo(geo, 1, factor, circle.cx, circle.cy);
-          return scaleGeo(geo, factor, factor, circle.cx, circle.cy);
-        }
-      }
-    }
+  } catch {
     return geo;
   }
-
-  // Rigid half-space push along the axis so the span A->B becomes `value` while
-  // every edge keeps its direction (orthogonal walls stay orthogonal).
-  const span = axisSpan(axis, a, b);
-  if (span < 1e-6) return geo;
-  const delta = value - span;
-  if (Math.abs(delta) < 1e-9) return geo;
-
-  // Axis unit vector (positive sense); the push direction is from pin to mover.
-  let ax, ay;
-  if (axis === 'horizontal') { ax = 1; ay = 0; }
-  else if (axis === 'vertical') { ax = 0; ay = 1; }
-  else { const d = dist(a.x, a.y, b.x, b.y) || 1; ax = (b.x - a.x) / d; ay = (b.y - a.y) / d; }
-
-  const adjacency = buildAdjacency(geo);
-  const { pin, mover } = choosePin(pts, a, b, ax, ay, frozen, adjacency);
-  // Direction from pin toward mover along the axis.
-  let ux = mover.x - pin.x, uy = mover.y - pin.y;
-  if (axis === 'horizontal') { ux = Math.sign(ux) || 1; uy = 0; }
-  else if (axis === 'vertical') { ux = 0; uy = Math.sign(uy) || 1; }
-  else { const l = Math.hypot(ux, uy) || 1; ux /= l; uy /= l; }
-
-  // Move the mover's connected vertex run rigidly: the dimensioned edge changes
-  // length and its attached walls slide, but frozen (locked-dim) corners and the
-  // rest of the shape stay put. This lets an undefined edge be set without
-  // disturbing already-set dimensions. For axis-aligned dims the perpendicular
-  // propagation rule keeps walls orthogonal; for free (diagonal) dims we fall
-  // back to the coarser half-space push.
-  if (axis === 'horizontal' || axis === 'vertical') {
-    return translateVertexRange(geo, ux, uy, delta, pin, mover, frozen);
-  }
-  return translateHalfSpace(geo, ux, uy, delta, pin.x, pin.y);
 }
 
-function driveAngle(geo, dim) {
-  const value = dim.value;
-  if (value == null || !isFinite(value)) return geo;
-  const pts = extractPoints(geo);
-  const arms = resolveCornerArms(geo, dim);
-  const v = arms ? arms.v : resolveAnchor(pts, dim, 'v', 'vx', 'vy');
-  const a = arms ? arms.a : resolveAnchor(pts, dim, 'a', 'ax', 'ay');
-  const b = arms ? arms.b : resolveAnchor(pts, dim, 'b', 'bx', 'by');
-  if (!v || !a || !b) return geo;
-  const ang1 = Math.atan2(a.y - v.y, a.x - v.x);
-  const ang2 = Math.atan2(b.y - v.y, b.x - v.x);
-  let current = (ang2 - ang1) * 180 / Math.PI;
-  while (current <= -180) current += 360;
-  while (current > 180) current -= 360;
-  const currentMag = Math.abs(current);
-  if (currentMag < 1e-6) return geo;
-  // Rotate arm B by the signed delta so the angle between arms becomes `value`.
-  // Arm A is the fixed reference; the sign preserves the current winding so B
-  // opens/closes toward its existing side (never flips across A).
-  const deltaDeg = (Math.sign(current) || 1) * (value - currentMag);
-  if (Math.abs(deltaDeg) < 1e-6) return geo;
-  return rotateArm(geo, deltaDeg, v, a, b);
-}
-
-function driveRadial(geo, dim) {
-  const value = dim.value;
-  if (value == null || !isFinite(value) || value <= 0) return geo;
-  const circle = detectCircle(geo);
-  if (!circle || circle.r < 1e-6) return geo;
-  const targetR = dim.kind === 'diameter' ? value / 2 : value;
-  const factor = targetR / circle.r;
-  if (!isFinite(factor) || factor <= 0) return geo;
-  return scaleGeo(geo, factor, factor, circle.cx, circle.cy);
-}
-
-/* Apply a geometric relation (horizontal / vertical line lock). Unlike a
-   dimension it has no numeric value: it forces the edge A->B to lie on an axis
-   by moving the mover endpoint's half-space so the edge becomes axis-aligned,
-   while keeping the rest of the shape rigid (so a floorplan doesn't warp). For a
-   'horizontal' relation the mover endpoint is shifted vertically to match the
-   pinned endpoint's y; for 'vertical', horizontally to match its x. */
-function driveRelation(geo, dim, frozen) {
-  const rel = dim.relation;
-  if (rel !== 'horizontal' && rel !== 'vertical') return geo;
-  const pts = extractPoints(geo);
-  const a = resolveAnchor(pts, dim, 'a', 'ax', 'ay');
-  const b = resolveAnchor(pts, dim, 'b', 'bx', 'by');
-  if (!a || !b) return geo;
-
-  // Pin the endpoint on the larger side of the shape (matches linear driving),
-  // and move the lighter endpoint onto the relation axis.
-  const axisU = rel === 'horizontal' ? { x: 0, y: 1 } : { x: 1, y: 0 };
-  const { pin, mover } = choosePin(pts, a, b, axisU.x, axisU.y, frozen);
-
-  if (rel === 'horizontal') {
-    // Move the mover's half-space in y so the mover's y matches the pin's y.
-    const delta = pin.y - mover.y;
-    if (Math.abs(delta) < 1e-9) return geo;
-    // Push the half-space that contains the mover (the side where (p-pin)·u>0).
-    const dir = Math.sign(mover.y - pin.y) || 1;
-    return translateHalfSpace(geo, 0, dir, dir * delta, pin.x, pin.y);
-  }
-  const delta = pin.x - mover.x;
-  if (Math.abs(delta) < 1e-9) return geo;
-  const dir = Math.sign(mover.x - pin.x) || 1;
-  return translateHalfSpace(geo, dir, 0, dir * delta, pin.x, pin.y);
-}
-
-/* Apply one driving dimension. No side-channel state is written: the drive only
-   transforms geometry; the annotation later re-resolves the same anchors, so
-   the two cannot disagree. */
-function applyDimension(geo, dim, frozen) {
-  if (dim.kind === 'relation') return driveRelation(geo, dim, frozen);
-  if (dim.kind === 'radius' || dim.kind === 'diameter') return driveRadial(geo, dim);
-  // arcRadius is measure-only; fillets are applied together in applyFillets.
-  if (dim.kind === 'arcRadius' || dim.kind === 'fillet') return geo;
-  if (dim.kind === 'angle') return driveAngle(geo, dim);
-  return driveLinear(geo, dim, frozen);
-}
-
-/* ---- annotation geometry (the visible dimension graphics) ---- */
-
-// Colour used for passive / measure-only (read-only) dimensions.
-const PASSIVE_DIM_COLOR = '#9aa3ad';
-// Colour used for over-constrained / conflicting dimensions.
-const CONFLICT_DIM_COLOR = '#e03131';
+/* ---- annotation builders (visual contract for dimAnnotation) ---- */
 
 function arrowPath(tipX, tipY, dirX, dirY, size) {
-  // dir points from the tip back along the dimension line
   const len = Math.hypot(dirX, dirY) || 1;
   const ux = dirX / len, uy = dirY / len;
   const px = -uy, py = ux;
@@ -873,9 +671,6 @@ function annBounds(lines, label, textSize) {
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
-/* For leader-style callouts (radius/diameter/fillet), a dragged label moves the
-   whole leader + arrowhead to the new text position. Linear/angle labels are
-   repositioned inline by their builders, so they pass no leaderAnchor here. */
 function finishAnnotation(dim, lines, arrows, label, leaderAnchor, style, leaderType) {
   const { color, textSize, arrowSize } = style;
   if (dim.labelPos && isFinite(dim.labelPos.x) && isFinite(dim.labelPos.y) && leaderAnchor) {
@@ -895,9 +690,6 @@ function finishAnnotation(dim, lines, arrows, label, leaderAnchor, style, leader
     label = { ...label, x: dim.labelPos.x, y: dim.labelPos.y };
   }
   const ann = { type: 'dimAnnotation', lines, arrows, label, color, textSize, bounds: annBounds(lines, label, textSize) };
-  // Over-constrained: paint everything red and replace the number with an X, so
-  // the dimension that breaks the math reads as "X" rather than a misleading
-  // value (SolidWorks-style over-defined feedback).
   if (style.conflict && label) {
     ann.color = CONFLICT_DIM_COLOR;
     ann.label = { ...label, text: 'X' };
@@ -906,9 +698,7 @@ function finishAnnotation(dim, lines, arrows, label, leaderAnchor, style, leader
   return ann;
 }
 
-/* Build the dimAnnotation for a single dimension on the ALREADY-DRIVEN geo.
-   Linear/angle annotations resolve the same anchors the drive used, so they
-   land exactly on the driven geometry without any reconstruction. */
+/* Build the dimAnnotation for a single dimension on the ALREADY-DRIVEN geo. */
 function buildAnnotation(geo, dim, style, conflict) {
   if (conflict) style = { ...style, conflict: true };
   const { color, textSize, arrowSize, decimals, units } = style;
@@ -917,7 +707,6 @@ function buildAnnotation(geo, dim, style, conflict) {
   let label = null;
 
   if (dim.kind === 'relation') {
-    // Draw a small tick + H/V glyph at the midpoint of the edge.
     const pts = extractPoints(geo);
     const a = resolveAnchor(pts, dim, 'a', 'ax', 'ay');
     const b = resolveAnchor(pts, dim, 'b', 'bx', 'by');
@@ -1019,8 +808,7 @@ function buildAnnotation(geo, dim, style, conflict) {
     return finishAnnotation(dim, lines, arrows, label, null, style);
   }
 
-  // linear: resolve the same anchors the drive used. Since the drive moved B to
-  // its target position, the resolved B already sits on the driven edge.
+  // linear
   const a = resolveAnchor(pts, dim, 'a', 'ax', 'ay');
   const b = resolveAnchor(pts, dim, 'b', 'bx', 'by');
   if (!a || !b) return null;
@@ -1077,7 +865,6 @@ function buildAnnotation(geo, dim, style, conflict) {
       anchor: 'middle',
     };
   }
-  // Labels already moved with the line above, so suppress the trailing leader.
   return finishAnnotation({ ...dim, labelPos: undefined }, lines, arrows, label, null, style);
 }
 
@@ -1090,7 +877,6 @@ export function getDimensionLabelPoint(geo, dim, style) {
 
 export function measureDimension(geo, dim) {
   if (dim.kind === 'relation') {
-    // Residual misalignment from the relation axis (0 when perfectly aligned).
     const pts = extractPoints(geo);
     const a = resolveAnchor(pts, dim, 'a', 'ax', 'ay');
     const b = resolveAnchor(pts, dim, 'b', 'bx', 'by');
@@ -1136,180 +922,15 @@ export function driveGeometry(inputGeo, dims) {
   return res ? res.geo : null;
 }
 
-/* Drive all dimensions, then detect which ones the final geometry fails to
-   satisfy (SolidWorks-style over-defined detection). A dimension "breaks the
-   math" when its target can't be met because an earlier dimension/relation
-   already pinned the same geometry — the residual exceeds a tolerance. Returns
-   the driven geometry plus a Set of conflicting dimension ids. */
-/* Solve dimensions the SolidWorks way: each dimension is a constraint, applied
-   in the order it was created. Once a dimension is set it becomes LOCKED — later
-   dimensions must not change it. We achieve this with trial-and-check:
-
-     - Apply the next dimension to a trial copy of the current geometry.
-     - Re-measure every already-locked dimension on that trial.
-     - If the trial still satisfies all locked dims, accept it and lock this one.
-     - If it would break a locked dim (mathematically over-defined / redundant),
-       DISCARD the trial (geometry is left exactly as the locked dims defined it)
-       and flag this dimension red with an X instead of a number.
-
-   So set dimensions never drift, and the one dimension that "breaks the math" is
-   the one marked over-defined — exactly the SolidWorks sketch behaviour. Returns
-   the driven geometry plus a Set of conflicting dimension ids. */
-export function solveDimensions(inputGeo, dims) {
-  if (!inputGeo) return null;
-  ensurePaper();
-  const base = normalizeInput(inputGeo);
-  let canonicalPts = [];
-  try { canonicalPts = extractPoints(base) || []; } catch { canonicalPts = []; }
-  bindAnchors(canonicalPts, dims);
-
-  const conflicts = new Set();
-  const locked = []; // dims accepted so far (must stay satisfied)
-  let driven = base;
-
-  const measuresTarget = (geo, dim) => {
-    const measured = measureDimension(geo, dim);
-    if (measured == null) return true; // can't measure => don't block
-    if (dim.kind === 'relation') {
-      return measured <= Math.max(0.5, dimScaleTol(geo));
-    }
-    const target = dim.value;
-    if (target == null || !isFinite(target)) return true;
-    const tol = dimTolerance(dim, target);
-    return Math.abs(measured - target) <= tol;
-  };
-
-  for (const dim of dims) {
-    // Non-driving dims (fillet radii, measure-only arc radii) never constrain or
-    // conflict; apply them inline with no lock bookkeeping.
-    if (!isDrivingDim(dim)) {
-      driven = applyDimension(driven, dim);
-      continue;
-    }
-
-    // Points the already-locked dimensions depend on, resolved on the CURRENT
-    // geometry. Driving biases its pin to keep these stationary, so a compatible
-    // new dimension moves only the still-free part of the shape.
-    const frozen = lockedAnchorPoints(driven, locked);
-
-    const trial = applyDimension(driven, dim, frozen);
-
-    // Did the trial actually satisfy THIS dimension? If the drive couldn't reach
-    // the target (e.g. geometry can't move that way), it's over-defined too.
-    const selfOk = measuresTarget(trial, dim);
-    // Did the trial keep every previously-locked dimension satisfied?
-    const keepsLocked = selfOk && locked.every((ld) => measuresTarget(trial, ld));
-
-    if (keepsLocked) {
-      driven = trial;
-      locked.push(dim);
-    } else {
-      // Over-defined: leave geometry as the locked dims defined it, flag this one.
-      conflicts.add(dim.id);
-    }
-  }
-
-  resolveFilletCorners(driven, dims);
-  driven = applyFillets(driven, dims);
-  return { geo: driven, conflicts };
-}
-
-/* Per-kind tolerance for "is this dimension satisfied". */
-function dimTolerance(dim, target) {
-  if (dim.kind === 'angle') return 0.5; // half a degree
-  return Math.max(0.5, Math.abs(target) * 0.01); // 1% or half a unit
-}
-
-/* The live vertices that the already-locked dimensions reference. The driver
-   uses these to decide which side of a new dimension to hold fixed, so it keeps
-   set dimensions stationary whenever the geometry permits. */
-function lockedAnchorPoints(geo, locked) {
-  if (!locked || locked.length === 0) return [];
-  let pts = [];
-  try { pts = extractPoints(geo) || []; } catch { pts = []; }
-  if (pts.length === 0) return [];
-  const out = [];
-  for (const ld of locked) {
-    for (const [ik, xk, yk] of [['a', 'ax', 'ay'], ['b', 'bx', 'by'], ['v', 'vx', 'vy']]) {
-      const r = resolveAnchor(pts, ld, ik, xk, yk);
-      if (r) out.push({ x: r.x, y: r.y });
-    }
-  }
-  return out;
-}
-
-/* A dimension that actually drives geometry (so it can be over-constrained).
-   arcRadius is measure-only; fillet is a cosmetic corner, never conflicting. */
-function isDrivingDim(dim) {
-  return dim.kind !== 'arcRadius' && dim.kind !== 'fillet';
-}
-
-/* Small absolute tolerance scaled to the geometry size, for relation residuals. */
-function dimScaleTol(geo) {
-  const b = geo?.bounds;
-  if (!b) return 0.5;
-  return Math.max(0.5, Math.hypot(b.width, b.height) * 0.002);
-}
-
-/* ---- fillets (applied in one pass after all driving) ---- */
-
-/* Snap each fillet's stored corner to the nearest live vertex right before
-   fillets are applied, so the fillet stays glued to the right corner after any
-   resize. */
-function resolveFilletCorners(geo, dims) {
-  const fillets = dims.filter((d) => d.kind === 'fillet' && d.ax != null && d.ay != null);
-  if (fillets.length === 0) return;
-  let pts = [];
-  try { pts = extractPoints(geo) || []; } catch { pts = []; }
-  for (const d of fillets) {
-    const near = pts.length ? nearestPoint(pts, d.ax, d.ay) : null;
-    d._corner = near ? { x: near.x, y: near.y } : { x: d.ax, y: d.ay };
-  }
-}
-
-/* Apply all fillet dimensions in a single pass from the current pre-fillet
-   geometry, so chaining fillets doesn't re-flatten earlier arcs into chamfers. */
-function applyFillets(geo, dims) {
-  const fillets = dims.filter((d) => d.kind === 'fillet' && d.value > 0 && d.ax != null && d.ay != null);
-  if (fillets.length === 0) return geo;
-
-  let pathData = geo.type === 'booleanResult' ? geo.pathData : null;
-  if (!pathData) {
-    const flat = flattenGeoToPathData(geo);
-    pathData = flat?.pathData || null;
-  }
-  if (!pathData) return geo;
-
-  try {
-    const corners = fillets.map((d) => ({
-      x: d._corner?.x ?? d.ax,
-      y: d._corner?.y ?? d.ay,
-      radius: d.value,
-    }));
-    const res = filletCornersAt(pathData, corners);
-    if (!res || !res.pathData) return geo;
-    return {
-      type: 'booleanResult',
-      pathData: res.pathData,
-      fill: geo.fill && geo.fill !== 'none' ? geo.fill : 'none',
-      stroke: geo.stroke || '#000000',
-      strokeWidth: geo.strokeWidth ?? 1,
-      opacity: geo.opacity,
-      bounds: res.bounds,
-    };
-  } catch {
-    return geo;
-  }
-}
-
 export function dimensionRuntime(params, inputs) {
   const inputGeo = inputs.geometry_in;
   if (!inputGeo) return null;
 
   const dims = parseDimensions(params.dimensions);
   const showDims = params.show_dimensions !== false;
+  const showStatus = params.show_status !== false;
   const style = {
-    color: params.dim_color ?? '#1366d6',
+    color: params.dim_color ?? UNDER_COLOR,
     textSize: params.text_size ?? 14,
     arrowSize: params.arrow_size ?? 8,
     decimals: params.decimals ?? 1,
@@ -1319,14 +940,24 @@ export function dimensionRuntime(params, inputs) {
   ensurePaper();
 
   const solved = solveDimensions(inputGeo, dims);
-  const driven = solved ? solved.geo : inputGeo;
+  let driven = solved ? solved.geo : inputGeo;
+  const skeleton = solved ? solved.skeleton : inputGeo;
   const conflicts = solved ? solved.conflicts : new Set();
+  const status = solved ? solved.status : 'under';
+
+  // SolidWorks-style status coloring of the geometry itself (blue/black/red).
+  if (showStatus && driven) {
+    const statusStroke = status === 'over' ? CONFLICT_DIM_COLOR : status === 'fully' ? FULLY_COLOR : UNDER_COLOR;
+    driven = { ...driven, stroke: statusStroke };
+  }
 
   if (!showDims || dims.length === 0) return driven;
 
+  // Annotations anchor/measure against the un-filleted skeleton so corner
+  // fillets don't shift vertex indices and detach dimensions.
   const annotations = [];
   for (const dim of dims) {
-    const ann = buildAnnotation(driven, dim, style, conflicts.has(dim.id));
+    const ann = buildAnnotation(skeleton, dim, style, conflicts.has(dim.id));
     if (ann) annotations.push(ann);
   }
 
@@ -1352,3 +983,4 @@ export function dimensionRuntime(params, inputs) {
     },
   };
 }
+

@@ -961,6 +961,94 @@ function parseCornerSelection(sel, sharpPoints = []) {
   return result;
 }
 
+function DimensionList({ nodeId, value, units }) {
+  const updateNodeParams = useGraphStore((s) => s.updateNodeParams);
+  const beginOperation = useGraphStore((s) => s.beginOperation);
+  const endOperation = useGraphStore((s) => s.endOperation);
+
+  const dims = useMemo(() => {
+    try { const v = JSON.parse(value || '[]'); return Array.isArray(v) ? v : []; }
+    catch { return []; }
+  }, [value]);
+
+  const setValue = (id, raw) => {
+    const num = parseFloat(raw);
+    const next = dims.map((d) => {
+      if (d.id !== id) return d;
+      const isAngle = d.kind === 'angle';
+      const valid = isFinite(num) && (isAngle || num > 0);
+      return { ...d, value: valid ? num : d.value };
+    });
+    beginOperation();
+    updateNodeParams(nodeId, { dimensions: JSON.stringify(next) });
+    endOperation();
+  };
+
+  const remove = (id) => {
+    beginOperation();
+    updateNodeParams(nodeId, { dimensions: JSON.stringify(dims.filter((d) => d.id !== id)) });
+    endOperation();
+  };
+
+  const kindLabel = (d) => {
+    if (d.kind === 'radius') return 'Radius';
+    if (d.kind === 'diameter') return 'Diameter';
+    if (d.kind === 'angle') return 'Angle';
+    if (d.kind === 'relation') return d.relation === 'vertical' ? 'Vertical ⟂' : 'Horizontal —';
+    if (d.axis === 'horizontal') return 'Horizontal';
+    if (d.axis === 'vertical') return 'Vertical';
+    return 'Length';
+  };
+
+  return (
+    <div className="mb-3">
+      <label className="mb-1 block text-xs font-medium text-text-secondary">Dimensions</label>
+      {dims.length === 0 ? (
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+          Select this node, then use the toolbar in the viewport to add dimensions.
+          Pick points to dimension, then double-click a value on the canvas to drive the shape.
+        </div>
+      ) : (
+        <div className="flex flex-col gap-1">
+          {dims.map((d) => (
+            <div key={d.id} className="flex items-center gap-2">
+              <span style={{ fontSize: 10, color: 'var(--text-muted)', width: 80, flexShrink: 0 }}>
+                {kindLabel(d)}
+              </span>
+              {d.kind === 'relation' ? (
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', flex: 1 }}>locked</span>
+              ) : (
+                <input
+                  type="number"
+                  value={d.value ?? ''}
+                  onFocus={beginOperation}
+                  onBlur={endOperation}
+                  onChange={(e) => setValue(d.id, e.target.value)}
+                  className="w-20 rounded border border-border-primary bg-bg-primary px-2 py-1 text-xs text-text-primary outline-none focus:border-accent"
+                />
+              )}
+              <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                {d.kind === 'angle' ? '\u00b0' : (d.kind === 'relation' ? '' : (units || ''))}
+              </span>
+              <button
+                onClick={() => remove(d.id)}
+                title="Remove dimension"
+                style={{
+                  marginLeft: 'auto', fontSize: 11, lineHeight: 1, width: 20, height: 20,
+                  borderRadius: 4, border: '1px solid var(--border-primary)',
+                  background: 'var(--bg-primary)', color: 'var(--text-muted)', cursor: 'pointer',
+                }}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PointOffsetSlider({ paramDef, value, nodeId, params }) {
   const updateNodeParams = useGraphStore((s) => s.updateNodeParams);
   const beginOperation = useGraphStore((s) => s.beginOperation);
@@ -1112,92 +1200,6 @@ function PointOffsetSlider({ paramDef, value, nodeId, params }) {
               <option key={opt.id} value={opt.id}>{opt.label}</option>
             ))}
           </select>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function DimensionList({ nodeId, value, units }) {
-  const updateNodeParams = useGraphStore((s) => s.updateNodeParams);
-  const beginOperation = useGraphStore((s) => s.beginOperation);
-  const endOperation = useGraphStore((s) => s.endOperation);
-
-  const dims = useMemo(() => {
-    try { const v = JSON.parse(value || '[]'); return Array.isArray(v) ? v : []; }
-    catch { return []; }
-  }, [value]);
-
-  const setValue = (id, raw) => {
-    const num = parseFloat(raw);
-    const next = dims.map((d) => {
-      if (d.id !== id) return d;
-      // Lengths (linear/radius/diameter) must be positive to avoid collapsing
-      // the geometry; angles may be any finite value. Keep the prior value
-      // otherwise so invalid input can't crash the renderer.
-      const isAngle = d.kind === 'angle';
-      const valid = isFinite(num) && (isAngle || num > 0);
-      return { ...d, value: valid ? num : d.value };
-    });
-    beginOperation();
-    updateNodeParams(nodeId, { dimensions: JSON.stringify(next) });
-    endOperation();
-  };
-
-  const remove = (id) => {
-    beginOperation();
-    updateNodeParams(nodeId, { dimensions: JSON.stringify(dims.filter((d) => d.id !== id)) });
-    endOperation();
-  };
-
-  const kindLabel = (d) => {
-    if (d.kind === 'radius') return 'Radius';
-    if (d.kind === 'diameter') return 'Diameter';
-    if (d.kind === 'angle') return 'Angle';
-    if (d.axis === 'horizontal') return 'Horizontal';
-    if (d.axis === 'vertical') return 'Vertical';
-    return 'Length';
-  };
-
-  return (
-    <div className="mb-3">
-      <label className="mb-1 block text-xs font-medium text-text-secondary">Dimensions</label>
-      {dims.length === 0 ? (
-        <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-          Select this node, then use the toolbar in the viewport to add dimensions.
-          Pick points to dimension, then double-click a value on the canvas to drive the shape.
-        </div>
-      ) : (
-        <div className="flex flex-col gap-1">
-          {dims.map((d) => (
-            <div key={d.id} className="flex items-center gap-2">
-              <span style={{ fontSize: 10, color: 'var(--text-muted)', width: 64, flexShrink: 0 }}>
-                {kindLabel(d)}
-              </span>
-              <input
-                type="number"
-                value={d.value ?? ''}
-                onFocus={beginOperation}
-                onBlur={endOperation}
-                onChange={(e) => setValue(d.id, e.target.value)}
-                className="w-20 rounded border border-border-primary bg-bg-primary px-2 py-1 text-xs text-text-primary outline-none focus:border-accent"
-              />
-              <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
-                {d.kind === 'angle' ? '\u00b0' : (units || '')}
-              </span>
-              <button
-                onClick={() => remove(d.id)}
-                title="Remove dimension"
-                style={{
-                  marginLeft: 'auto', fontSize: 11, lineHeight: 1, width: 20, height: 20,
-                  borderRadius: 4, border: '1px solid var(--border-primary)',
-                  background: 'var(--bg-primary)', color: 'var(--text-muted)', cursor: 'pointer',
-                }}
-              >
-                ×
-              </button>
-            </div>
-          ))}
         </div>
       )}
     </div>
