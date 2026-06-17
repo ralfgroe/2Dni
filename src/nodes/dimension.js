@@ -441,6 +441,79 @@ function translateHalfSpace(geo, ux, uy, delta, pinX, pinY) {
   return out;
 }
 
+/* Translate the mover endpoint and the connected run of vertices that must
+   follow it to keep the sketch rigid, WITHOUT crossing a frozen vertex (one
+   pinned by a locked dimension). This is the CAD-correct way to resize one
+   feature of an orthogonal floorplan: pushing a bottom step out lengthens that
+   step and slides only its attached wall, leaving every other edge — including
+   already-dimensioned ones — exactly where it was. So an unrelated, undefined
+   edge can always be set even when other edges are locked.
+
+   Propagation rule for an axis-aligned motion (unit ux,uy): a neighbour vertex
+   must move with the current one only across an edge PERPENDICULAR to the motion
+   (e.g. for a horizontal push, vertical walls carry the shift to keep them
+   vertical); an edge PARALLEL to the motion just changes length, so the far end
+   stays put. We never step onto a frozen vertex or the pin. */
+function translateVertexRange(geo, ux, uy, delta, pin, mover, frozen) {
+  ensurePaper();
+  if (!isFinite(ux) || !isFinite(uy) || !isFinite(delta)) return geo;
+  if (Math.abs(delta) < 1e-9) return geo;
+  const path = geoToPaperPath(geo);
+  if (!path) return geo;
+
+  const children = path.className === 'CompoundPath' ? (path.children || []) : [path];
+  const tx = ux * delta, ty = uy * delta;
+  const TOL = 1e-3;
+  const isFrozen = (pt) => frozen && frozen.some(
+    (f) => Math.hypot(f.x - pt.x, f.y - pt.y) < TOL);
+  const isPin = (pt) => Math.hypot(pt.x - pin.x, pt.y - pin.y) < TOL;
+
+  let moved = false;
+  for (const child of children) {
+    const segs = child.segments;
+    const n = segs.length;
+    let start = -1;
+    for (let i = 0; i < n; i++) {
+      if (Math.hypot(segs[i].point.x - mover.x, segs[i].point.y - mover.y) < TOL) { start = i; break; }
+    }
+    if (start < 0) continue;
+    if (isFrozen(segs[start].point) || isPin(segs[start].point)) continue;
+
+    // Snapshot original positions so the perpendicularity test uses the
+    // pre-move edge directions.
+    const orig = segs.map((s) => ({ x: s.point.x, y: s.point.y }));
+    const visited = new Set([start]);
+    const queue = [start];
+    while (queue.length) {
+      const i = queue.shift();
+      for (const j of [(i + 1) % n, (i - 1 + n) % n]) {
+        if (visited.has(j)) continue;
+        const pj = orig[j];
+        if (isFrozen(segs[j].point) || isPin(segs[j].point)) continue;
+        // Edge i-j direction; carry the shift only across edges roughly
+        // PERPENDICULAR to the motion axis (parallel edges just change length).
+        const ex = orig[j].x - orig[i].x, ey = orig[j].y - orig[i].y;
+        const elen = Math.hypot(ex, ey) || 1;
+        const along = Math.abs((ex / elen) * ux + (ey / elen) * uy); // 0=perp,1=parallel
+        if (along > 0.25) continue; // parallel-ish edge: don't propagate
+        visited.add(j);
+        queue.push(j);
+      }
+    }
+    for (const i of visited) {
+      const s = segs[i];
+      s.point = new paper.Point(s.point.x + tx, s.point.y + ty);
+      moved = true;
+    }
+  }
+
+  if (!moved) { path.remove(); return geo; }
+  const out = paperPathToGeo(path, geo);
+  path.remove();
+  if (!out || !out.pathData) return geo;
+  return out;
+}
+
 /* Scale about a pivot (drives radius/diameter and round-shape linear dims). */
 function scaleGeo(geo, sx, sy, pivotX, pivotY) {
   ensurePaper();
@@ -511,33 +584,50 @@ function axisSpan(axis, a, b) {
    that has MORE of the shape's vertices, so the smaller side moves. This makes
    the result independent of the order the two points were picked, and keeps the
    bulk of a floorplan stationary while one wall is pushed out. */
-/* Pick which endpoint to pin (hold fixed) for a linear drive. We pin the side
-   that has MORE of the shape's vertices, so the smaller side moves. This makes
-   the result independent of the order the two points were picked, and keeps the
-   bulk of a floorplan stationary while one wall is pushed out.
+/* Pick which endpoint to pin (hold fixed) for a linear drive.
 
-   `frozen` (optional) is a list of {x,y} points that earlier locked dimensions
-   depend on. We strongly prefer to pin the side that holds MORE frozen points,
-   so the drive moves the still-free part of the shape and doesn't disturb an
-   already-set dimension. Vertex count only breaks ties. */
+   translateHalfSpace moves every vertex strictly beyond the pin along the push
+   axis (i.e. on the mover's side of the plane through the pin). So the choice of
+   pin decides which vertices move.
+
+   `frozen` (optional) lists points that earlier LOCKED dimensions depend on.
+   For each candidate pin we count how many frozen points sit in the half-space
+   that would be translated; we pick the pin that disturbs the FEWEST frozen
+   points, so a new dimension reshapes only the still-free part of the sketch and
+   never moves an already-set dimension's vertices. When neither choice touches a
+   frozen point (or there are none), we fall back to pinning the side with more
+   vertices so the bulk of the shape stays put. */
 function choosePin(pts, a, b, ux, uy, frozen) {
+  // Count vertices strictly on each side of the mid plane (for the tie-break).
   const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
-  const side = (p) => (p.x - mx) * ux + (p.y - my) * uy;
   let nA = 0, nB = 0;
   for (const p of pts) {
-    const rel = side(p);
+    const rel = (p.x - mx) * ux + (p.y - my) * uy;
     if (rel < -1e-6) nA++;
     else if (rel > 1e-6) nB++;
   }
+
   if (frozen && frozen.length) {
-    let fA = 0, fB = 0;
-    for (const p of frozen) {
-      const rel = side(p);
-      if (rel < -1e-6) fA++;
-      else if (rel > 1e-6) fB++;
+    // The push axis runs from pin toward mover. Whichever endpoint is the pin,
+    // the moved half-space is the points strictly on the mover's side of the
+    // plane through the pin. Evaluate both options and count disturbed frozen
+    // points for each.
+    const disturbed = (pin, mover) => {
+      const dx = mover.x - pin.x, dy = mover.y - pin.y;
+      const dlen = Math.hypot(dx, dy) || 1;
+      const px = dx / dlen, py = dy / dlen; // unit pin->mover
+      let n = 0;
+      for (const f of frozen) {
+        const rel = (f.x - pin.x) * px + (f.y - pin.y) * py;
+        if (rel > 1e-6) n++;
+      }
+      return n;
+    };
+    const dPinA = disturbed(a, b); // pin a, move b's side
+    const dPinB = disturbed(b, a); // pin b, move a's side
+    if (dPinA !== dPinB) {
+      return dPinA < dPinB ? { pin: a, mover: b } : { pin: b, mover: a };
     }
-    // Pin the side carrying more frozen (locked-dim) points; keep it stationary.
-    if (fA !== fB) return fA > fB ? { pin: a, mover: b } : { pin: b, mover: a };
   }
   // Pin the side with more vertices; push the lighter side.
   return nA >= nB ? { pin: a, mover: b } : { pin: b, mover: a };
@@ -595,8 +685,15 @@ function driveLinear(geo, dim, frozen) {
   else if (axis === 'vertical') { ux = 0; uy = Math.sign(uy) || 1; }
   else { const l = Math.hypot(ux, uy) || 1; ux /= l; uy /= l; }
 
-  // Push everything strictly beyond the pin (on the mover's side) outward by
-  // delta. The plane sits at the pin, so the pinned half stays put.
+  // Move the mover's connected vertex run rigidly: the dimensioned edge changes
+  // length and its attached walls slide, but frozen (locked-dim) corners and the
+  // rest of the shape stay put. This lets an undefined edge be set without
+  // disturbing already-set dimensions. For axis-aligned dims the perpendicular
+  // propagation rule keeps walls orthogonal; for free (diagonal) dims we fall
+  // back to the coarser half-space push.
+  if (axis === 'horizontal' || axis === 'vertical') {
+    return translateVertexRange(geo, ux, uy, delta, pin, mover, frozen);
+  }
   return translateHalfSpace(geo, ux, uy, delta, pin.x, pin.y);
 }
 

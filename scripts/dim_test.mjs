@@ -193,6 +193,23 @@ console.log("\nTEST 11: three compatible dims all hold (top, right, bottom step)
   check('right stays 150', near(measureDimension(res.geo, d2), 150), measureDimension(res.geo, d2));
 }
 
+console.log("\nTEST 12: undefined edge can be set while another edge is locked (no false conflict)");
+{
+  // Big rect with a bottom-right notch (the reported scenario).
+  const NOTCH = () => ({
+    type: 'booleanResult',
+    pathData: 'M0,0 L500,0 L500,300 L250,300 L250,400 L0,400 Z',
+    bounds: { x: 0, y: 0, width: 500, height: 400 },
+  });
+  const top = { id: 'top', kind: 'linear', axis: 'horizontal', value: 500, a: 0, b: 1, ax: 0, ay: 0, bx: 500, by: 0 };
+  const step = { id: 'step', kind: 'linear', axis: 'horizontal', value: 300, a: 2, b: 3, ax: 500, ay: 300, bx: 250, by: 300 };
+  const res = dim.solveDimensions(NOTCH(), [top, step]);
+  console.log('  conflicts:', [...res.conflicts]);
+  check('no false conflict on the new step edge', res.conflicts.size === 0, [...res.conflicts]);
+  check('top edge stays 500', near(measureDimension(res.geo, top), 500), measureDimension(res.geo, top));
+  check('step edge becomes 300', near(measureDimension(res.geo, step), 300), measureDimension(res.geo, step));
+}
+
 console.log('');
 if (failures === 0) console.log('ALL TESTS PASSED');
 else { console.log(`${failures} TEST(S) FAILED`); process.exit(1); }
