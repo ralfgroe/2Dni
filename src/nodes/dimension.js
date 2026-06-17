@@ -261,7 +261,28 @@ export function isCircular(geo) {
     if (!path) return false;
     const b = path.bounds;
     const area = Math.abs(path.area);
+
+    // A circle/ellipse is built from curved segments with (almost) no sharp
+    // corners; a polygon (rect, L-shape, floorplan) is straight edges meeting at
+    // sharp corners. The area ratio alone can't tell an L-shape (~0.79) from a
+    // circle (~0.785), so require the outline to be mostly curved before we ever
+    // treat a linear dim as a circle scale. This prevents floorplans from being
+    // distorted as if they were circles.
+    const segs = path.className === 'CompoundPath'
+      ? (path.children || []).flatMap((c) => c.segments)
+      : path.segments;
+    let curved = 0, total = 0;
+    for (const s of segs) {
+      total++;
+      const h1 = s.handleIn ? s.handleIn.length : 0;
+      const h2 = s.handleOut ? s.handleOut.length : 0;
+      if (h1 > 1e-3 || h2 > 1e-3) curved++;
+    }
     path.remove();
+    if (total === 0) return false;
+    const curvedFrac = curved / total;
+    if (curvedFrac < 0.6) return false; // mostly straight => polygon, not round
+
     if (b.width < 1e-6 || b.height < 1e-6) return false;
     const ratio = area / (b.width * b.height); // circle ~0.785, square 1.0
     return ratio > 0.70 && ratio < 0.92;

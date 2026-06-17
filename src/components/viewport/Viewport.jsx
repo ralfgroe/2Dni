@@ -400,6 +400,7 @@ export default function Viewport() {
   }, [isExportFrameActive, handleExportFrameMove, handleExportFrameUp]);
 
   const gridSize = 50;
+  const splashVisible = showSplash && nodes.length === 0;
 
   return (
     <div className="flex h-full w-full flex-col">
@@ -460,7 +461,7 @@ export default function Viewport() {
             <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#4263eb" floodOpacity="0.6" />
           </filter>
 
-          {showGrid && (
+          {showGrid && !splashVisible && (
             <pattern
               id="gridMajor"
               width={gridSize * 5}
@@ -492,12 +493,12 @@ export default function Viewport() {
           )}
         </defs>
 
-        {showGrid && (
+        {showGrid && !splashVisible && (
           <rect
-            x={viewBox.x}
-            y={viewBox.y}
-            width={viewBox.w}
-            height={viewBox.h}
+            x={viewBox.x - viewBox.w}
+            y={viewBox.y - viewBox.h}
+            width={viewBox.w * 3}
+            height={viewBox.h * 3}
             fill="url(#gridMajor)"
           />
         )}
@@ -738,7 +739,7 @@ export default function Viewport() {
         })()}
       </svg>
 
-      {showSplash && nodes.length === 0 && (
+      {splashVisible && (
         <div
           style={{
             position: 'absolute', inset: 0,
