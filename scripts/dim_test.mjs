@@ -210,6 +210,30 @@ console.log("\nTEST 12: undefined edge can be set while another edge is locked (
   check('step edge becomes 300', near(measureDimension(res.geo, step), 300), measureDimension(res.geo, step));
 }
 
+console.log("\nTEST 13: undimensioned diagonal stays rigid; step resizes via length only");
+{
+  // Shape with a DIAGONAL top-right edge (v1->v2) and a bottom step (v2->v3).
+  // Setting the step length must NOT rotate the diagonal: the diagonal endpoint
+  // v2 is held and the change is absorbed by the undimensioned bottom edge.
+  const SHAPE = () => ({
+    type: 'booleanResult',
+    pathData: 'M0,0 L500,0 L700,300 L250,300 L250,400 L0,400 Z',
+    bounds: { x: 0, y: 0, width: 700, height: 400 },
+  });
+  const top = { id: 'top', kind: 'linear', axis: 'horizontal', value: 500, a: 0, b: 1, ax: 0, ay: 0, bx: 500, by: 0 };
+  const step = { id: 'step', kind: 'linear', axis: 'horizontal', value: 300, a: 2, b: 3, ax: 700, ay: 300, bx: 250, by: 300 };
+  const res = dim.solveDimensions(SHAPE(), [top, step]);
+  const g = res.geo.type === 'group' ? res.geo.children[0] : res.geo;
+  const pts = extractPoints(g);
+  console.log('  conflicts:', [...res.conflicts]);
+  // Diagonal edge direction v1->v2 before was (200,300); must be unchanged.
+  const v1 = pts[1], v2 = pts[2];
+  const dirOk = near(v1.x, 500, 1) && near(v1.y, 0, 1) && near(v2.x, 700, 1) && near(v2.y, 300, 1);
+  check('diagonal endpoints unchanged (angle preserved)', dirOk, `${v2.x.toFixed(0)},${v2.y.toFixed(0)}`);
+  check('top edge stays 500', near(measureDimension(res.geo, top), 500), measureDimension(res.geo, top));
+  check('step becomes 300', near(measureDimension(res.geo, step), 300), measureDimension(res.geo, step));
+}
+
 console.log('');
 if (failures === 0) console.log('ALL TESTS PASSED');
 else { console.log(`${failures} TEST(S) FAILED`); process.exit(1); }

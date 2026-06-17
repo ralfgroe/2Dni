@@ -450,10 +450,14 @@ function translateHalfSpace(geo, ux, uy, delta, pinX, pinY) {
    edge can always be set even when other edges are locked.
 
    Propagation rule for an axis-aligned motion (unit ux,uy): a neighbour vertex
-   must move with the current one only across an edge PERPENDICULAR to the motion
-   (e.g. for a horizontal push, vertical walls carry the shift to keep them
-   vertical); an edge PARALLEL to the motion just changes length, so the far end
-   stays put. We never step onto a frozen vertex or the pin. */
+   must move with the current one across any edge that is NOT parallel to the
+   motion. A PERPENDICULAR edge (e.g. a vertical wall for a horizontal push)
+   carries the shift to stay vertical; an ANGLED edge (a diagonal) is carried
+   rigidly so its angle is preserved — undimensioned angles are held fixed and
+   never rotated. Only an edge PARALLEL to the motion just changes length, so its
+   far end stays put. We never step onto a frozen vertex or the pin; if an angled
+   edge would have to cross a frozen vertex to stay rigid, the move is impossible
+   and the solver flags the dimension as over-constrained. */
 function translateVertexRange(geo, ux, uy, delta, pin, mover, frozen) {
   ensurePaper();
   if (!isFinite(ux) || !isFinite(uy) || !isFinite(delta)) return geo;
@@ -488,14 +492,15 @@ function translateVertexRange(geo, ux, uy, delta, pin, mover, frozen) {
       const i = queue.shift();
       for (const j of [(i + 1) % n, (i - 1 + n) % n]) {
         if (visited.has(j)) continue;
-        const pj = orig[j];
         if (isFrozen(segs[j].point) || isPin(segs[j].point)) continue;
-        // Edge i-j direction; carry the shift only across edges roughly
-        // PERPENDICULAR to the motion axis (parallel edges just change length).
+        // Edge i-j direction. Carry the shift across every edge EXCEPT one that
+        // is (nearly) PARALLEL to the motion axis — parallel edges absorb the
+        // change as length, so their far end stays put. Perpendicular walls and
+        // angled diagonals are carried rigidly so their orientation is preserved.
         const ex = orig[j].x - orig[i].x, ey = orig[j].y - orig[i].y;
         const elen = Math.hypot(ex, ey) || 1;
         const along = Math.abs((ex / elen) * ux + (ey / elen) * uy); // 0=perp,1=parallel
-        if (along > 0.25) continue; // parallel-ish edge: don't propagate
+        if (along > 0.98) continue; // parallel edge: just changes length
         visited.add(j);
         queue.push(j);
       }
@@ -597,7 +602,7 @@ function axisSpan(axis, a, b) {
    never moves an already-set dimension's vertices. When neither choice touches a
    frozen point (or there are none), we fall back to pinning the side with more
    vertices so the bulk of the shape stays put. */
-function choosePin(pts, a, b, ux, uy, frozen) {
+function choosePin(pts, a, b, ux, uy, frozen, adjacency) {
   // Count vertices strictly on each side of the mid plane (for the tie-break).
   const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
   let nA = 0, nB = 0;
@@ -605,6 +610,21 @@ function choosePin(pts, a, b, ux, uy, frozen) {
     const rel = (p.x - mx) * ux + (p.y - my) * uy;
     if (rel < -1e-6) nA++;
     else if (rel > 1e-6) nB++;
+  }
+
+  // Angle-preservation rule (highest priority): an UNdimensioned angled
+  // (diagonal) edge must stay rigid, so PIN the endpoint that touches an angled
+  // edge and MOVE the endpoint whose other edges are axis-aligned (those just
+  // change length). Moving a vertex that sits on a diagonal would rotate that
+  // diagonal — an angle change the user never asked for. This wins over the
+  // frozen-count heuristic because translateVertexRange only shifts a localized,
+  // connected run and stops at frozen vertices anyway.
+  if (adjacency) {
+    const angA = touchesAngledEdge(adjacency, a, ux, uy);
+    const angB = touchesAngledEdge(adjacency, b, ux, uy);
+    if (angA !== angB) {
+      return angA ? { pin: a, mover: b } : { pin: b, mover: a };
+    }
   }
 
   if (frozen && frozen.length) {
@@ -629,8 +649,50 @@ function choosePin(pts, a, b, ux, uy, frozen) {
       return dPinA < dPinB ? { pin: a, mover: b } : { pin: b, mover: a };
     }
   }
+
   // Pin the side with more vertices; push the lighter side.
   return nA >= nB ? { pin: a, mover: b } : { pin: b, mover: a };
+}
+
+/* Does this endpoint have an adjacent edge that is neither parallel nor
+   perpendicular to the drive axis (i.e. a diagonal whose angle would change if
+   the endpoint moved along the axis)? The dimensioned edge itself is ignored. */
+function touchesAngledEdge(adjacency, pt, ux, uy) {
+  const TOL = 1e-3;
+  const adj = adjacency.find((e) => Math.hypot(e.x - pt.x, e.y - pt.y) < TOL);
+  if (!adj) return false;
+  for (const nb of adj.neighbours) {
+    const ex = nb.x - pt.x, ey = nb.y - pt.y;
+    const elen = Math.hypot(ex, ey);
+    if (elen < TOL) continue;
+    const dot = Math.abs((ex / elen) * ux + (ey / elen) * uy); // 1=parallel,0=perp
+    // Skip the dimensioned edge (parallel to axis) and clean perpendicular walls.
+    if (dot > 0.98 || dot < 0.02) continue;
+    return true; // a genuine diagonal
+  }
+  return false;
+}
+
+/* Build vertex adjacency (each vertex -> its two path neighbours) for the
+   geometry, used to reason about which edges are diagonals. */
+function buildAdjacency(geo) {
+  ensurePaper();
+  const path = geoToPaperPath(geo);
+  if (!path) return [];
+  const children = path.className === 'CompoundPath' ? (path.children || []) : [path];
+  const out = [];
+  for (const child of children) {
+    const segs = child.segments;
+    const n = segs.length;
+    for (let i = 0; i < n; i++) {
+      const p = segs[i].point;
+      const pn = segs[(i + 1) % n].point;
+      const pp = segs[(i - 1 + n) % n].point;
+      out.push({ x: p.x, y: p.y, neighbours: [{ x: pn.x, y: pn.y }, { x: pp.x, y: pp.y }] });
+    }
+  }
+  path.remove();
+  return out;
 }
 
 function driveLinear(geo, dim, frozen) {
@@ -678,7 +740,8 @@ function driveLinear(geo, dim, frozen) {
   else if (axis === 'vertical') { ax = 0; ay = 1; }
   else { const d = dist(a.x, a.y, b.x, b.y) || 1; ax = (b.x - a.x) / d; ay = (b.y - a.y) / d; }
 
-  const { pin, mover } = choosePin(pts, a, b, ax, ay, frozen);
+  const adjacency = buildAdjacency(geo);
+  const { pin, mover } = choosePin(pts, a, b, ax, ay, frozen, adjacency);
   // Direction from pin toward mover along the axis.
   let ux = mover.x - pin.x, uy = mover.y - pin.y;
   if (axis === 'horizontal') { ux = Math.sign(ux) || 1; uy = 0; }
