@@ -1,0 +1,14 @@
+{
+  "id": "null",
+  "label": "Null",
+  "category": "Transform",
+  "description": "A pass-through node that outputs its input unchanged. Use it as a stable reference point or bookmark in your network, to keep a tidy layout, or as an anchor you can rewire other nodes to without touching the rest of the graph.",
+  "inputs": [
+    { "id": "geometry_in", "label": "Geometry In", "type": "geometry" }
+  ],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [],
+  "runtime": "null"
+}

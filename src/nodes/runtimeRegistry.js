@@ -45,6 +45,7 @@ import { deleteRuntime } from '../nodes/delete';
 import { dashesRuntime } from '../nodes/dashes';
 import { strangeAttractorRuntime } from '../nodes/strangeattractor';
 import { dimensionRuntime } from '../nodes/dimension';
+import { nullRuntime } from '../nodes/null';
 
 const runtimeMap = {
   line: lineRuntime,
@@ -95,6 +96,7 @@ const runtimeMap = {
   dashes: dashesRuntime,
   strangeattractor: strangeAttractorRuntime,
   dimension: dimensionRuntime,
+  null: nullRuntime,
 };
 
 export function getRuntime(runtimeId) {
