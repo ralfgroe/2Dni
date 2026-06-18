@@ -72,7 +72,17 @@ export default function NodeGraph() {
 
   const onConnect = useCallback(
     (connection) => {
-      setEdges(rfAddEdge(connection, edges));
+      // An input port holds a single connection (Houdini-style): dragging a new
+      // wire into an already-connected input replaces the old one rather than
+      // stacking. Drop any existing edge feeding the same target handle first.
+      const pruned = edges.filter(
+        (e) =>
+          !(
+            e.target === connection.target &&
+            e.targetHandle === connection.targetHandle
+          )
+      );
+      setEdges(rfAddEdge(connection, pruned));
     },
     [edges, setEdges]
   );
