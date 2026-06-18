@@ -14,6 +14,8 @@
     { "id": "fill_color", "label": "Fill Color", "type": "color", "default": "#ffffff" },
     { "id": "random_fill", "label": "Random Colors", "type": "boolean", "default": false },
     { "id": "random_seed", "label": "Color Seed", "type": "number", "default": 1, "min": 1, "max": 9999, "step": 1 },
+    { "id": "random_hue", "label": "Base Hue", "type": "number", "default": 0, "min": 0, "max": 360, "step": 1 },
+    { "id": "random_hue_range", "label": "Hue Range", "type": "number", "default": 360, "min": 0, "max": 360, "step": 1 },
     { "id": "random_saturation", "label": "Saturation", "type": "number", "default": 60, "min": 0, "max": 100, "step": 1 },
     { "id": "random_lightness", "label": "Lightness", "type": "number", "default": 65, "min": 0, "max": 100, "step": 1 },
     { "id": "show_stroke", "label": "Show Stroke", "type": "boolean", "default": true },

@@ -6,6 +6,8 @@ export function colorRuntime(params, inputs) {
     fill_color = '#ffffff',
     random_fill = false,
     random_seed = 1,
+    random_hue = 0,
+    random_hue_range = 360,
     random_saturation = 60,
     random_lightness = 65,
     show_stroke = true,
@@ -24,6 +26,8 @@ export function colorRuntime(params, inputs) {
   if (show_fill && random_fill) {
     return applyRandomColors(inputGeo, {
       seed: random_seed,
+      hue: random_hue,
+      hueRange: random_hue_range,
       saturation: random_saturation,
       lightness: random_lightness,
       stroke,
@@ -45,9 +49,12 @@ function applyRandomColors(geo, opts) {
   const rand = mulberry32((opts.seed | 0) * 2654435761 >>> 0 || 1);
   const sat = Math.max(0, Math.min(100, opts.saturation));
   const light = Math.max(0, Math.min(100, opts.lightness));
+  const baseHue = ((opts.hue % 360) + 360) % 360;
+  const range = Math.max(0, Math.min(360, opts.hueRange));
 
   const children = parts.map(({ geo: part }) => {
-    const hue = rand() * 360;
+    // Center the random spread on the base hue, then wrap into 0..360.
+    const hue = ((baseHue + (rand() - 0.5) * range) % 360 + 360) % 360;
     const fill = hslToHex(hue, sat, light);
     return applyColor(part, fill, opts.stroke, opts.strokeWidth, opts.opacity);
   });
