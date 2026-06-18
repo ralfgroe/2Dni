@@ -40,44 +40,78 @@ export function chainsToCenterlinePathData(chains) {
   return runs.join(' ');
 }
 
-// Parse a multi-subpath "M.. L.. M.. L.." pathData back into chains of points.
-// Used to turn the solved skeleton (a booleanResult) back into wall chains so we
-// can apply the Wall Style to the DRIVEN geometry.
+// Parse a multi-subpath SVG path back into chains of absolute points. Handles
+// the absolute and relative line/move commands that paper.js emits (M/m, L/l,
+// H/h, V/v, Z/z). Floorplan walls are pure polylines, so curve commands aren't
+// expected; if present, their endpoints are still captured.
 export function pathDataToChains(pathData) {
   if (!pathData || typeof pathData !== 'string') return [];
   const chains = [];
   let current = null;
-  // Tokenize into command letters and number pairs.
-  const re = /([MLZ])|(-?\d*\.?\d+)/gi;
-  let m;
-  const nums = [];
+  let cx = 0, cy = 0;          // current point
+  let startX = 0, startY = 0;  // subpath start (for Z)
+
+  // Tokenize: command letters and numbers (incl. signs / exponents / decimals).
+  const tokens = pathData.match(/[a-zA-Z]|-?\d*\.?\d+(?:e[-+]?\d+)?/gi);
+  if (!tokens) return [];
+
+  let i = 0;
   let cmd = null;
-  const flush = () => {
-    if (cmd === 'M' || cmd === 'L') {
-      for (let i = 0; i + 1 < nums.length; i += 2) {
-        const pt = { x: nums[i], y: nums[i + 1] };
-        if (cmd === 'M' && i === 0) {
-          current = [pt];
-          chains.push(current);
-        } else if (current) {
-          current.push(pt);
-        }
-      }
-    }
-    nums.length = 0;
-  };
-  while ((m = re.exec(pathData)) !== null) {
-    if (m[1]) {
-      flush();
-      cmd = m[1].toUpperCase();
-      if (cmd === 'Z') {
-        cmd = null;
-      }
-    } else if (m[2] != null) {
-      nums.push(parseFloat(m[2]));
+  const num = () => parseFloat(tokens[i++]);
+  const isCmd = (t) => /^[a-zA-Z]$/.test(t);
+
+  while (i < tokens.length) {
+    if (isCmd(tokens[i])) { cmd = tokens[i++]; }
+    else if (cmd == null) { i++; continue; }
+
+    const rel = cmd === cmd.toLowerCase();
+    const C = cmd.toUpperCase();
+
+    if (C === 'M') {
+      let x = num(), y = num();
+      if (rel) { x += cx; y += cy; }
+      cx = x; cy = y; startX = x; startY = y;
+      current = [{ x, y }];
+      chains.push(current);
+      // Subsequent implicit pairs after M are treated as L.
+      cmd = rel ? 'l' : 'L';
+    } else if (C === 'L') {
+      let x = num(), y = num();
+      if (rel) { x += cx; y += cy; }
+      cx = x; cy = y;
+      if (current) current.push({ x, y });
+    } else if (C === 'H') {
+      let x = num();
+      if (rel) x += cx;
+      cx = x;
+      if (current) current.push({ x: cx, y: cy });
+    } else if (C === 'V') {
+      let y = num();
+      if (rel) y += cy;
+      cy = y;
+      if (current) current.push({ x: cx, y: cy });
+    } else if (C === 'Z') {
+      cx = startX; cy = startY;
+      // Close: don't append (the band/centerline builders handle closure); a
+      // closed wall keeps its existing points.
+    } else if (C === 'C') {
+      // Cubic bezier: skip control points, take the endpoint.
+      num(); num(); num(); num();
+      let x = num(), y = num();
+      if (rel) { x += cx; y += cy; }
+      cx = x; cy = y;
+      if (current) current.push({ x, y });
+    } else if (C === 'Q') {
+      num(); num();
+      let x = num(), y = num();
+      if (rel) { x += cx; y += cy; }
+      cx = x; cy = y;
+      if (current) current.push({ x, y });
+    } else {
+      // Unknown command token — bail to avoid an infinite loop.
+      i++;
     }
   }
-  flush();
   return chains.filter((c) => c.length >= 2);
 }
 
