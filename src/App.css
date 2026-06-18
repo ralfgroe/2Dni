@@ -42,11 +42,23 @@
   height: 44px;
   overflow: hidden;
   border-radius: 13px;
+  position: relative;
 }
 
-/* Node title — center area */
-.graph-node-title {
+/* Flex spacer that holds the inner dividers apart; the title text is overlaid
+   on top of the whole body via .graph-node-title (absolutely positioned). */
+.graph-node-title-slot {
   flex: 1;
+  height: 100%;
+}
+
+/* Node title — center area. Absolutely centered across the whole node body so
+   the asymmetric flag strips (two flags on the left, one on the right) don't
+   push the label off-center. pointer-events:none keeps the flags clickable. */
+.graph-node-title {
+  position: absolute;
+  left: 0;
+  right: 0;
   text-align: center;
   font-size: 15px;
   font-weight: 600;
@@ -54,9 +66,10 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding: 0 10px;
+  padding: 0 56px;
   user-select: none;
   letter-spacing: 0.01em;
+  pointer-events: none;
 }
 
 /* ========================================

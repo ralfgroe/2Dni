@@ -1,0 +1,29 @@
+{
+  "id": "floorplan",
+  "label": "Floorplan",
+  "category": "Geometry",
+  "description": "Draw simple architectural floorplans and dimension them in one place. Sketch multiple disconnected wall runs by clicking in the viewport (Enter / double-click / Esc finishes a wall and starts a new one). Switch to Dimension mode to place SolidWorks-style parametric dimensions that drive the walls. Work in real-world meters at a chosen drawing scale.",
+  "inputs": [],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "chains_data", "label": "Walls", "type": "text", "default": "[]" },
+    { "id": "dimensions", "label": "Dimensions", "type": "text", "default": "[]" },
+    { "id": "wall_style", "label": "Wall Style", "type": "select", "default": "Centerline", "options": ["Centerline", "Double-line"] },
+    { "id": "wall_thickness", "label": "Wall Thickness", "type": "number", "default": 12, "min": 1, "max": 60 },
+    { "id": "ortho_lock", "label": "Ortho Lock (H/V only)", "type": "boolean", "default": true },
+    { "id": "snap_grid", "label": "Snap to Grid", "type": "boolean", "default": true },
+    { "id": "wall_color", "label": "Wall Color", "type": "color", "default": "#333333" },
+    { "id": "world_per_meter", "label": "Screen Units / Meter", "type": "number", "default": 100, "min": 1, "max": 1000, "step": 1 },
+    { "id": "scale_ratio", "label": "Drawing Scale", "type": "select", "default": "1:50", "options": ["1:10", "1:20", "1:50", "1:100", "1:200"] },
+    { "id": "decimals", "label": "Decimals", "type": "number", "default": 2, "min": 0, "max": 4, "step": 1 },
+    { "id": "units", "label": "Units", "type": "text", "default": "m" },
+    { "id": "dim_color", "label": "Dimension Color", "type": "color", "default": "#1366d6" },
+    { "id": "text_size", "label": "Text Size", "type": "number", "default": 14, "min": 6, "max": 48, "step": 1 },
+    { "id": "arrow_size", "label": "Arrow Size", "type": "number", "default": 8, "min": 2, "max": 30, "step": 1 },
+    { "id": "show_dimensions", "label": "Show Dimensions", "type": "boolean", "default": true },
+    { "id": "show_status", "label": "Show Status Colors", "type": "boolean", "default": true }
+  ],
+  "runtime": "floorplan"
+}

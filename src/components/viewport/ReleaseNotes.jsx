@@ -1,6 +1,6 @@
 // Release notes for 2Dni. Add a new <Release> block at the top each time we
 // ship new nodes or notable changes, and bump LATEST_RELEASE_DATE below.
-export const LATEST_RELEASE_DATE = 'June 17, 2026';
+export const LATEST_RELEASE_DATE = 'June 18, 2026';
 
 export default function ReleaseNotes({ onClose }) {
   return (
@@ -23,6 +23,42 @@ export default function ReleaseNotes({ onClose }) {
           <h1 style={{ fontSize: 28, fontWeight: 700, color: '#1a1a2e', margin: 0 }}>Release Notes</h1>
           <p style={{ fontSize: 13, color: '#6c757d', marginTop: 8 }}>What's new in 2Dni</p>
         </div>
+
+        <Release version="June 18, 2026" title="Floorplan node + in-node dimensioning & scale">
+          <Item name="Floorplan node" tag="new">
+            A node built for sketching simple architectural plans. Draw several
+            <b>disconnected wall runs</b> in a single node — click to place
+            corners, then press <b>Enter</b> (or double-click) to finish a wall
+            and start a new one. Walls render with an adjustable
+            <b>Wall Thickness</b> and color.
+          </Item>
+          <Item name="Centerline & double-line walls" tag="new">
+            Switch <b>Wall Style</b> between a thin dimensionable
+            <b>Centerline</b> and presentation-ready <b>Double-line</b> walls
+            (filled bands with crisp mitered corners and square ends).
+          </Item>
+          <Item name="Ortho lock & grid snap" tag="new">
+            <b>Ortho Lock</b> keeps walls perfectly horizontal/vertical (hold
+            Shift to toggle per-segment) and <b>Snap to Grid</b> locks corners to
+            the grid — both on by default since floorplans are mostly orthogonal.
+            Drag any corner afterward to adjust.
+          </Item>
+          <Item name="Dimension walls right in the node" tag="new">
+            Flip the in-viewport toolbar from <b>Draw</b> to <b>Dimension</b> and
+            place SolidWorks-style <b>Linear</b>, <b>Angle</b> and <b>Relation</b>
+            dimensions on your walls — no separate Dimension node needed. Typing a
+            new value <b>drives the walls</b> (the corners move to satisfy it), and
+            the sketch is colored blue / black / red for under- / fully- /
+            over-defined, just like a CAD sketch.
+          </Item>
+          <Item name="Work in real-world meters at a chosen scale" tag="new">
+            Floorplans read in <b>meters</b>. Set <b>Screen Units / Meter</b> to
+            map drawing size to real length and pick a <b>Drawing Scale</b>
+            (1:10 … 1:200) as a printing/label hint. Dimensions are typed and
+            shown in meters while the geometry stays a comfortable on-screen size;
+            the scale ratio is label-only and never resizes your drawing.
+          </Item>
+        </Release>
 
         <Release version="June 17, 2026" title="Color upgrades, Null node & smarter wiring">
           <Item name="Random Colors per island" tag="new">

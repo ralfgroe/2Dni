@@ -46,6 +46,7 @@ import { dashesRuntime } from '../nodes/dashes';
 import { strangeAttractorRuntime } from '../nodes/strangeattractor';
 import { dimensionRuntime } from '../nodes/dimension';
 import { nullRuntime } from '../nodes/null';
+import { floorplanRuntime } from '../nodes/floorplan';
 
 const runtimeMap = {
   line: lineRuntime,
@@ -97,6 +98,7 @@ const runtimeMap = {
   strangeattractor: strangeAttractorRuntime,
   dimension: dimensionRuntime,
   null: nullRuntime,
+  floorplan: floorplanRuntime,
 };
 
 export function getRuntime(runtimeId) {

@@ -131,15 +131,16 @@ export default memo(function GraphNode({ id, data, selected }) {
           title={isTemplated ? 'Remove template' : 'Show as template'}
         />
         <div style={{ width: '2px', height: '100%', backgroundColor: '#1a1a2e', flexShrink: 0 }} />
-        <div className="graph-node-title" style={titleStyle}>
-          {titleLabel}
-        </div>
+        <div className="graph-node-title-slot" />
         <div style={{ width: '2px', height: '100%', backgroundColor: '#1a1a2e', flexShrink: 0 }} />
         <button
           className={`graph-flag display-flag ${isDisplay ? 'active' : ''}`}
           onClick={handleDisplayClick}
           title={isDisplay ? 'Remove display flag' : 'Set as display node'}
         />
+        <div className="graph-node-title" style={titleStyle}>
+          {titleLabel}
+        </div>
       </div>
 
       {/* Output ports — bottom */}

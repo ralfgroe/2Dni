@@ -47,9 +47,10 @@ function parseDimensions(raw) {
 
 function dist(ax, ay, bx, by) { return Math.hypot(bx - ax, by - ay); }
 
-function fmtValue(v, decimals, units) {
+function fmtValue(v, decimals, units, valueScale = 1) {
   if (v == null || !isFinite(v)) return '';
-  const s = Number(v).toFixed(decimals);
+  const scaled = valueScale && valueScale !== 1 ? v / valueScale : v;
+  const s = Number(scaled).toFixed(decimals);
   return units ? `${s} ${units}` : s;
 }
 
@@ -699,9 +700,9 @@ function finishAnnotation(dim, lines, arrows, label, leaderAnchor, style, leader
 }
 
 /* Build the dimAnnotation for a single dimension on the ALREADY-DRIVEN geo. */
-function buildAnnotation(geo, dim, style, conflict) {
+export function buildAnnotation(geo, dim, style, conflict) {
   if (conflict) style = { ...style, conflict: true };
-  const { color, textSize, arrowSize, decimals, units } = style;
+  const { color, textSize, arrowSize, decimals, units, valueScale = 1 } = style;
   const lines = [];
   const arrows = [];
   let label = null;
@@ -735,7 +736,7 @@ function buildAnnotation(geo, dim, style, conflict) {
     const ux = dx / len, uy = dy / len;
     lines.push([circ.cx, circ.cy, cx0, cy0]);
     arrows.push(arrowPath(cx0, cy0, -ux, -uy, arrowSize));
-    label = { x: cx0 + ux * textSize * 1.4, y: cy0 + uy * textSize * 1.4, text: 'R' + fmtValue(circ.r, decimals, units), anchor: 'middle' };
+    label = { x: cx0 + ux * textSize * 1.4, y: cy0 + uy * textSize * 1.4, text: 'R' + fmtValue(circ.r, decimals, units, valueScale), anchor: 'middle' };
     return finishAnnotation(dim, lines, arrows, label, { x: cx0, y: cy0 }, passiveStyle, true);
   }
 
@@ -754,7 +755,7 @@ function buildAnnotation(geo, dim, style, conflict) {
     const lx = circle.cx + ux * (circle.r + textSize * 1.4);
     const ly = circle.cy + uy * (circle.r + textSize * 1.4);
     const prefix = isDia ? '\u2300' : 'R';
-    label = { x: lx, y: ly, text: prefix + fmtValue(isDia ? circle.r * 2 : circle.r, decimals, units), anchor: 'middle' };
+    label = { x: lx, y: ly, text: prefix + fmtValue(isDia ? circle.r * 2 : circle.r, decimals, units, valueScale), anchor: 'middle' };
     return finishAnnotation(dim, lines, arrows, label, { x: tipX, y: tipY }, style, true);
   }
 
@@ -772,7 +773,7 @@ function buildAnnotation(geo, dim, style, conflict) {
     const tailX = cx + dirX * (r * 0.6 + textSize * 2.2), tailY = cy + dirY * (r * 0.6 + textSize * 2.2);
     lines.push([arcX, arcY, tailX, tailY]);
     arrows.push(arrowPath(arcX, arcY, dirX, dirY, arrowSize));
-    label = { x: tailX + dirX * textSize * 0.6, y: tailY + dirY * textSize * 0.6, text: 'R' + fmtValue(r, decimals, units), anchor: 'middle' };
+    label = { x: tailX + dirX * textSize * 0.6, y: tailY + dirY * textSize * 0.6, text: 'R' + fmtValue(r, decimals, units, valueScale), anchor: 'middle' };
     return finishAnnotation(dim, lines, arrows, label, { x: arcX, y: arcY }, style, true);
   }
 
@@ -827,7 +828,7 @@ function buildAnnotation(geo, dim, style, conflict) {
     arrows.push(arrowPath(ax, lineY, bx - ax, 0, arrowSize));
     arrows.push(arrowPath(bx, lineY, ax - bx, 0, arrowSize));
     const lblX = hasPos ? dim.labelPos.x : (ax + bx) / 2;
-    label = { x: lblX, y: lineY - textSize * 0.4, text: fmtValue(measured, decimals, units), anchor: 'middle' };
+    label = { x: lblX, y: lineY - textSize * 0.4, text: fmtValue(measured, decimals, units, valueScale), anchor: 'middle' };
   } else if (axis === 'vertical') {
     measured = Math.abs(by - ay);
     const lineX = hasPos ? dim.labelPos.x : Math.max(ax, bx) + off;
@@ -837,7 +838,7 @@ function buildAnnotation(geo, dim, style, conflict) {
     arrows.push(arrowPath(lineX, ay, 0, by - ay, arrowSize));
     arrows.push(arrowPath(lineX, by, 0, ay - by, arrowSize));
     const lblY = hasPos ? dim.labelPos.y : (ay + by) / 2;
-    label = { x: lineX + textSize * 0.5, y: lblY, text: fmtValue(measured, decimals, units), anchor: 'start' };
+    label = { x: lineX + textSize * 0.5, y: lblY, text: fmtValue(measured, decimals, units, valueScale), anchor: 'start' };
   } else {
     measured = dist(ax, ay, bx, by);
     let dx = bx - ax, dy = by - ay;
@@ -861,7 +862,7 @@ function buildAnnotation(geo, dim, style, conflict) {
     label = {
       x: (a2x + b2x) / 2 + dx * along + nx * textSize * 0.7,
       y: (a2y + b2y) / 2 + dy * along + ny * textSize * 0.7,
-      text: fmtValue(measured, decimals, units),
+      text: fmtValue(measured, decimals, units, valueScale),
       anchor: 'middle',
     };
   }

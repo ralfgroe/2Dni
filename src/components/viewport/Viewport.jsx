@@ -10,6 +10,7 @@ import { centerTranslate } from '../../utils/exportUtils';
 import GimbalHandles from './GimbalHandles';
 import CornerPickOverlay from './CornerPickOverlay';
 import FreeCurveOverlay from './FreeCurveOverlay';
+import FloorplanOverlay from './FloorplanOverlay';
 import BezierOverlay from './BezierOverlay';
 import PointTransformOverlay from './PointTransformOverlay';
 import ResampleOverlay from './ResampleOverlay';
@@ -101,7 +102,9 @@ export default function Viewport() {
   // (never force-off), so the manual grid toggle still works afterward.
   const anySnapGrid = useMemo(
     () => nodes.some(
-      (n) => n.data.definitionId === 'freecurve' && n.data.params?.snap_grid === true,
+      (n) =>
+        (n.data.definitionId === 'freecurve' || n.data.definitionId === 'floorplan') &&
+        n.data.params?.snap_grid === true,
     ),
     [nodes],
   );
@@ -613,6 +616,17 @@ export default function Viewport() {
             screenToSvg={screenToSvg}
             results={results}
             gridSize={gridSize}
+          />
+        )}
+
+        {/* Floorplan multi-wall drawing overlay */}
+        {selectedNode && selectedDef && selectedDef.id === 'floorplan' && (
+          <FloorplanOverlay
+            nodeId={selectedNode.id}
+            screenToSvg={screenToSvg}
+            results={results}
+            gridSize={gridSize}
+            viewBox={viewBox}
           />
         )}
 
