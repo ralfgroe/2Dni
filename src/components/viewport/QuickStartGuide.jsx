@@ -51,6 +51,8 @@ export default function QuickStartGuide({ onClose }) {
           <P>Use <B>Color</B> to set fill, stroke, and opacity.</P>
           <ChainDiagram nodes={['Rectangle','Radius','Transform','Color']} />
           <Tip>The Transform node lets you drag geometry in the Viewport — no sliders needed.</Tip>
+          <Tip>Turn on <B>Random Colors</B> in the Color node to give every separate island its own color (great on Voronoi, Scatter, or a group of shapes). Use <B>Base Hue</B> + <B>Hue Range</B> to keep the palette in one family, and <B>Color Seed</B> to shuffle.</Tip>
+          <Tip>For self-intersecting curves like a <B>Spirograph</B> or <B>Lissajous</B>, also enable <B>Split Overlaps Into Regions</B> — each enclosed area (every petal of a flower curve) becomes its own colored cell.</Tip>
         </Section>
 
         <Section number="5" title="Combining Geometry">
@@ -135,6 +137,9 @@ export default function QuickStartGuide({ onClose }) {
             <Tip>Use <B>arrow keys</B> to navigate the toolbox, press <B>Enter</B> to add.</Tip>
             <Tip><B>Split</B> separates compound geometry into individual pieces you can color independently.</Tip>
             <Tip><B>Point Transform</B> lets you select and drag individual vertices for precise control.</Tip>
+            <Tip>Drop a <B>Null</B> node anywhere as a pass-through bookmark. Rename it and give it a <B>node color</B> in the parameters to mark special points in your network.</Tip>
+            <Tip>An input port holds <B>one connection</B>: drag a new wire onto a connected input to <B>replace</B> the old one — handy for swapping which node feeds another.</Tip>
+            <Tip>Drop a node directly onto an existing wire to <B>insert</B> it into the chain.</Tip>
           </div>
         </Section>
 

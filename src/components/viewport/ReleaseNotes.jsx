@@ -24,6 +24,40 @@ export default function ReleaseNotes({ onClose }) {
           <p style={{ fontSize: 13, color: '#6c757d', marginTop: 8 }}>What's new in 2Dni</p>
         </div>
 
+        <Release version="June 17, 2026" title="Color upgrades, Null node & smarter wiring">
+          <Item name="Random Colors per island" tag="new">
+            The <b>Color</b> node can now give every separate island its own
+            color. Turn on <b>Random Colors</b> and each disconnected piece —
+            Voronoi cells, scattered shapes, a group of paths — gets a distinct
+            fill. A <b>Color Seed</b> keeps the palette stable and lets you
+            shuffle.
+          </Item>
+          <Item name="Constrain the palette (Base Hue + Hue Range)" tag="new">
+            Limit the random colors to a slice of the color wheel: set a
+            <b>Base Hue</b> and a <b>Hue Range</b> for, say, random reds or a
+            blues-and-purples family. Full range gives the whole rainbow.
+            <b>Saturation</b> and <b>Lightness</b> dial in the mood.
+          </Item>
+          <Item name="Split overlaps into regions" tag="new">
+            Self-intersecting curves like a Spirograph or Lissajous can be split
+            into the distinct regions their crossings create. Turn on
+            <b>Split Overlaps Into Regions</b> with Random Colors and each
+            enclosed area — every petal of a flower curve — becomes its own
+            colored cell.
+          </Item>
+          <Item name="Null node" tag="new">
+            A Houdini-style pass-through that outputs its input unchanged — handy
+            as a stable reference/bookmark in your network. You can <b>rename</b>
+            it and give it a <b>node color</b> in the parameter panel to mark
+            special points in the flow.
+          </Item>
+          <Item name="One connection per input" tag="improved">
+            Dragging a wire into an already-connected input now <b>replaces</b>
+            the old connection instead of stacking a second one — just like
+            Houdini. Swapping which node feeds another is a single drag.
+          </Item>
+        </Release>
+
         <Release version="June 17, 2026" title="Dimension node — rebuilt on a real constraint solver">
           <Item name="Parametric Dimensions (CAD)" tag="new">
             The <b>Dimension</b> node is back, rebuilt from the ground up on a true
