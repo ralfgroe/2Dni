@@ -2,7 +2,7 @@
   "id": "color",
   "label": "Color",
   "category": "Appearance",
-  "description": "Sets the fill color, stroke color, and stroke width of incoming geometry. For real dashed or dotted lines, use the Dashes node upstream \u2014 Color preserves the rounded caps those pieces carry.",
+  "description": "Sets the fill color, stroke color, and stroke width of incoming geometry. Turn on Random Colors to give each separate island (e.g. Voronoi cells) its own color. For real dashed or dotted lines, use the Dashes node upstream \u2014 Color preserves the rounded caps those pieces carry.",
   "inputs": [
     { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }
   ],
@@ -12,6 +12,10 @@
   "parameters": [
     { "id": "show_fill", "label": "Show Fill", "type": "boolean", "default": true },
     { "id": "fill_color", "label": "Fill Color", "type": "color", "default": "#ffffff" },
+    { "id": "random_fill", "label": "Random Colors", "type": "boolean", "default": false },
+    { "id": "random_seed", "label": "Color Seed", "type": "number", "default": 1, "min": 1, "max": 9999, "step": 1 },
+    { "id": "random_saturation", "label": "Saturation", "type": "number", "default": 60, "min": 0, "max": 100, "step": 1 },
+    { "id": "random_lightness", "label": "Lightness", "type": "number", "default": 65, "min": 0, "max": 100, "step": 1 },
     { "id": "show_stroke", "label": "Show Stroke", "type": "boolean", "default": true },
     { "id": "stroke_color", "label": "Stroke Color", "type": "color", "default": "#000000" },
     { "id": "stroke_width", "label": "Stroke Width", "type": "number", "default": 1, "min": 0, "max": 50 },
