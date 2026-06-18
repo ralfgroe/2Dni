@@ -63,13 +63,12 @@ export default memo(function GraphNode({ id, data, selected }) {
     ? {
         backgroundColor: 'transparent',
         color: readableTextColor(nodeColor),
-        alignSelf: 'stretch',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
       }
     : undefined;
-  const bodyStyle = useTint ? { backgroundColor: nodeColor } : undefined;
+  const bodyStyle = useTint ? { backgroundColor: 'transparent' } : undefined;
+  const containerStyle = useTint
+    ? { width: NODE_WIDTH, background: nodeColor }
+    : { width: NODE_WIDTH };
 
   const inputPositions = hasMultiplePorts
     ? inputs.map((_, i) => 35 + i * 30)
@@ -81,7 +80,7 @@ export default memo(function GraphNode({ id, data, selected }) {
   return (
     <div
       className={`graph-node-houdini ${selected ? 'selected' : ''} ${isBypassed ? 'bypassed' : ''}`}
-      style={{ width: NODE_WIDTH }}
+      style={containerStyle}
     >
       {/* Input ports — top */}
       {hasMultiplePorts ? (
