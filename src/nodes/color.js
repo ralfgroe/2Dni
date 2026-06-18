@@ -1,10 +1,12 @@
 import { extractParts } from './select';
+import { splitIntoRegions } from '../utils/planarRegions';
 
 export function colorRuntime(params, inputs) {
   const {
     show_fill = true,
     fill_color = '#ffffff',
     random_fill = false,
+    random_split_regions = false,
     random_seed = 1,
     random_hue = 0,
     random_hue_range = 360,
@@ -26,6 +28,7 @@ export function colorRuntime(params, inputs) {
   if (show_fill && random_fill) {
     return applyRandomColors(inputGeo, {
       seed: random_seed,
+      splitRegions: random_split_regions,
       hue: random_hue,
       hueRange: random_hue_range,
       saturation: random_saturation,
@@ -45,7 +48,7 @@ export function colorRuntime(params, inputs) {
 // of a compound path such as Voronoi cells). A seeded PRNG keeps the palette
 // stable across re-evaluations and lets the user shuffle via the seed param.
 function applyRandomColors(geo, opts) {
-  const parts = extractParts(geo);
+  const parts = opts.splitRegions ? regionParts(geo) : extractParts(geo);
   const rand = mulberry32((opts.seed | 0) * 2654435761 >>> 0 || 1);
   const sat = Math.max(0, Math.min(100, opts.saturation));
   const light = Math.max(0, Math.min(100, opts.lightness));
@@ -74,6 +77,68 @@ function applyRandomColors(geo, opts) {
     : undefined;
 
   return { type: 'group', children, ...(bounds ? { bounds } : {}) };
+}
+
+// Collects the path data of every path in the geometry, subdivides each into
+// the enclosed regions formed by its self-intersections, and returns those
+// regions as colorable parts. Falls back to extractParts when nothing
+// subdivides (e.g. a non-overlapping shape).
+function regionParts(geo) {
+  const pathDatas = [];
+  collectPathData(geo, pathDatas);
+
+  const template = firstStyleSource(geo);
+  const regions = [];
+  for (const pd of pathDatas) {
+    const cells = splitIntoRegions(pd);
+    if (cells && cells.length > 1) {
+      for (const cellPathData of cells) {
+        regions.push({
+          geo: {
+            type: 'booleanResult',
+            pathData: cellPathData,
+            fill: template.fill ?? '#000000',
+            stroke: template.stroke ?? 'none',
+            strokeWidth: template.strokeWidth ?? 0,
+            opacity: template.opacity,
+            bounds: pathDataBounds(cellPathData),
+          },
+        });
+      }
+    }
+  }
+
+  if (regions.length > 1) return regions;
+  return extractParts(geo);
+}
+
+function collectPathData(geo, out) {
+  if (!geo) return;
+  if (geo.pathData) out.push(geo.pathData);
+  if (Array.isArray(geo.children)) for (const c of geo.children) collectPathData(c, out);
+}
+
+function firstStyleSource(geo) {
+  if (!geo) return {};
+  if (geo.pathData || geo.fill || geo.stroke) return geo;
+  if (Array.isArray(geo.children) && geo.children.length) return firstStyleSource(geo.children[0]);
+  return {};
+}
+
+// Cheap bounds from an "M x y L x y ... Z" polygon pathData.
+function pathDataBounds(pathData) {
+  const nums = pathData.match(/-?\d+(?:\.\d+)?/g);
+  if (!nums || nums.length < 2) return undefined;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (let i = 0; i + 1 < nums.length; i += 2) {
+    const x = parseFloat(nums[i]);
+    const y = parseFloat(nums[i + 1]);
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+  }
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
 // Small, fast, deterministic PRNG seeded from an integer.
