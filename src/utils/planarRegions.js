@@ -53,6 +53,16 @@ export function splitIntoRegions(pathData, opts = {}) {
   source.remove();
   if (polylines.length === 0) return null;
 
+  return regionsFromPolylines(polylines, opts);
+}
+
+// Core planar-subdivision over already-flattened polylines (arrays of {x,y}).
+// Exposed separately so it can be unit-tested without paper.js. Returns an
+// array of pathData strings (one closed polygon per interior region) or null.
+export function regionsFromPolylines(polylines, opts = {}) {
+  const minArea = opts.minArea ?? 5;
+  if (!polylines || polylines.length === 0) return null;
+
   // Build a flat list of line segments.
   const segs = [];
   for (const pl of polylines) {
@@ -62,8 +72,10 @@ export function splitIntoRegions(pathData, opts = {}) {
   }
   if (segs.length < 3) return null;
 
-  // Snap-merge near-identical points so the graph connects cleanly.
-  const eps = opts.eps ?? 1e-4;
+  // Snap-merge near-identical points so the graph connects cleanly. Flattened
+  // curve points that meet at a junction (e.g. a rose curve's center) are never
+  // bit-identical, so the tolerance must be a real distance, not epsilon.
+  const eps = opts.eps ?? 1.5;
   const verts = [];
   const keyToIndex = new Map();
   const quant = (v) => Math.round(v / eps);
