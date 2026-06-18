@@ -9,6 +9,9 @@
   "outputs": [
     { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
   ],
-  "parameters": [],
+  "parameters": [
+    { "id": "node_name", "label": "Name", "type": "text", "default": "" },
+    { "id": "node_color", "label": "Node Color", "type": "color", "default": "#ffffff" }
+  ],
   "runtime": "null"
 }
