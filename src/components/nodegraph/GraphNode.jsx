@@ -60,8 +60,16 @@ export default memo(function GraphNode({ id, data, selected }) {
   const nodeColor = typeof params.node_color === 'string' ? params.node_color.trim() : '';
   const useTint = nodeColor && nodeColor.toLowerCase() !== '#ffffff' && nodeColor !== 'none';
   const titleStyle = useTint
-    ? { backgroundColor: nodeColor, color: readableTextColor(nodeColor) }
+    ? {
+        backgroundColor: 'transparent',
+        color: readableTextColor(nodeColor),
+        alignSelf: 'stretch',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }
     : undefined;
+  const bodyStyle = useTint ? { backgroundColor: nodeColor } : undefined;
 
   const inputPositions = hasMultiplePorts
     ? inputs.map((_, i) => 35 + i * 30)
@@ -111,7 +119,7 @@ export default memo(function GraphNode({ id, data, selected }) {
       )}
 
       {/* Node body */}
-      <div className="graph-node-body-houdini">
+      <div className="graph-node-body-houdini" style={bodyStyle}>
         <button
           className={`graph-flag bypass-flag ${isBypassed ? 'active' : ''}`}
           onClick={handleBypassClick}
