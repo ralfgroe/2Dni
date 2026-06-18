@@ -527,7 +527,17 @@ export function solveDimensions(inputGeo, dimsRaw) {
       if (idx.a != null && idx.b != null) explicitDirEdges.add(EDGE_KEY(idx.a, idx.b));
     }
   }
-  const base = [{ type: 'anchor', v: 0, x: V0[0], y: V0[1] }];
+  // Ground the first vertex of EVERY subpath, not just global vertex 0. With a
+  // single shape this is identical to before; with several disconnected subpaths
+  // (e.g. Floorplan walls) it pins each one in place so they can't drift or
+  // collapse toward the origin when an unrelated wall is dimensioned.
+  const base = [];
+  const groundedStarts = (sketch.subpaths && sketch.subpaths.length > 0)
+    ? sketch.subpaths.map((sp) => sp.start)
+    : [0];
+  for (const s of groundedStarts) {
+    base.push({ type: 'anchor', v: s, x: V0[2 * s], y: V0[2 * s + 1] });
+  }
   for (const rel of implicitRelations(sketch, V0)) {
     if (explicitDirEdges.has(EDGE_KEY(rel._edge[0], rel._edge[1]))) continue;
     base.push(rel);
