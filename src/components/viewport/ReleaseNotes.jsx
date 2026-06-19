@@ -1,6 +1,6 @@
 // Release notes for 2Dni. Add a new <Release> block at the top each time we
 // ship new nodes or notable changes, and bump LATEST_RELEASE_DATE below.
-export const LATEST_RELEASE_DATE = 'June 18, 2026';
+export const LATEST_RELEASE_DATE = 'June 20, 2026';
 
 export default function ReleaseNotes({ onClose }) {
   return (
@@ -23,6 +23,58 @@ export default function ReleaseNotes({ onClose }) {
           <h1 style={{ fontSize: 28, fontWeight: 700, color: '#1a1a2e', margin: 0 }}>Release Notes</h1>
           <p style={{ fontSize: 13, color: '#6c757d', marginTop: 8 }}>What's new in 2Dni</p>
         </div>
+
+        <Release version="June 20, 2026" title="Floorplan polish: element dimensions, tidy params & true wall color">
+          <Item name="Dimension door & window position" tag="new">
+            Placed elements now carry a <b>locating dimension</b> measured from the
+            nearest wall corner to the <b>near edge of the opening</b> — so you read
+            exactly how much bare wall is left, no subtracting half the door width.
+            Double-click the value to type an exact distance and the element slides
+            to match.
+          </Item>
+          <Item name="Drag element dimensions in & out" tag="new">
+            Grab an element dimension's label and <b>pull it perpendicular to the
+            wall</b> to tidy your layout, just like the wall dimensions. The offset
+            is remembered per element, and the dimensions now <b>stay on the canvas
+            in every tool</b> (Draw, Dimension, Elements).
+          </Item>
+          <Item name="Walls keep your Wall Color" tag="fixed">
+            Dimensioned walls no longer turn blue — they always render in your
+            chosen <b>Wall Color</b>. Only a genuine over-constrained conflict still
+            flags the walls red; normal constraint status is shown by the dimension
+            labels instead.
+          </Item>
+          <Item name="Collapsible parameter sections" tag="new">
+            Long node parameter lists can now be organized into <b>Houdini-style
+            collapsible folders</b>. The <b>Floorplan</b> node groups its settings
+            into <b>Walls</b>, <b>Drawing</b>, <b>Elements</b>, <b>Scale &amp;
+            Units</b> and <b>Dimensions</b> — and the raw data fields are tucked
+            away since they're edited right on the canvas.
+          </Item>
+        </Release>
+
+        <Release version="June 19, 2026" title="Floorplan elements: doors, windows & openings">
+          <Item name="Wall-hosted elements library" tag="new">
+            The <b>Floorplan</b> node has a new <b>Elements</b> tool. Pick
+            <b>Door</b>, <b>Window</b> or <b>Opening</b> and click a wall to drop
+            it in. Elements are <b>hosted on the wall</b> — they remember which
+            wall segment they sit on, so when you dimension or drag that wall, the
+            door slides and rotates right along with it.
+          </Item>
+          <Item name="Real openings cut into the wall" tag="new">
+            Each element cuts a <b>true opening</b> in the wall — the wall breaks
+            at the gap in both <b>Centerline</b> and <b>Double-line</b> styles, and
+            the CAD symbol is drawn in the gap: a door leaf with a dashed swing
+            arc, a window's double glass line, or a plain opening with jambs.
+          </Item>
+          <Item name="Slide, size in meters, flip & delete" tag="new">
+            Drag an element's marker to <b>slide it along the wall</b> (it hops
+            between segments), double-click to set its <b>width in meters</b>, use
+            the door's rotate handle to flip the <b>hinge and swing</b>, and the
+            little × to remove it. Openings that no longer fit their wall flag
+            <b>red</b> and clamp to stay on the segment.
+          </Item>
+        </Release>
 
         <Release version="June 18, 2026" title="Floorplan node + in-node dimensioning & scale">
           <Item name="Floorplan node" tag="new">

@@ -23,10 +23,14 @@ import {
   bandPathForChain,
 } from '../utils/floorplanGeo';
 import { solveDimensions, buildAnnotation } from './dimension';
+import {
+  resolveElement,
+  cutOpeningsFromChains,
+  elementSymbolPaths,
+} from '../utils/floorplanElements';
 
 const CONFLICT_DIM_COLOR = '#e03131';
 const UNDER_COLOR = '#1366d6';
-const FULLY_COLOR = '#1a1a1a';
 
 function parseDims(raw) {
   if (Array.isArray(raw)) return raw;
@@ -41,6 +45,25 @@ function parseDims(raw) {
 
 function num(n) {
   return Math.round(n * 1000) / 1000;
+}
+
+// Coarse bounds from the numeric coordinates in a path string. Good enough for
+// the group's overall bbox (arc endpoints bound the quarter-circle reasonably).
+function pathDataBounds(d) {
+  const nums = (d || '').match(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi);
+  if (!nums || nums.length < 2) return undefined;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  // Coordinates come in x,y pairs in our generated symbol paths; arc radius
+  // params also appear but stay within the endpoint bbox we expand below.
+  for (let i = 0; i + 1 < nums.length; i += 2) {
+    const x = parseFloat(nums[i]);
+    const y = parseFloat(nums[i + 1]);
+    if (!isFinite(x) || !isFinite(y)) continue;
+    minX = Math.min(minX, x); minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+  }
+  if (!isFinite(minX)) return undefined;
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
 // Build the wall geometry (booleanResult) from a set of centerline chains.
@@ -104,10 +127,13 @@ function buildWalls(chains, wall_style, sw, wall_color) {
 export function floorplanRuntime(params) {
   const {
     chains_data = '[]',
+    elements_data = '[]',
     dimensions = '[]',
     wall_style = 'Centerline',
     wall_thickness = 12,
     wall_color = '#333333',
+    element_color = '#333333',
+    show_elements = true,
     world_per_meter = 100,
     decimals = 2,
     units = 'm',
@@ -148,35 +174,85 @@ export function floorplanRuntime(params) {
     : chains;
   const renderChains = drivenChains.length > 0 ? validChains(drivenChains) : chains;
 
-  let walls = buildWalls(renderChains, wall_style, sw, wall_color);
-  if (!walls) return null;
-
-  // SolidWorks-style status coloring of the walls themselves (blue/black/red).
-  if (show_status && dims.length > 0) {
-    const statusStroke = status === 'over' ? CONFLICT_DIM_COLOR : status === 'fully' ? FULLY_COLOR : UNDER_COLOR;
-    walls = { ...walls, stroke: statusStroke };
-    if (wall_style === 'Double-line') walls.fill = statusStroke;
+  // Resolve wall-hosted elements against the SOLVED chains so they slide/rotate
+  // with the wall. Each resolved element carries its host wall index for cutting.
+  const elements = parseDims(elements_data);
+  const half = sw / 2;
+  const resolved = [];
+  if (elements.length > 0) {
+    for (const el of elements) {
+      const r = resolveElement(el, renderChains);
+      if (r) {
+        r._el = el;
+        resolved.push(r);
+      }
+    }
   }
 
-  if (!show_dimensions || dims.length === 0) return walls;
+  // Cut openings out of the walls (gap in the centerline / break the band).
+  const wallChains = resolved.length > 0
+    ? cutOpeningsFromChains(renderChains, resolved)
+    : renderChains;
+
+  let walls = buildWalls(wallChains, wall_style, sw, wall_color);
+  if (!walls) return null;
+
+  // Build element symbols (door leaf + swing arc, window glass, opening jambs).
+  const elementSymbols = [];
+  if (show_elements && resolved.length > 0) {
+    for (const r of resolved) {
+      const paths = elementSymbolPaths(r._el, r, half);
+      for (const p of paths) {
+        const geo = {
+          type: 'booleanResult',
+          pathData: p.d,
+          fill: 'none',
+          stroke: r.clamped ? CONFLICT_DIM_COLOR : element_color,
+          strokeWidth: 1.5,
+          strokeLinecap: 'round',
+          strokeLinejoin: 'round',
+          bounds: pathDataBounds(p.d),
+        };
+        if (p.dashed) geo.strokeDasharray = '4 4';
+        elementSymbols.push(geo);
+      }
+    }
+  }
+
+  // Walls keep the user's Wall Color. The only status we surface on the walls
+  // themselves is a genuine over-constrained conflict (red), which is an error
+  // worth flagging; normal under/fully-constrained states keep the wall color
+  // (the dimension annotations already convey constraint status).
+  if (show_status && dims.length > 0 && status === 'over') {
+    walls = { ...walls, stroke: CONFLICT_DIM_COLOR };
+    if (wall_style === 'Double-line') walls.fill = CONFLICT_DIM_COLOR;
+  }
+
+  // If there are neither dimensions to annotate nor element symbols, the walls
+  // alone are the result.
+  if ((!show_dimensions || dims.length === 0) && elementSymbols.length === 0) {
+    return walls;
+  }
 
   // Annotations measure/anchor against the solved skeleton. Their value labels
   // are scaled from world units into meters via valueScale = world_per_meter.
-  const style = {
-    color: dim_color,
-    textSize: text_size,
-    arrowSize: arrow_size,
-    decimals,
-    units,
-    valueScale: world_per_meter,
-  };
   const annotations = [];
-  for (const dim of dims) {
-    const ann = buildAnnotation(skeleton, dim, style, conflicts.has(dim.id));
-    if (ann) annotations.push(ann);
+  if (show_dimensions && dims.length > 0) {
+    const style = {
+      color: dim_color,
+      textSize: text_size,
+      arrowSize: arrow_size,
+      decimals,
+      units,
+      valueScale: world_per_meter,
+    };
+    for (const dim of dims) {
+      const ann = buildAnnotation(skeleton, dim, style, conflicts.has(dim.id));
+      if (ann) annotations.push(ann);
+    }
   }
 
-  const children = [walls, ...annotations];
+  const children = [walls, ...elementSymbols, ...annotations];
   let bMinX = Infinity, bMinY = Infinity, bMaxX = -Infinity, bMaxY = -Infinity;
   for (const c of children) {
     if (c && c.bounds) {

@@ -205,7 +205,10 @@ export default function ParameterPanel() {
 
       {/* Parameter list */}
       <div className="flex flex-col gap-3 py-4">
-        {definition.parameters.map((origParamDef) => {
+        {(() => {
+          const renderParam = (origParamDef) => {
+          // Schema-level hide: data blobs edited via the canvas, not by hand.
+          if (origParamDef.hidden) return null;
           // For the Strange Attractor, the useful coefficient ranges differ by
           // Type: De Jong/Clifford want roughly -5..5, while Lorenz wants much
           // larger values (sigma, rho, beta). Adjust the slider range/labels so
@@ -370,7 +373,42 @@ export default function ParameterPanel() {
               }
             />
           );
-        })}
+          };
+
+          // Group consecutive parameters into Houdini-style collapsible folders.
+          // A parameter opts in with a `group` field; ungrouped params render
+          // inline. We preserve schema order, emitting a section the first time
+          // each group is seen.
+          const out = [];
+          const sectionParams = new Map();
+          const sectionOrder = [];
+          for (const p of definition.parameters) {
+            if (p.hidden) continue;
+            if (p.group) {
+              if (!sectionParams.has(p.group)) { sectionParams.set(p.group, []); sectionOrder.push(p.group); }
+              sectionParams.get(p.group).push(p);
+            }
+          }
+          const emittedSections = new Set();
+          for (const p of definition.parameters) {
+            if (p.hidden) continue;
+            if (p.group) {
+              if (emittedSections.has(p.group)) continue;
+              emittedSections.add(p.group);
+              const groupName = p.group;
+              const groupParams = sectionParams.get(groupName);
+              out.push(
+                <CollapsibleSection key={`sec_${groupName}`} title={groupName} defaultOpen={p.groupOpen !== false}>
+                  {groupParams.map((gp) => renderParam(gp)).filter(Boolean)}
+                </CollapsibleSection>
+              );
+            } else {
+              const el = renderParam(p);
+              if (el) out.push(el);
+            }
+          }
+          return out;
+        })()}
 
         {/* Select node helpers */}
         {definition.id === 'select' && (() => {
@@ -481,6 +519,33 @@ export default function ParameterPanel() {
           );
         })()}
       </div>
+    </div>
+  );
+}
+
+function CollapsibleSection({ title, children, defaultOpen = true }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="flex flex-col">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1.5 py-1 text-left"
+        style={{ userSelect: 'none' }}
+      >
+        <svg
+          width="9" height="9" viewBox="0 0 10 10"
+          style={{ transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.12s', opacity: 0.6 }}
+        >
+          <path d="M3 2l4 3-4 3z" fill="currentColor" className="text-text-secondary" />
+        </svg>
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-text-secondary">{title}</span>
+      </button>
+      {open && (
+        <div className="flex flex-col gap-3" style={{ paddingTop: 4, paddingBottom: 4 }}>
+          {children}
+        </div>
+      )}
     </div>
   );
 }
