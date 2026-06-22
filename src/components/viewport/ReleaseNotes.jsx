@@ -1,6 +1,6 @@
 // Release notes for 2Dni. Add a new <Release> block at the top each time we
 // ship new nodes or notable changes, and bump LATEST_RELEASE_DATE below.
-export const LATEST_RELEASE_DATE = 'June 20, 2026';
+export const LATEST_RELEASE_DATE = 'June 22, 2026';
 
 export default function ReleaseNotes({ onClose }) {
   return (
@@ -23,6 +23,23 @@ export default function ReleaseNotes({ onClose }) {
           <h1 style={{ fontSize: 28, fontWeight: 700, color: '#1a1a2e', margin: 0 }}>Release Notes</h1>
           <p style={{ fontSize: 13, color: '#6c757d', marginTop: 8 }}>What's new in 2Dni</p>
         </div>
+
+        <Release version="June 22, 2026" title="Floorplan: one-click wall dimensioning & dimensionable openings">
+          <Item name="Click a wall to dimension it" tag="new">
+            In the <b>Floorplan</b> node's Dimension mode you can now <b>click a
+            wall edge once</b> to dimension its full length — no more picking both
+            endpoints. Hover highlights the segment, and a single click drops the
+            dimension with the axis inferred automatically. The classic
+            <b>two-point pick still works</b> for everything else.
+          </Item>
+          <Item name="Dimension an opening's width" tag="new">
+            Place an <b>opening</b> roughly on a wall, then <b>double-click its
+            width dimension</b> to type an exact size — exactly the way you set its
+            distance from the wall. The width dimension sits on the opposite wall
+            side so it never collides with the locating dimension, and you can drag
+            either label in and out to tidy the layout.
+          </Item>
+        </Release>
 
         <Release version="June 20, 2026" title="Floorplan polish: element dimensions, tidy params & true wall color">
           <Item name="Dimension door & window position" tag="new">

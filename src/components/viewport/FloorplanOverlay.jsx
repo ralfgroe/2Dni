@@ -126,6 +126,15 @@ const ELEMENT_KINDS = [
   { id: 'opening', label: 'Opening' },
 ];
 
+// Standard widths (in METERS) offered in the Elements toolbar dropdown, per
+// element kind. These are common metric architectural sizes; the user can still
+// double-click any placed element to type an exact custom width.
+const STANDARD_WIDTHS_M = {
+  door: [0.7, 0.75, 0.8, 0.85, 0.9, 1.0],
+  window: [0.6, 0.9, 1.2, 1.5, 1.8, 2.4],
+  opening: [0.8, 0.9, 1.0, 1.2, 1.5, 2.0],
+};
+
 // Decide how a two-point linear dimension is measured/drawn from the picked edge.
 function inferAxis(a, b) {
   if (!a || !b) return 'aligned';
@@ -307,6 +316,7 @@ export default function FloorplanOverlay({ nodeId, screenToSvg, results, gridSiz
   const [dimMode, setDimMode] = useState('linear');
   const [relationKind, setRelationKind] = useState('horizontal');
   const [pending, setPending] = useState([]);
+  const [dimEdgeHover, setDimEdgeHover] = useState(null);
   const [editing, setEditing] = useState(null);
   const dimInputRef = useRef(null);
   const dragLabelRef = useRef(null);
@@ -368,6 +378,19 @@ export default function FloorplanOverlay({ nodeId, screenToSvg, results, gridSiz
       }
     }
   }, [dimMode, relationKind, pending, commitDimension, dimPoints]);
+
+  // One-click edge dimensioning: click a wall edge to dimension its full length
+  // (linear). Skips the two-point pick entirely.
+  const handleDimEdgeClick = useCallback((edge) => {
+    if (dimMode !== 'linear') return;
+    const pa = dimPoints.find((p) => p.idx === edge.ia);
+    const pb = dimPoints.find((p) => p.idx === edge.ib);
+    const axis = inferAxis(pa, pb);
+    commitDimension({
+      kind: 'linear', a: edge.ia, b: edge.ib, axis, labelOffset: 30,
+      ax: pa?.x, ay: pa?.y, bx: pb?.x, by: pb?.y,
+    });
+  }, [dimMode, dimPoints, commitDimension]);
 
   // Edit: input is meters; store back as world units (meters * worldPerMeter).
   const startDimEdit = useCallback((dim) => {
@@ -451,6 +474,39 @@ export default function FloorplanOverlay({ nodeId, screenToSvg, results, gridSiz
     return chains.filter((c) => c.length >= 2);
   }, [skeletonGeo, chains]);
 
+  // Wall edges (consecutive vertex pairs along each chain), mapped to dimPoints
+  // indices so a single click on an edge dimensions its full length without
+  // picking both endpoints. Each chain vertex is matched to the nearest
+  // dimPoint; pairs whose endpoints map to the same index are skipped.
+  const dimEdges = useMemo(() => {
+    if (!skeletonGeo || dimPoints.length === 0 || elementChains.length === 0) return [];
+    const findIdx = (p) => {
+      let best = -1, bestD = Infinity;
+      for (const dp of dimPoints) {
+        const d = (dp.x - p.x) ** 2 + (dp.y - p.y) ** 2;
+        if (d < bestD) { bestD = d; best = dp.idx; }
+      }
+      return bestD <= 4 ? best : -1; // within ~2px
+    };
+    const edges = [];
+    const seen = new Set();
+    elementChains.forEach((chain) => {
+      for (let i = 0; i < chain.length - 1; i++) {
+        const ia = findIdx(chain[i]);
+        const ib = findIdx(chain[i + 1]);
+        if (ia < 0 || ib < 0 || ia === ib) continue;
+        const key = ia < ib ? `${ia}_${ib}` : `${ib}_${ia}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const a = dimPoints.find((p) => p.idx === ia);
+        const b = dimPoints.find((p) => p.idx === ib);
+        if (!a || !b) continue;
+        edges.push({ ia, ib, ax: a.x, ay: a.y, bx: b.x, by: b.y });
+      }
+    });
+    return edges;
+  }, [skeletonGeo, dimPoints, elementChains]);
+
   const wallHalf = Math.max(0.25, (Number(params.wall_thickness) || 12) / 2);
   const resolvedElements = useMemo(
     () => elements.map((el) => ({ el, r: resolveElement(el, elementChains) })).filter((x) => x.r),
@@ -458,6 +514,19 @@ export default function FloorplanOverlay({ nodeId, screenToSvg, results, gridSiz
   );
 
   const [elemKind, setElemKind] = useState('door');
+  // Default placement width (in meters) per element kind, persisted on the node
+  // so it's saved with the file. Maps each kind to its node parameter.
+  const ELEM_WIDTH_PARAM = { door: 'door_width', window: 'window_width', opening: 'opening_width' };
+  const elemWidthM = {
+    door: Number(params.door_width) || DEFAULT_WIDTH_M.door,
+    window: Number(params.window_width) || DEFAULT_WIDTH_M.window,
+    opening: Number(params.opening_width) || DEFAULT_WIDTH_M.opening,
+  };
+  const setElemWidthForKind = useCallback((kind, meters) => {
+    const p = ELEM_WIDTH_PARAM[kind];
+    if (!p || !isFinite(meters)) return;
+    updateNodeParams(nodeId, { [p]: Math.round(meters * 1000) / 1000 });
+  }, [nodeId, updateNodeParams]);
   const [elemHover, setElemHover] = useState(null); // { wall, seg, t, x, y }
   const [elemEdit, setElemEdit] = useState(null);    // { id, value } width edit (meters)
   // 'width' (default) or 'offset' — what the inline numeric field edits.
@@ -478,7 +547,7 @@ export default function FloorplanOverlay({ nodeId, screenToSvg, results, gridSiz
   // Place a new element at the hovered wall position.
   const placeElement = useCallback((hit) => {
     if (!hit) return;
-    const widthWorld = (DEFAULT_WIDTH_M[elemKind] ?? 1) * worldPerMeter;
+    const widthWorld = (elemWidthM[elemKind] ?? DEFAULT_WIDTH_M[elemKind] ?? 1) * worldPerMeter;
     const el = {
       id: newElemId(),
       type: elemKind,
@@ -489,7 +558,7 @@ export default function FloorplanOverlay({ nodeId, screenToSvg, results, gridSiz
     };
     if (elemKind === 'door') { el.hinge = 'left'; el.swing = 'in'; }
     persistElements([...elements, el]);
-  }, [elemKind, worldPerMeter, elements, persistElements]);
+  }, [elemKind, params.door_width, params.window_width, params.opening_width, worldPerMeter, elements, persistElements]);
 
   const deleteElement = useCallback((id) => {
     persistElements(elements.filter((e) => e.id !== id));
@@ -638,8 +707,43 @@ export default function FloorplanOverlay({ nodeId, screenToSvg, results, gridSiz
     window.addEventListener('mouseup', onUp);
   }, [screenToSvg, wallHalf, nodeId, node, updateNodeParams]);
 
-
-  // --- Drawing mode handlers ---
+  // Drag an opening's WIDTH dimension in/out (perpendicular to the wall), on the
+  // opposite side from the locating dimension. Stores `widthDimOff` in world
+  // units. Mirrors beginElemDimDrag exactly.
+  const beginElemWidthDimDrag = useCallback((e, el, r) => {
+    e.stopPropagation();
+    e.preventDefault();
+    // Width dim lives on the opposite wall side from the locating dim.
+    const swingSign = el.type === 'door' ? ((el.swing ?? 'in') === 'in' ? 1 : -1) : 1;
+    const locSide = el.type === 'door' ? -swingSign : 1;
+    const side = -locSide;
+    const nrm = { x: r.normal.x * side, y: r.normal.y * side };
+    const anchor = r.center;
+    useGraphStore.getState().beginOperation();
+    let moved = false;
+    const startX = e.clientX, startY = e.clientY;
+    const onMove = (ev) => {
+      if (!moved) {
+        if (Math.abs(ev.clientX - startX) < 3 && Math.abs(ev.clientY - startY) < 3) return;
+        moved = true;
+      }
+      const p = screenToSvg(ev.clientX, ev.clientY);
+      const proj = (p.x - anchor.x) * nrm.x + (p.y - anchor.y) * nrm.y;
+      const widthDimOff = Math.max(wallHalf + 1, Math.round(proj * 100) / 100);
+      const cur = parseJSON(node?.data?.params?.elements_data || '[]', []);
+      const next = cur.map((x) => (x.id === el.id ? { ...x, widthDimOff } : x));
+      updateNodeParams(nodeId, { elements_data: JSON.stringify(next) });
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      useGraphStore.getState().endOperation();
+      elemJustInteracted.current = true;
+      setTimeout(() => { elemJustInteracted.current = false; }, 220);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [screenToSvg, wallHalf, nodeId, node, updateNodeParams]);
   const handleDrawClick = useCallback(
     (e) => {
       if (e.button !== 0 || e.altKey) return;
@@ -900,7 +1004,7 @@ export default function FloorplanOverlay({ nodeId, screenToSvg, results, gridSiz
   }).filter(Boolean);
 
   const dimModeHint = dimMode === 'linear'
-    ? 'Click two points to dimension'
+    ? 'Click a wall to dimension it, or click two points'
     : dimMode === 'relation'
       ? `Click two points on a wall to lock it ${relationKind}`
       : 'Click vertex, then two arm points';
@@ -908,12 +1012,12 @@ export default function FloorplanOverlay({ nodeId, screenToSvg, results, gridSiz
   // --- Elements-mode: ghost preview on solved chains ---
   const elemGhost = useMemo(() => {
     if (tool !== 'elements' || !elemHover) return null;
-    const widthWorld = (DEFAULT_WIDTH_M[elemKind] ?? 1) * worldPerMeter;
+    const widthWorld = (elemWidthM[elemKind] ?? DEFAULT_WIDTH_M[elemKind] ?? 1) * worldPerMeter;
     return resolveElement(
       { type: elemKind, wall: elemHover.wall, seg: elemHover.seg, t: elemHover.t, width: widthWorld },
       elementChains
     );
-  }, [tool, elemHover, elemKind, worldPerMeter, elementChains]);
+  }, [tool, elemHover, elemKind, params.door_width, params.window_width, params.opening_width, worldPerMeter, elementChains]);
 
   // Screen-fixed compact toolbar mounted next to the # grid button.
   const canvasEl = typeof document !== 'undefined'
@@ -976,6 +1080,32 @@ export default function FloorplanOverlay({ nodeId, screenToSvg, results, gridSiz
                 {k.label}
               </button>
             ))}
+            <span style={{ width: 1, height: 18, background: '#dee2e6', margin: '0 2px' }} />
+            <label style={{ fontSize: 10, color: '#868e96' }}>Width</label>
+            <select
+              value={(() => {
+                const cur = Math.round((elemWidthM[elemKind] ?? DEFAULT_WIDTH_M[elemKind] ?? 1) * 1000) / 1000;
+                return (STANDARD_WIDTHS_M[elemKind] || []).includes(cur) ? String(cur) : '__custom';
+              })()}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === '__custom') return;
+                setElemWidthForKind(elemKind, parseFloat(v));
+              }}
+              style={{
+                fontSize: 11, height: 22, borderRadius: 5, border: '1px solid #ced4da',
+                background: '#fff', color: '#495057', padding: '0 4px', cursor: 'pointer', outline: 'none',
+              }}
+            >
+              {(STANDARD_WIDTHS_M[elemKind] || []).map((w) => (
+                <option key={w} value={w}>{w.toFixed(2)} {dimStyle.units || 'm'}</option>
+              ))}
+              {!(STANDARD_WIDTHS_M[elemKind] || []).includes(Math.round((elemWidthM[elemKind] ?? 0) * 1000) / 1000) && (
+                <option value="__custom">
+                  {(elemWidthM[elemKind] ?? 0).toFixed(2)} {dimStyle.units || 'm'} (custom)
+                </option>
+              )}
+            </select>
           </>
         )}
       </div>
@@ -983,7 +1113,9 @@ export default function FloorplanOverlay({ nodeId, screenToSvg, results, gridSiz
         {tool === 'draw'
           ? 'Click to lay out walls. Enter / double-click = finish wall & start a new one. Esc = exit.'
           : tool === 'elements'
-            ? `Click a wall to place a ${elemKind}. Drag the marker to slide it; double-click the marker for width, or the distance label to set its position \u2014 both in ${dimStyle.units || 'm'}.`
+            ? (elemKind === 'opening'
+                ? `Click a wall to place an opening, then double-click its width dimension to set the size \u2014 just like the distance label. Drag the marker to slide it; drag labels to tidy. Values in ${dimStyle.units || 'm'}.`
+                : `Click a wall to place a ${elemKind} at the chosen Width. Drag the marker to slide it; double-click the marker to set a custom width, or the distance label to set its position \u2014 both in ${dimStyle.units || 'm'}.`)
             : `${dimModeHint}${pending.length > 0 ? ` \u2014 ${pending.length} picked` : ''}. Values in ${dimStyle.units || 'm'}; drag to move, double-click to edit.`}
       </div>
     </div>
@@ -992,6 +1124,23 @@ export default function FloorplanOverlay({ nodeId, screenToSvg, results, gridSiz
   // === Dimension-mode picking + label handles (SVG) ===
   const dimHandles = tool === 'dimension' && skeletonGeo ? (
     <g onClick={(e) => e.stopPropagation()} style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>
+      {dimMode === 'linear' && dimEdges.map((edge) => {
+        const isHover = dimEdgeHover === `${edge.ia}_${edge.ib}`;
+        return (
+          <line
+            key={`dedge${edge.ia}_${edge.ib}`}
+            x1={edge.ax} y1={edge.ay} x2={edge.bx} y2={edge.by}
+            stroke={isHover ? accent : 'transparent'}
+            strokeOpacity={isHover ? 0.4 : 1}
+            strokeWidth={dimPtR * 2.2}
+            strokeLinecap="round"
+            style={{ cursor: 'pointer' }}
+            onMouseEnter={() => setDimEdgeHover(`${edge.ia}_${edge.ib}`)}
+            onMouseLeave={() => setDimEdgeHover((h) => (h === `${edge.ia}_${edge.ib}` ? null : h))}
+            onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); handleDimEdgeClick(edge); }}
+          />
+        );
+      })}
       {dimPoints.map((pt) => {
         const isPending = pending.includes(pt.idx);
         return (
@@ -1210,6 +1359,93 @@ export default function FloorplanOverlay({ nodeId, screenToSvg, results, gridSiz
     );
   };
 
+  // Width dimension for one placed element: measured across the opening between
+  // its two jambs (p1..p2), drawn on the OPPOSITE wall side from the locating
+  // dimension so the two never collide. Double-click to edit the width in
+  // meters; drag the label in/out to tidy. Behaves exactly like renderElemDim.
+  const renderElemWidthDim = (el, r, interactive) => {
+    if (!r) return null;
+    const { p1, p2 } = r;
+    const widthWorld = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+    if (widthWorld < 1e-6) return null;
+    const meters = (widthWorld / worldPerMeter).toFixed(dimStyle.decimals ?? 2);
+    const label = `${meters} ${dimStyle.units || 'm'}`;
+
+    const swingSign = el.type === 'door' ? ((el.swing ?? 'in') === 'in' ? 1 : -1) : 1;
+    const locSide = el.type === 'door' ? -swingSign : 1;
+    const side = -locSide; // opposite side from the locating dimension
+    const nrm = { x: r.normal.x * side, y: r.normal.y * side };
+    const off = (typeof el.widthDimOff === 'number' && isFinite(el.widthDimOff))
+      ? Math.max(wallHalf + 1, el.widthDimOff)
+      : wallHalf + elemHandleR * 4.5;
+
+    const c1 = { x: p1.x + nrm.x * off, y: p1.y + nrm.y * off };
+    const c2 = { x: p2.x + nrm.x * off, y: p2.y + nrm.y * off };
+    const mx = (c1.x + c2.x) / 2, my = (c1.y + c2.y) / 2;
+
+    const wit = elemHandleR * 0.8;
+    const wStart = wallHalf + elemHandleR * 0.6;
+    const wA = { x: p1.x + nrm.x * wStart, y: p1.y + nrm.y * wStart };
+    const wB = { x: p1.x + nrm.x * (off + wit), y: p1.y + nrm.y * (off + wit) };
+    const eA = { x: p2.x + nrm.x * wStart, y: p2.y + nrm.y * wStart };
+    const eB = { x: p2.x + nrm.x * (off + wit), y: p2.y + nrm.y * (off + wit) };
+
+    const dirL = { x: (c2.x - c1.x) / widthWorld, y: (c2.y - c1.y) / widthWorld };
+    const tick = elemHandleR * 0.9;
+    const tdx = (dirL.x + nrm.x) * tick, tdy = (dirL.y + nrm.y) * tick;
+
+    const fs = Math.max(9, elemHandleR * 1.7);
+    const padX = fs * 0.45, padY = fs * 0.3;
+    const labelW = label.length * fs * 0.58 + padX * 2;
+    const labelH = fs + padY * 2;
+
+    const isEditingWidth = interactive && elemEdit && elemEdit.id === el.id && elemEditField === 'width';
+    return (
+      <g style={{ userSelect: 'none' }} pointerEvents={interactive ? undefined : 'none'}>
+        <line x1={wA.x} y1={wA.y} x2={wB.x} y2={wB.y} stroke={dimStyle.color} strokeWidth={elemSw * 0.8} opacity={0.55} />
+        <line x1={eA.x} y1={eA.y} x2={eB.x} y2={eB.y} stroke={dimStyle.color} strokeWidth={elemSw * 0.8} opacity={0.55} />
+        <line x1={c1.x} y1={c1.y} x2={c2.x} y2={c2.y} stroke={dimStyle.color} strokeWidth={elemSw * 1.1} />
+        <line x1={c1.x - tdx} y1={c1.y - tdy} x2={c1.x + tdx} y2={c1.y + tdy} stroke={dimStyle.color} strokeWidth={elemSw * 1.1} />
+        <line x1={c2.x - tdx} y1={c2.y - tdy} x2={c2.x + tdx} y2={c2.y + tdy} stroke={dimStyle.color} strokeWidth={elemSw * 1.1} />
+        {!isEditingWidth && (
+          <g
+            style={interactive ? { cursor: 'ns-resize' } : undefined}
+            onMouseDown={interactive ? (e) => beginElemWidthDimDrag(e, el, r) : undefined}
+            onClick={interactive ? (e) => { e.stopPropagation(); } : undefined}
+            onDoubleClick={interactive ? (e) => { e.stopPropagation(); startElemWidthEdit(el); } : undefined}
+          >
+            <rect x={mx - labelW / 2} y={my - labelH / 2} width={labelW} height={labelH} rx={labelH * 0.3} fill="#ffffff" stroke={dimStyle.color} strokeWidth={elemSw * 0.7} />
+            <text x={mx} y={my} textAnchor="middle" dominantBaseline="central" fontSize={fs} fill={dimStyle.color} fontFamily="system-ui, sans-serif" fontWeight={500}>
+              {label}
+            </text>
+          </g>
+        )}
+        {isEditingWidth && (
+          <foreignObject x={mx - labelW * 0.85} y={my - labelH * 0.85} width={labelW * 1.7} height={labelH * 1.7}>
+            <input
+              ref={elemInputRef}
+              type="number"
+              value={elemEdit.value}
+              onChange={(e) => setElemEdit({ ...elemEdit, value: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitElemEdit();
+                else if (e.key === 'Escape') setElemEdit(null);
+              }}
+              onBlur={commitElemEdit}
+              onMouseDown={(e) => e.stopPropagation()}
+              style={{
+                width: '100%', height: '100%', fontSize: `${fs}px`, textAlign: 'center',
+                border: `1.5px solid ${dimStyle.color}`, borderRadius: 5,
+                padding: '0 4px', boxSizing: 'border-box', outline: 'none',
+                background: '#fff', color: '#111',
+              }}
+            />
+          </foreignObject>
+        )}
+      </g>
+    );
+  };
+
   const elementLayer = tool === 'elements' ? (
     <g onClick={(e) => e.stopPropagation()} style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>
       {/* ghost preview under the cursor */}
@@ -1301,7 +1537,10 @@ export default function FloorplanOverlay({ nodeId, screenToSvg, results, gridSiz
   const elementDimsLayer = (params.show_dimensions ?? true) ? (
     <g style={{ userSelect: 'none' }}>
       {resolvedElements.map(({ el, r }) => (
-        <g key={`eldim${el.id}`}>{renderElemDim(el, r, true)}</g>
+        <g key={`eldim${el.id}`}>
+          {renderElemDim(el, r, true)}
+          {el.type === 'opening' && renderElemWidthDim(el, r, true)}
+        </g>
       ))}
     </g>
   ) : null;
