@@ -1,6 +1,6 @@
 // Release notes for 2Dni. Add a new <Release> block at the top each time we
 // ship new nodes or notable changes, and bump LATEST_RELEASE_DATE below.
-export const LATEST_RELEASE_DATE = 'June 22, 2026';
+export const LATEST_RELEASE_DATE = 'June 23, 2026';
 
 export default function ReleaseNotes({ onClose }) {
   return (
@@ -23,6 +23,39 @@ export default function ReleaseNotes({ onClose }) {
           <h1 style={{ fontSize: 28, fontWeight: 700, color: '#1a1a2e', margin: 0 }}>Release Notes</h1>
           <p style={{ fontSize: 13, color: '#6c757d', marginTop: 8 }}>What's new in 2Dni</p>
         </div>
+
+        <Release version="June 23, 2026" title="Furniture node + Floorplan cleanups">
+          <Item name="Furniture node" tag="new">
+            A new <b>Furniture</b> node for dropping <b>dimensionally accurate</b>
+            CAD symbols into your plans. Pick a category and a piece, then click to
+            place it; drag to move, use the rotate handle to spin it, and the little
+            × to delete. Every symbol is drawn at <b>real-world size</b> (in meters,
+            scaled by Screen Units / Meter) so it reads true against your walls.
+          </Item>
+          <Item name="A full starter catalog" tag="new">
+            Six categories out of the box — <b>Beds</b> (single → king, nightstand,
+            wardrobe), <b>Bath</b> (toilet, vanity &amp; pedestal sinks, tub,
+            shower), <b>Living</b> (3-seat sofa, loveseat, armchair, coffee table,
+            TV unit), <b>Dining</b> (4- and 6-seat tables), <b>Kitchen</b> (range,
+            fridge, sink, island) and <b>Laundry</b> (washer, dryer, water heater).
+          </Item>
+          <Item name="Dimension a window after placing it" tag="new">
+            Windows (and plain openings) now expose a <b>width dimension</b> you can
+            double-click to set an exact size after they're on the wall — doors stay
+            at their standard widths.
+          </Item>
+          <Item name="Centerline walls only" tag="changed">
+            The Floorplan node's <b>Double-line</b> and <b>Outline</b> wall styles
+            have been removed; walls now always render as a clean <b>centerline</b>.
+            This sidesteps the corner-joining issues those filled styles had and
+            keeps walls crisp and dimensionable.
+          </Item>
+          <Item name="Steadier dimensioning" tag="fixed">
+            Cleaned up a stray Paper.js project setup that could leave the shared
+            geometry context in the wrong state — part of keeping wall dimensioning
+            reliable when you switch between nodes.
+          </Item>
+        </Release>
 
         <Release version="June 22, 2026" title="Floorplan: one-click wall dimensioning & dimensionable openings">
           <Item name="Click a wall to dimension it" tag="new">

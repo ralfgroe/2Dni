@@ -1,13 +1,5 @@
 import paper from 'paper';
-
-let paperInitialized = false;
-const canvas = typeof document !== 'undefined' ? document.createElement('canvas') : null;
-function ensurePaper() {
-  if (!paperInitialized && canvas) {
-    paper.setup(canvas);
-    paperInitialized = true;
-  }
-}
+import { ensurePaper } from './geoPathUtils';
 
 // Splits a self-intersecting path into the distinct enclosed regions (faces)
 // its crossings create — like the cells you'd get from a planar arrangement of

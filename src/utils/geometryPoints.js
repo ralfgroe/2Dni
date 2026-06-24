@@ -1,15 +1,5 @@
 import paper from 'paper';
-import { flattenGeoToPathData } from './geoPathUtils';
-
-let paperInitialized = false;
-const canvas = typeof document !== 'undefined' ? document.createElement('canvas') : null;
-
-function ensurePaper() {
-  if (!paperInitialized && canvas) {
-    paper.setup(canvas);
-    paperInitialized = true;
-  }
-}
+import { flattenGeoToPathData, ensurePaper } from './geoPathUtils';
 
 const SMOOTH_ANGLE_DEG = 20;
 
@@ -33,7 +23,6 @@ function getCornerAngle(childPath, segIndex) {
 }
 
 function parsePath(pathData) {
-  ensurePaper();
   const compound = new paper.CompoundPath(pathData);
   if (compound.children && compound.children.length > 0) {
     return { item: compound, children: compound.children };
@@ -49,6 +38,10 @@ function parsePath(pathData) {
 }
 
 function extractFromPathData(pathData) {
+  // Ensure our shared main project is active — a Furniture/Floorplan scratch
+  // project may have been the last one activated, and parsing against it yields
+  // no segments (dimension points would silently vanish).
+  ensurePaper();
   const parsed = parsePath(pathData);
   if (!parsed) return [];
 

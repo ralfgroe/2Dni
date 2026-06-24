@@ -1,13 +1,24 @@
 import paper from 'paper';
 import { getFontSync, loadFont, textToPathData } from './fontLoader';
 
-let paperInitialized = false;
-const canvas = typeof document !== 'undefined' ? document.createElement('canvas') : null;
-
-function ensurePaper() {
-  if (!paperInitialized && canvas) {
-    paper.setup(canvas);
-    paperInitialized = true;
+// Shared "main" paper.js project for general geometry work (renderer, dimension
+// solver adapters, point extraction, etc.). Other modules that need a private
+// scratch project (Furniture symbol transforms, Floorplan band-union) create
+// their OWN project and activate it; when they do, paper's globally-active
+// project changes. So we must ACTIVATE our project on every entry — not just
+// call setup() once — otherwise paths get parsed/built against a foreign
+// project and come back empty (e.g. dimension pick points vanish once a
+// Furniture node has run). ensurePaper returns the previously-active project so
+// callers can restore it if they want.
+let mainProject = null;
+export function ensurePaper() {
+  if (!mainProject) {
+    const canvas = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+    if (canvas) paper.setup(canvas);
+    else paper.setup(new paper.Size(1, 1));
+    mainProject = paper.project;
+  } else if (paper.project !== mainProject) {
+    mainProject.activate();
   }
 }
 

@@ -1,17 +1,9 @@
 import paper from 'paper';
-import { geoToPaperPath } from '../utils/geoPathUtils';
+import { ensurePaper as __ensureMainPaper, geoToPaperPath } from '../utils/geoPathUtils';
 
-const canvas = typeof document !== 'undefined'
-  ? document.createElement('canvas')
-  : null;
-
-let paperInitialized = false;
 
 function ensurePaper() {
-  if (!paperInitialized && canvas) {
-    paper.setup(canvas);
-    paperInitialized = true;
-  }
+  __ensureMainPaper();
 }
 
 const OP_MAP = {

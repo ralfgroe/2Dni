@@ -140,7 +140,7 @@ export default function QuickStartGuide({ onClose }) {
             <Tip>Use <B>arrow keys</B> to navigate the toolbox, press <B>Enter</B> to add.</Tip>
             <Tip><B>Split</B> separates compound geometry into individual pieces you can color independently.</Tip>
             <Tip><B>Point Transform</B> lets you select and drag individual vertices for precise control.</Tip>
-            <Tip>The <B>Floorplan</B> node draws multiple disconnected walls in one node — press <B>Enter</B> to start a fresh wall run — and dimensions them in place: switch to <B>Dimension</B> mode, work in <B>meters</B> at a chosen scale, and type values to drive the walls. Use <B>Elements</B> mode to add doors, windows and openings that stay glued to their wall. Switch <B>Wall Style</B> to <B>Double-line</B> for presentation.</Tip>
+            <Tip>The <B>Floorplan</B> node draws multiple disconnected walls in one node — press <B>Enter</B> to start a fresh wall run — and dimensions them in place: switch to <B>Dimension</B> mode, work in <B>meters</B> at a chosen scale, and type values to drive the walls. Use <B>Elements</B> mode to add doors, windows and openings that stay glued to their wall.</Tip>
             <Tip>Drop a <B>Null</B> node anywhere as a pass-through bookmark. Rename it and give it a <B>node color</B> in the parameters to mark special points in your network.</Tip>
             <Tip>An input port holds <B>one connection</B>: drag a new wire onto a connected input to <B>replace</B> the old one — handy for swapping which node feeds another.</Tip>
             <Tip>Drop a node directly onto an existing wire to <B>insert</B> it into the chain.</Tip>

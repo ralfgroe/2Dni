@@ -1,10 +1,9 @@
 import paper from 'paper';
+import { ensurePaper as __ensureMainPaper } from '../utils/geoPathUtils';
 import { geoToPaperPath } from '../utils/geoPathUtils';
 
-let paperInitialized = false;
-const canvas = typeof document !== 'undefined' ? document.createElement('canvas') : null;
 function ensurePaper() {
-  if (!paperInitialized && canvas) { paper.setup(canvas); paperInitialized = true; }
+  __ensureMainPaper();
 }
 
 function chaikinSmooth(points, closed, tension) {

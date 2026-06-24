@@ -107,6 +107,21 @@ export function pathDataToChains(pathData) {
       if (rel) { x += cx; y += cy; }
       cx = x; cy = y;
       if (current) current.push({ x, y });
+    } else if (C === 'A') {
+      // Elliptical arc: rx ry x-axis-rotation large-arc-flag sweep-flag x y.
+      // Skip the five arc parameters, take only the endpoint.
+      num(); num(); num(); num(); num();
+      let x = num(), y = num();
+      if (rel) { x += cx; y += cy; }
+      cx = x; cy = y;
+      if (current) current.push({ x, y });
+    } else if (C === 'S' || C === 'T') {
+      // Smooth cubic (S: 2 control coords + endpoint) / smooth quad (T: endpoint).
+      if (C === 'S') { num(); num(); }
+      let x = num(), y = num();
+      if (rel) { x += cx; y += cy; }
+      cx = x; cy = y;
+      if (current) current.push({ x, y });
     } else {
       // Unknown command token — bail to avoid an infinite loop.
       i++;
@@ -126,55 +141,4 @@ export function chainsBounds(chains) {
     }
   }
   return { minX, minY, maxX, maxY };
-}
-
-// Offset one side of a polyline by `dist` using simple miter joins. `dist` may
-// be negative for the other side.
-function offsetSide(pts, dist) {
-  const n = pts.length;
-  const out = [];
-  const normals = [];
-  for (let i = 0; i < n - 1; i++) {
-    const dx = pts[i + 1].x - pts[i].x;
-    const dy = pts[i + 1].y - pts[i].y;
-    const len = Math.hypot(dx, dy) || 1;
-    normals.push({ x: -dy / len, y: dx / len });
-  }
-  for (let i = 0; i < n; i++) {
-    if (i === 0) {
-      out.push({ x: pts[i].x + normals[0].x * dist, y: pts[i].y + normals[0].y * dist });
-    } else if (i === n - 1) {
-      const nm = normals[n - 2];
-      out.push({ x: pts[i].x + nm.x * dist, y: pts[i].y + nm.y * dist });
-    } else {
-      const a = normals[i - 1];
-      const b = normals[i];
-      let mx = a.x + b.x;
-      let my = a.y + b.y;
-      const mlen = Math.hypot(mx, my);
-      if (mlen < 1e-6) {
-        mx = b.x; my = b.y;
-      } else {
-        mx /= mlen; my /= mlen;
-      }
-      const cos = mx * a.x + my * a.y;
-      const scale = Math.abs(cos) > 0.2 ? 1 / cos : 5;
-      out.push({ x: pts[i].x + mx * dist * scale, y: pts[i].y + my * dist * scale });
-    }
-  }
-  return out;
-}
-
-// Closed filled band around an open centerline polyline (double-line wall).
-export function bandPathForChain(chain, half) {
-  if (chain.length < 2) return null;
-  const left = offsetSide(chain, half);
-  const right = offsetSide(chain, -half);
-  const ring = [...left, ...right.slice().reverse()];
-  const cmds = [`M${num(ring[0].x)},${num(ring[0].y)}`];
-  for (let i = 1; i < ring.length; i++) {
-    cmds.push(`L${num(ring[i].x)},${num(ring[i].y)}`);
-  }
-  cmds.push('Z');
-  return cmds.join(' ');
 }

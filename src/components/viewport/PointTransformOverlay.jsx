@@ -2,13 +2,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { useGraphStore } from '../../store/graphStore';
 import { useAnimationStore } from '../../store/animationStore';
 import paper from 'paper';
-import { geoToPaperPath } from '../../utils/geoPathUtils';
-
-let paperInitialized = false;
-const canvas = typeof document !== 'undefined' ? document.createElement('canvas') : null;
-function ensurePaper() {
-  if (!paperInitialized && canvas) { paper.setup(canvas); paperInitialized = true; }
-}
+import { geoToPaperPath, ensurePaper } from '../../utils/geoPathUtils';
 
 function extractSegmentPoints(geo, offsets, scale, scaleIndices) {
   ensurePaper();

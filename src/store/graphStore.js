@@ -269,3 +269,11 @@ export const useGraphStore = create((rawSet, get) => {
   },
 };
 });
+
+if (typeof window !== 'undefined') {
+  window.useGraphStore = useGraphStore;
+  window.__fpDimLog = () => {
+    try { return JSON.parse(window.localStorage.getItem('fpDimLog') || '[]'); }
+    catch { return []; }
+  };
+}

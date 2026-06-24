@@ -41,6 +41,9 @@ function constraintResiduals(c, V) {
       return [gx(c.v) - c.x];
     case 'anchorY':
       return [gy(c.v) - c.y];
+    case 'coincident':
+      // Two vertices share a location: both x and y equal.
+      return [gx(c.a) - gx(c.b), gy(c.a) - gy(c.b)];
     case 'horizontal':
       // Edge a->b is horizontal: y equal.
       return [gy(c.a) - gy(c.b)];
@@ -81,6 +84,7 @@ function constraintResiduals(c, V) {
 /* Number of scalar residuals a constraint contributes (for sizing). */
 function residualCount(c) {
   if (c.type === 'anchor') return 2;
+  if (c.type === 'coincident') return 2;
   return 1;
 }
 
@@ -363,8 +367,23 @@ export function tryAddConstraint(baseConstraints, candidate, vertices, opts = {}
   const addsInfo = rankAfter > rankBefore;
   const satisfiable = solvedAfter.converged && solvedAfter.residualNorm < Math.max(tol * 100, 1e-3);
 
-  if (!addsInfo || !satisfiable) {
-    return { ok: false, conflict: true, solved: solvedBefore, reason: !addsInfo ? 'redundant' : 'unsatisfiable' };
+  if (!addsInfo) {
+    // The candidate adds no new degree of freedom — the geometry it measures is
+    // already determined by the existing constraints. Whether that's harmless
+    // depends on the VALUE: if the current geometry already matches the
+    // requested value it's a benign reference/driven dimension; if it asks for a
+    // different value than the locked geometry can take, it's a real conflict.
+    const resBefore = constraintResiduals(candidate, solvedBefore.V);
+    const agrees = resBefore.every((r) => Math.abs(r) < Math.max(tol * 1000, 1e-2));
+    return {
+      ok: false,
+      conflict: true,
+      solved: solvedBefore,
+      reason: agrees ? 'redundant' : 'unsatisfiable',
+    };
+  }
+  if (!satisfiable) {
+    return { ok: false, conflict: true, solved: solvedBefore, reason: 'unsatisfiable' };
   }
   return { ok: true, conflict: false, solved: solvedAfter };
 }

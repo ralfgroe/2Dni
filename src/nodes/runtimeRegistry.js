@@ -47,6 +47,7 @@ import { strangeAttractorRuntime } from '../nodes/strangeattractor';
 import { dimensionRuntime } from '../nodes/dimension';
 import { nullRuntime } from '../nodes/null';
 import { floorplanRuntime } from '../nodes/floorplan';
+import { furnitureRuntime } from '../nodes/furniture';
 
 const runtimeMap = {
   line: lineRuntime,
@@ -99,6 +100,7 @@ const runtimeMap = {
   dimension: dimensionRuntime,
   null: nullRuntime,
   floorplan: floorplanRuntime,
+  furniture: furnitureRuntime,
 };
 
 export function getRuntime(runtimeId) {

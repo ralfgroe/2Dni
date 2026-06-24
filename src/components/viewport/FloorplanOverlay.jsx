@@ -33,10 +33,14 @@ function collectPoints(geo, out) {
       break;
     case 'booleanResult':
       if (geo.pathData) {
-        const coords = geo.pathData.match(/[-+]?[0-9]*\.?[0-9]+/g);
-        if (coords && coords.length >= 2) {
-          for (let i = 0; i < coords.length - 1; i += 2) {
-            out.push({ x: parseFloat(coords[i]), y: parseFloat(coords[i + 1]) });
+        // Parse the path properly so we only collect real on-path anchor points.
+        // The previous naive "grab every number pair" approach mis-paired the
+        // parameters of arc (A) and bezier (C/Q) commands, producing a cloud of
+        // garbage snap dots whenever curved geometry (e.g. furniture symbols)
+        // was present.
+        for (const chain of pathDataToChains(geo.pathData)) {
+          for (const p of chain) {
+            if (p && isFinite(p.x) && isFinite(p.y)) out.push({ x: p.x, y: p.y });
           }
         }
       }
@@ -201,6 +205,20 @@ export default function FloorplanOverlay({ nodeId, screenToSvg, results, gridSiz
 
   const snapPoints = useMemo(() => extractSnapPoints(results, nodeId), [results, nodeId]);
 
+  // Snap targets used while DRAWING: external node points plus this floorplan's
+  // own wall vertices. Including our own vertices lets a new (disconnected) run
+  // begin snapped onto an existing wall's open endpoint, so the floorplan can be
+  // continued seamlessly after placing openings, finishing a run, etc.
+  const drawSnapPoints = useMemo(() => {
+    const own = [];
+    for (const c of chains) {
+      for (const p of c) {
+        if (p && isFinite(p.x) && isFinite(p.y)) own.push({ x: p.x, y: p.y });
+      }
+    }
+    return [...snapPoints, ...own];
+  }, [snapPoints, chains]);
+
   const orthoLock = node?.data?.params?.ortho_lock === true;
   const snapGrid = node?.data?.params?.snap_grid === true;
 
@@ -338,10 +356,25 @@ export default function FloorplanOverlay({ nodeId, screenToSvg, results, gridSiz
       return;
     }
     const measured = measureDimension(skeletonGeo, partial);
+    // Dev diagnostic: record every dimension commit so a failed placement (no
+    // value / unexpected conflict) leaves a trail in localStorage. Enable with
+    // localStorage.setItem('fpDimDebug','1'); read window.__fpDimLog().
+    if (typeof window !== 'undefined' && window.localStorage?.getItem('fpDimDebug') === '1') {
+      try {
+        const log = JSON.parse(window.localStorage.getItem('fpDimLog') || '[]');
+        log.push({
+          t: Date.now(), partial, measured,
+          dimPointCount: dimPoints.length,
+          skeletonLen: (skeletonGeo?.pathData || '').length,
+          chainsCount: chains.length,
+        });
+        window.localStorage.setItem('fpDimLog', JSON.stringify(log.slice(-50)));
+      } catch { /* noop */ }
+    }
     const dim = { id: newDimId(), value: measured != null ? Math.round(measured * 100) / 100 : null, ...partial };
     persistDims([...dims, dim]);
     setPending([]);
-  }, [skeletonGeo, dims, persistDims]);
+  }, [skeletonGeo, dims, persistDims, dimPoints, chains]);
 
   const handleDimPointClick = useCallback((idx) => {
     const next = [...pending, idx];
@@ -675,10 +708,11 @@ export default function FloorplanOverlay({ nodeId, screenToSvg, results, gridSiz
     e.stopPropagation();
     e.preventDefault();
     // Dimension side direction (same logic as renderElemDim): away from a door's
-    // swing, +normal otherwise.
+    // swing, +normal otherwise. The user can pull across to the opposite face;
+    // we track that with a sign on dimSide.
     const swingSign = el.type === 'door' ? ((el.swing ?? 'in') === 'in' ? 1 : -1) : 1;
-    const side = el.type === 'door' ? -swingSign : 1;
-    const nrm = { x: r.normal.x * side, y: r.normal.y * side };
+    const baseSide = el.type === 'door' ? -swingSign : 1;
+    const nrm = { x: r.normal.x * baseSide, y: r.normal.y * baseSide };
     const anchor = r.center;
     useGraphStore.getState().beginOperation();
     let moved = false;
@@ -689,11 +723,14 @@ export default function FloorplanOverlay({ nodeId, screenToSvg, results, gridSiz
         moved = true;
       }
       const p = screenToSvg(ev.clientX, ev.clientY);
-      // Project cursor offset from the wall onto the dimension normal.
+      // Signed projection of the cursor onto the (base) dimension normal. Its
+      // sign chooses which wall face the dimension lives on; magnitude is the
+      // perpendicular distance.
       const proj = (p.x - anchor.x) * nrm.x + (p.y - anchor.y) * nrm.y;
-      const dimOff = Math.max(wallHalf + 1, Math.round(proj * 100) / 100);
+      const dimSide = proj < 0 ? -1 : 1;
+      const dimOff = Math.max(wallHalf + 1, Math.round(Math.abs(proj) * 100) / 100);
       const cur = parseJSON(node?.data?.params?.elements_data || '[]', []);
-      const next = cur.map((x) => (x.id === el.id ? { ...x, dimOff } : x));
+      const next = cur.map((x) => (x.id === el.id ? { ...x, dimOff, dimSide } : x));
       updateNodeParams(nodeId, { elements_data: JSON.stringify(next) });
     };
     const onUp = () => {
@@ -713,11 +750,12 @@ export default function FloorplanOverlay({ nodeId, screenToSvg, results, gridSiz
   const beginElemWidthDimDrag = useCallback((e, el, r) => {
     e.stopPropagation();
     e.preventDefault();
-    // Width dim lives on the opposite wall side from the locating dim.
+    // Width dim lives on the opposite wall side from the locating dim, but can be
+    // pulled across to either face (sign on widthDimSide).
     const swingSign = el.type === 'door' ? ((el.swing ?? 'in') === 'in' ? 1 : -1) : 1;
     const locSide = el.type === 'door' ? -swingSign : 1;
-    const side = -locSide;
-    const nrm = { x: r.normal.x * side, y: r.normal.y * side };
+    const baseSide = -locSide;
+    const nrm = { x: r.normal.x * baseSide, y: r.normal.y * baseSide };
     const anchor = r.center;
     useGraphStore.getState().beginOperation();
     let moved = false;
@@ -729,9 +767,10 @@ export default function FloorplanOverlay({ nodeId, screenToSvg, results, gridSiz
       }
       const p = screenToSvg(ev.clientX, ev.clientY);
       const proj = (p.x - anchor.x) * nrm.x + (p.y - anchor.y) * nrm.y;
-      const widthDimOff = Math.max(wallHalf + 1, Math.round(proj * 100) / 100);
+      const widthDimSide = proj < 0 ? -1 : 1;
+      const widthDimOff = Math.max(wallHalf + 1, Math.round(Math.abs(proj) * 100) / 100);
       const cur = parseJSON(node?.data?.params?.elements_data || '[]', []);
-      const next = cur.map((x) => (x.id === el.id ? { ...x, widthDimOff } : x));
+      const next = cur.map((x) => (x.id === el.id ? { ...x, widthDimOff, widthDimSide } : x));
       updateNodeParams(nodeId, { elements_data: JSON.stringify(next) });
     };
     const onUp = () => {
@@ -783,7 +822,7 @@ export default function FloorplanOverlay({ nodeId, screenToSvg, results, gridSiz
         }
       }
 
-      const snap = findSnapTarget(pt, snapPoints, SNAP_DISTANCE);
+      const snap = findSnapTarget(pt, drawSnapPoints, SNAP_DISTANCE);
       if (snap) pt = snap;
 
       const rounded = {
@@ -795,7 +834,7 @@ export default function FloorplanOverlay({ nodeId, screenToSvg, results, gridSiz
       const newChains = [...working.slice(0, -1), newActive];
       saveChains(newChains);
     },
-    [chains, screenToSvg, constrainToAxis, snapToGrid, snapPoints, saveChains]
+    [chains, screenToSvg, constrainToAxis, snapToGrid, drawSnapPoints, saveChains]
   );
 
   const handleDrawMove = useCallback(
@@ -821,7 +860,7 @@ export default function FloorplanOverlay({ nodeId, screenToSvg, results, gridSiz
       }
       setCloseSnap(false);
 
-      const snap = findSnapTarget(pt, snapPoints, SNAP_DISTANCE);
+      const snap = findSnapTarget(pt, drawSnapPoints, SNAP_DISTANCE);
       if (snap) {
         pt = snap;
         setSnapTarget(snap);
@@ -830,7 +869,7 @@ export default function FloorplanOverlay({ nodeId, screenToSvg, results, gridSiz
       }
       setPreview(pt);
     },
-    [chains, screenToSvg, constrainToAxis, snapToGrid, snapPoints]
+    [chains, screenToSvg, constrainToAxis, snapToGrid, drawSnapPoints]
   );
 
   // --- Point dragging handlers ---
@@ -1217,6 +1256,7 @@ export default function FloorplanOverlay({ nodeId, screenToSvg, results, gridSiz
               >
                 <input
                   ref={dimInputRef}
+                  className="dim-edit-input"
                   type="number"
                   value={editing.value}
                   onChange={(e) => setEditing({ ...editing, value: e.target.value })}
@@ -1284,7 +1324,10 @@ export default function FloorplanOverlay({ nodeId, screenToSvg, results, gridSiz
     const label = `${meters} ${dimStyle.units || 'm'}`;
 
     const swingSign = el.type === 'door' ? ((el.swing ?? 'in') === 'in' ? 1 : -1) : 1;
-    const side = el.type === 'door' ? -swingSign : 1;
+    const baseSide = el.type === 'door' ? -swingSign : 1;
+    // dimSide lets the user pull the dimension across to the other (outside)
+    // face of the wall. Defaults to the natural side.
+    const side = baseSide * ((el.dimSide ?? 1) < 0 ? -1 : 1);
     const nrm = { x: r.normal.x * side, y: r.normal.y * side };
     const off = (typeof el.dimOff === 'number' && isFinite(el.dimOff))
       ? Math.max(wallHalf + 1, el.dimOff)
@@ -1333,10 +1376,15 @@ export default function FloorplanOverlay({ nodeId, screenToSvg, results, gridSiz
             </text>
           </g>
         )}
-        {isEditingOffset && (
-          <foreignObject x={mx - labelW * 0.85} y={my - labelH * 0.85} width={labelW * 1.7} height={labelH * 1.7}>
+        {isEditingOffset && (() => {
+          const boxW = Math.max(labelW * 1.7, fs * 5);
+          const boxH = Math.max(labelH * 1.5, fs * 2);
+          return (
+          <foreignObject x={mx - boxW / 2} y={my - boxH / 2} width={boxW} height={boxH} style={{ overflow: 'visible' }}>
+            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <input
               ref={elemInputRef}
+              className="dim-edit-input"
               type="number"
               value={elemEdit.value}
               onChange={(e) => setElemEdit({ ...elemEdit, value: e.target.value })}
@@ -1347,14 +1395,16 @@ export default function FloorplanOverlay({ nodeId, screenToSvg, results, gridSiz
               onBlur={commitElemEdit}
               onMouseDown={(e) => e.stopPropagation()}
               style={{
-                width: '100%', height: '100%', fontSize: `${fs}px`, textAlign: 'center',
+                width: '100%', height: `${Math.round(fs * 1.8)}px`, fontSize: `${fs}px`, textAlign: 'center',
                 border: `1.5px solid ${dimStyle.color}`, borderRadius: 5,
                 padding: '0 4px', boxSizing: 'border-box', outline: 'none',
-                background: '#fff', color: '#111',
+                background: '#fff', color: '#111', MozAppearance: 'textfield',
               }}
             />
+            </div>
           </foreignObject>
-        )}
+          );
+        })()}
       </g>
     );
   };
@@ -1373,7 +1423,8 @@ export default function FloorplanOverlay({ nodeId, screenToSvg, results, gridSiz
 
     const swingSign = el.type === 'door' ? ((el.swing ?? 'in') === 'in' ? 1 : -1) : 1;
     const locSide = el.type === 'door' ? -swingSign : 1;
-    const side = -locSide; // opposite side from the locating dimension
+    const baseSide = -locSide; // opposite side from the locating dimension
+    const side = baseSide * ((el.widthDimSide ?? 1) < 0 ? -1 : 1);
     const nrm = { x: r.normal.x * side, y: r.normal.y * side };
     const off = (typeof el.widthDimOff === 'number' && isFinite(el.widthDimOff))
       ? Math.max(wallHalf + 1, el.widthDimOff)
@@ -1420,10 +1471,15 @@ export default function FloorplanOverlay({ nodeId, screenToSvg, results, gridSiz
             </text>
           </g>
         )}
-        {isEditingWidth && (
-          <foreignObject x={mx - labelW * 0.85} y={my - labelH * 0.85} width={labelW * 1.7} height={labelH * 1.7}>
+        {isEditingWidth && (() => {
+          const boxW = Math.max(labelW * 1.7, fs * 5);
+          const boxH = Math.max(labelH * 1.5, fs * 2);
+          return (
+          <foreignObject x={mx - boxW / 2} y={my - boxH / 2} width={boxW} height={boxH} style={{ overflow: 'visible' }}>
+            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <input
               ref={elemInputRef}
+              className="dim-edit-input"
               type="number"
               value={elemEdit.value}
               onChange={(e) => setElemEdit({ ...elemEdit, value: e.target.value })}
@@ -1434,14 +1490,16 @@ export default function FloorplanOverlay({ nodeId, screenToSvg, results, gridSiz
               onBlur={commitElemEdit}
               onMouseDown={(e) => e.stopPropagation()}
               style={{
-                width: '100%', height: '100%', fontSize: `${fs}px`, textAlign: 'center',
+                width: '100%', height: `${Math.round(fs * 1.8)}px`, fontSize: `${fs}px`, textAlign: 'center',
                 border: `1.5px solid ${dimStyle.color}`, borderRadius: 5,
                 padding: '0 4px', boxSizing: 'border-box', outline: 'none',
-                background: '#fff', color: '#111',
+                background: '#fff', color: '#111', MozAppearance: 'textfield',
               }}
             />
+            </div>
           </foreignObject>
-        )}
+          );
+        })()}
       </g>
     );
   };
@@ -1539,7 +1597,7 @@ export default function FloorplanOverlay({ nodeId, screenToSvg, results, gridSiz
       {resolvedElements.map(({ el, r }) => (
         <g key={`eldim${el.id}`}>
           {renderElemDim(el, r, true)}
-          {el.type === 'opening' && renderElemWidthDim(el, r, true)}
+          {el.type !== 'door' && renderElemWidthDim(el, r, true)}
         </g>
       ))}
     </g>

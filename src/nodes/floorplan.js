@@ -4,11 +4,9 @@
 // The drawn data is a set of centerline chains (chains_data). Dimensions
 // (dimensions param, stored in WORLD units) parametrically drive those chains
 // via solveDimensions — we never destructively rewrite chains_data; the solved
-// skeleton is what we render. The Wall Style is applied to the SOLVED skeleton:
-//   - "Centerline": one multi-subpath booleanResult of thin strokes. This is the
-//     dimensionable form — each wall run is a clean 2-endpoint chain.
-//   - "Double-line": each wall run is converted into a closed filled band giving
-//     the classic architectural double-line wall.
+// skeleton is what we render. Walls render as a centerline: one multi-subpath
+// booleanResult of thin strokes — the dimensionable form where each wall run is
+// a clean 2-endpoint chain.
 //
 // Scale: world_per_meter screen units == 1 meter at 1:1. Dimensions are typed
 // and displayed in meters but stored/solved in world units. scale_ratio is a
@@ -20,7 +18,6 @@ import {
   chainsToCenterlinePathData,
   pathDataToChains,
   chainsBounds,
-  bandPathForChain,
 } from '../utils/floorplanGeo';
 import { solveDimensions, buildAnnotation } from './dimension';
 import {
@@ -67,35 +64,11 @@ function pathDataBounds(d) {
 }
 
 // Build the wall geometry (booleanResult) from a set of centerline chains.
-function buildWalls(chains, wall_style, sw, wall_color) {
+// Walls render as thin centerline strokes with square ends/corners — the
+// dimensionable form where each wall run is a clean chain.
+function buildWalls(chains, sw, wall_color) {
   const { minX, minY, maxX, maxY } = chainsBounds(chains);
 
-  if (wall_style === 'Double-line') {
-    const half = sw / 2;
-    const runs = [];
-    for (const chain of chains) {
-      const band = bandPathForChain(chain, half);
-      if (band) runs.push(band);
-    }
-    if (runs.length === 0) return null;
-    return {
-      type: 'booleanResult',
-      pathData: runs.join(' '),
-      fill: wall_color,
-      fillRule: 'nonzero',
-      stroke: wall_color,
-      strokeWidth: 1,
-      strokeLinejoin: 'miter',
-      bounds: {
-        x: minX - half,
-        y: minY - half,
-        width: maxX - minX + sw,
-        height: maxY - minY + sw,
-      },
-    };
-  }
-
-  // Centerline (default): thin dimensionable strokes, square ends/corners.
   const runs = [];
   for (const chain of chains) {
     if (chain.length < 2) continue;
@@ -129,7 +102,6 @@ export function floorplanRuntime(params) {
     chains_data = '[]',
     elements_data = '[]',
     dimensions = '[]',
-    wall_style = 'Centerline',
     wall_thickness = 12,
     wall_color = '#333333',
     element_color = '#333333',
@@ -194,7 +166,7 @@ export function floorplanRuntime(params) {
     ? cutOpeningsFromChains(renderChains, resolved)
     : renderChains;
 
-  let walls = buildWalls(wallChains, wall_style, sw, wall_color);
+  let walls = buildWalls(wallChains, sw, wall_color);
   if (!walls) return null;
 
   // Build element symbols (door leaf + swing arc, window glass, opening jambs).
@@ -225,7 +197,6 @@ export function floorplanRuntime(params) {
   // (the dimension annotations already convey constraint status).
   if (show_status && dims.length > 0 && status === 'over') {
     walls = { ...walls, stroke: CONFLICT_DIM_COLOR };
-    if (wall_style === 'Double-line') walls.fill = CONFLICT_DIM_COLOR;
   }
 
   // If there are neither dimensions to annotate nor element symbols, the walls

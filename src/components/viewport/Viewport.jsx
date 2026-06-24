@@ -11,6 +11,7 @@ import GimbalHandles from './GimbalHandles';
 import CornerPickOverlay from './CornerPickOverlay';
 import FreeCurveOverlay from './FreeCurveOverlay';
 import FloorplanOverlay from './FloorplanOverlay';
+import FurnitureOverlay from './FurnitureOverlay';
 import BezierOverlay from './BezierOverlay';
 import PointTransformOverlay from './PointTransformOverlay';
 import ResampleOverlay from './ResampleOverlay';
@@ -625,6 +626,16 @@ export default function Viewport() {
             nodeId={selectedNode.id}
             screenToSvg={screenToSvg}
             results={results}
+            gridSize={gridSize}
+            viewBox={viewBox}
+          />
+        )}
+
+        {/* Furniture placement overlay */}
+        {selectedNode && selectedDef && selectedDef.id === 'furniture' && (
+          <FurnitureOverlay
+            nodeId={selectedNode.id}
+            screenToSvg={screenToSvg}
             gridSize={gridSize}
             viewBox={viewBox}
           />

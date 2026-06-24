@@ -1,5 +1,5 @@
 import paper from 'paper';
-import { geoToPaperPath, flattenGeoToPathData } from '../utils/geoPathUtils';
+import { geoToPaperPath, flattenGeoToPathData, ensurePaper } from '../utils/geoPathUtils';
 import { extractPoints } from '../utils/geometryPoints';
 import { filletCornersAt } from './radius';
 import { buildSystem, solve, tryAddConstraint, analyzeDOF, buildStiffness } from './constraintSolver';
@@ -27,12 +27,6 @@ const CONFLICT_DIM_COLOR = '#e03131';
 const PASSIVE_DIM_COLOR = '#868e96';
 const UNDER_COLOR = '#1366d6';  // blue: under-defined (free DOF remain)
 const FULLY_COLOR = '#1a1a1a';  // black: fully defined
-
-let paperInitialized = false;
-const canvas = typeof document !== 'undefined' ? document.createElement('canvas') : null;
-function ensurePaper() {
-  if (!paperInitialized && canvas) { paper.setup(canvas); paperInitialized = true; }
-}
 
 function parseDimensions(raw) {
   if (Array.isArray(raw)) return raw;
@@ -455,6 +449,44 @@ function dimVertexIndices(dim, pts) {
 }
 
 /* Implicit per-edge relations from the seed geometry. */
+/* Find pairs of vertices that occupy the same location (within a tolerance) and
+   should therefore stay glued — e.g. two separately drawn walls that meet at a
+   shared corner. We compare endpoints across ALL subpaths. Returns a minimal set
+   of [a,b] index pairs (one chain per cluster) so the solver isn't loaded with
+   redundant coincidence rows. */
+function findCoincidentPairs(vertices, V) {
+  const TOL = 1e-3;            // world units; snapping placed them ~identical
+  const TOL2 = TOL * TOL;
+  const n = vertices.length;
+  const pairs = [];
+  // Group by rounded coordinate so we only compare nearby points.
+  const buckets = new Map();
+  const key = (x, y) => `${Math.round(x / TOL)}|${Math.round(y / TOL)}`;
+  for (let i = 0; i < n; i++) {
+    const x = V[2 * i], y = V[2 * i + 1];
+    // Check this and neighbouring buckets to be robust to rounding boundaries.
+    let matched = -1;
+    for (let dx = -1; dx <= 1 && matched < 0; dx++) {
+      for (let dy = -1; dy <= 1 && matched < 0; dy++) {
+        const k = `${Math.round(x / TOL) + dx}|${Math.round(y / TOL) + dy}`;
+        const list = buckets.get(k);
+        if (!list) continue;
+        for (const j of list) {
+          const ddx = V[2 * j] - x, ddy = V[2 * j + 1] - y;
+          if (ddx * ddx + ddy * ddy <= TOL2) { matched = j; break; }
+        }
+      }
+    }
+    if (matched >= 0) {
+      pairs.push([matched, i]); // chain i to an existing coincident vertex
+    }
+    const kk = key(x, y);
+    if (!buckets.has(kk)) buckets.set(kk, []);
+    buckets.get(kk).push(i);
+  }
+  return pairs;
+}
+
 function implicitRelations(sketch, V) {
   const rels = [];
   for (const [a, b] of sketch.edges) {
@@ -531,11 +563,38 @@ export function solveDimensions(inputGeo, dimsRaw) {
   // single shape this is identical to before; with several disconnected subpaths
   // (e.g. Floorplan walls) it pins each one in place so they can't drift or
   // collapse toward the origin when an unrelated wall is dimensioned.
+  //
+  // Walls that were drawn to MEET at a shared corner are stored as separate
+  // subpaths with coincident endpoints. Without an explicit coincidence
+  // constraint the solver treats those endpoints as independent, so dimensioning
+  // one wall tears the joined corner apart. We detect coincident vertices and
+  // (a) glue them with a `coincident` constraint, and (b) anchor only ONE vertex
+  // per connected cluster of subpaths so dimensions can still reshape the joined
+  // outline without fighting redundant anchors.
   const base = [];
+  const coincidence = findCoincidentPairs(sketch.vertices, V0);
+  // Union-find over vertices to group geometry that is rigidly connected — both
+  // via shared (coincident) corners AND via edges — into components. We anchor
+  // just one vertex per component so the structure is grounded once and stays
+  // free to reshape when dimensioned, instead of being pinned at every corner.
+  const parent = Array.from({ length: n }, (_, i) => i);
+  const find = (i) => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
+  const union = (a, b) => { const ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; };
+  for (const [a, b] of coincidence) union(a, b);
+  for (const [a, b] of sketch.edges) union(a, b);
+  for (const [a, b] of coincidence) {
+    base.push({ type: 'coincident', a, b });
+  }
   const groundedStarts = (sketch.subpaths && sketch.subpaths.length > 0)
     ? sketch.subpaths.map((sp) => sp.start)
     : [0];
+  // Anchor one representative per connected component so each free cluster is
+  // grounded exactly once (avoids over-constraining glued corners).
+  const anchoredRoots = new Set();
   for (const s of groundedStarts) {
+    const root = find(s);
+    if (anchoredRoots.has(root)) continue;
+    anchoredRoots.add(root);
     base.push({ type: 'anchor', v: s, x: V0[2 * s], y: V0[2 * s + 1] });
   }
   for (const rel of implicitRelations(sketch, V0)) {
@@ -543,8 +602,15 @@ export function solveDimensions(inputGeo, dimsRaw) {
     base.push(rel);
   }
 
-  // Add each driving dimension in creation order. Over-defined ones are skipped
-  // and flagged; the rest accumulate into the satisfied constraint set.
+  // Add each driving dimension in creation order. We distinguish two outcomes:
+  //   - 'unsatisfiable': the value genuinely contradicts the rest of the sketch
+  //     (e.g. two different lengths on the same wall). This is a real error → it
+  //     is rejected and flagged as a conflict (red, over-defined).
+  //   - 'redundant': the value is already consistent with the geometry, it just
+  //     adds no new degree of freedom (common in closed floorplan loops where one
+  //     side is implied by the others). SolidWorks treats these as harmless
+  //     "driven / reference" dimensions, NOT errors. We keep showing the value,
+  //     don't add the constraint, and DON'T flag the sketch over-defined.
   const conflicts = new Set();
   const perDim = {};
   let active = base.slice();
@@ -557,9 +623,14 @@ export function solveDimensions(inputGeo, dimsRaw) {
       stiffness: buildStiffness(n, [...active, c]),
     });
     if (res.conflict) {
-      conflicts.add(d.id);
-      perDim[d.id] = 'conflict';
-      // keep prior solution; do not add the conflicting constraint
+      if (res.reason === 'redundant') {
+        // Reference dimension: consistent but adds no info — not an error.
+        perDim[d.id] = 'reference';
+      } else {
+        conflicts.add(d.id);
+        perDim[d.id] = 'conflict';
+      }
+      // keep prior solution; do not add the (redundant or conflicting) constraint
     } else {
       active.push(c);
       perDim[d.id] = 'driving';
@@ -827,11 +898,24 @@ export function buildAnnotation(geo, dim, style, conflict) {
   const off = autoOffset(geo, pts);
   const hasPos = dim.labelPos && isFinite(dim.labelPos.x) && isFinite(dim.labelPos.y);
   const ax = a.x, ay = a.y, bx = b.x, by = b.y;
+  // Default the dimension to the OUTSIDE of the drawing (architectural
+  // convention): offset away from the geometry's center so a top wall reads
+  // above it, a bottom wall below, etc. Falls back to the +off direction when
+  // we can't determine a center. Users can still drag the label to flip it.
+  const ctr = geo && geo.bounds
+    ? { x: geo.bounds.x + geo.bounds.width / 2, y: geo.bounds.y + geo.bounds.height / 2 }
+    : null;
   let measured;
 
   if (axis === 'horizontal') {
     measured = Math.abs(bx - ax);
-    const lineY = hasPos ? dim.labelPos.y : Math.max(ay, by) + off;
+    const edgeY = Math.max(ay, by);
+    const minY = Math.min(ay, by);
+    const midY = (ay + by) / 2;
+    // Outside = side away from center. If the edge is below center, push down;
+    // if above center, push up.
+    const outward = ctr ? (midY >= ctr.y ? edgeY + off : minY - off) : edgeY + off;
+    const lineY = hasPos ? dim.labelPos.y : outward;
     lines.push([ax, ay, ax, lineY]);
     lines.push([bx, by, bx, lineY]);
     lines.push([ax, lineY, bx, lineY]);
@@ -841,7 +925,11 @@ export function buildAnnotation(geo, dim, style, conflict) {
     label = { x: lblX, y: lineY - textSize * 0.4, text: fmtValue(measured, decimals, units, valueScale), anchor: 'middle' };
   } else if (axis === 'vertical') {
     measured = Math.abs(by - ay);
-    const lineX = hasPos ? dim.labelPos.x : Math.max(ax, bx) + off;
+    const edgeX = Math.max(ax, bx);
+    const minX = Math.min(ax, bx);
+    const midX = (ax + bx) / 2;
+    const outward = ctr ? (midX >= ctr.x ? edgeX + off : minX - off) : edgeX + off;
+    const lineX = hasPos ? dim.labelPos.x : outward;
     lines.push([ax, ay, lineX, ay]);
     lines.push([bx, by, lineX, by]);
     lines.push([lineX, ay, lineX, by]);
@@ -854,7 +942,12 @@ export function buildAnnotation(geo, dim, style, conflict) {
     let dx = bx - ax, dy = by - ay;
     const len = Math.hypot(dx, dy) || 1;
     dx /= len; dy /= len;
-    const nx = -dy, ny = dx;
+    let nx = -dy, ny = dx;
+    // Orient the normal outward (away from the geometry center) by default.
+    if (ctr) {
+      const mx0 = (ax + bx) / 2, my0 = (ay + by) / 2;
+      if ((mx0 - ctr.x) * nx + (my0 - ctr.y) * ny < 0) { nx = -nx; ny = -ny; }
+    }
     let perp = off, along = 0;
     if (hasPos) {
       const mx0 = (ax + bx) / 2, my0 = (ay + by) / 2;

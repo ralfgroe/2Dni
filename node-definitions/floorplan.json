@@ -11,7 +11,6 @@
     { "id": "chains_data", "label": "Walls", "type": "text", "default": "[]", "hidden": true },
     { "id": "elements_data", "label": "Elements", "type": "text", "default": "[]", "hidden": true },
     { "id": "dimensions", "label": "Dimensions", "type": "text", "default": "[]", "hidden": true },
-    { "id": "wall_style", "label": "Wall Style", "type": "select", "default": "Centerline", "options": ["Centerline", "Double-line"], "group": "Walls" },
     { "id": "wall_thickness", "label": "Wall Thickness", "type": "number", "default": 12, "min": 1, "max": 60, "group": "Walls" },
     { "id": "wall_color", "label": "Wall Color", "type": "color", "default": "#333333", "group": "Walls" },
     { "id": "ortho_lock", "label": "Ortho Lock (H/V only)", "type": "boolean", "default": true, "group": "Drawing" },
