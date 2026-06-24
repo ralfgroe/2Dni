@@ -1,10 +1,12 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useGraphStore } from '../../store/graphStore';
+// Flat-screen TV piece sized by screen diagonal (inches) added to Living.
 import {
   FURNITURE_TYPES,
   FURNITURE_LABELS,
   FURNITURE_CATEGORIES,
+  DEFAULT_TV_DIAGONAL_IN,
   resolveFurniture,
   furnitureWorldFootprint,
 } from '../../utils/furnitureSymbols';
@@ -36,6 +38,8 @@ export default function FurnitureOverlay({ nodeId, screenToSvg, gridSize = 50, v
   const [kind, setKind] = useState(FURNITURE_TYPES[0].id);
   const [category, setCategory] = useState(FURNITURE_CATEGORIES[0]);
   const [selected, setSelected] = useState(null);
+  // Default screen diagonal (inches) applied to newly placed flat-screen TVs.
+  const [tvDiag, setTvDiag] = useState(DEFAULT_TV_DIAGONAL_IN);
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
   const [hoverPt, setHoverPt] = useState(null);
@@ -75,12 +79,13 @@ export default function FurnitureOverlay({ nodeId, screenToSvg, gridSize = 50, v
     (pt) => {
       const p = maybeSnap(pt);
       const item = { id: makeId(), type: kind, x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100, rot: 0, scale: 1 };
+      if (kind === 'tv_flat') item.diag = tvDiag;
       useGraphStore.getState().beginOperation();
       saveItems([...items, item]);
       useGraphStore.getState().endOperation();
       setSelected(item.id);
     },
-    [kind, items, maybeSnap, saveItems]
+    [kind, items, maybeSnap, saveItems, tvDiag]
   );
 
   const deleteSelected = useCallback(() => {
@@ -101,6 +106,24 @@ export default function FurnitureOverlay({ nodeId, screenToSvg, gridSize = 50, v
     useGraphStore.getState().endOperation();
     setSelected((s) => (s === id ? null : s));
   }, [nodeId, saveItems]);
+
+  // Update the screen diagonal (inches) of a flat-screen TV. When an item is
+  // selected we edit that item; otherwise we adjust the placement default.
+  const setDiagonal = useCallback(
+    (inches) => {
+      const v = Math.max(10, Math.min(150, Number(inches) || DEFAULT_TV_DIAGONAL_IN));
+      setTvDiag(v);
+      const id = selectedRef.current;
+      if (!id) return;
+      const cur = parseItems(useGraphStore.getState().nodes.find((n) => n.id === nodeId)?.data?.params?.items_data);
+      const target = cur.find((it) => it.id === id);
+      if (!target || target.type !== 'tv_flat') return;
+      useGraphStore.getState().beginOperation();
+      saveItems(cur.map((it) => (it.id === id ? { ...it, diag: v } : it)));
+      useGraphStore.getState().endOperation();
+    },
+    [nodeId, saveItems]
+  );
 
   // --- Background interactions ---
   const handleBgMouseDown = useCallback((e) => e.stopPropagation(), []);
@@ -221,7 +244,7 @@ export default function FurnitureOverlay({ nodeId, screenToSvg, gridSize = 50, v
 
   // Ghost preview footprint at cursor for the piece about to be placed.
   const ghost = !selected && hoverPt
-    ? resolveFurniture({ type: kind, x: hoverPt.x, y: hoverPt.y, rot: 0, scale: 1 }, worldPerMeter)
+    ? resolveFurniture({ type: kind, x: hoverPt.x, y: hoverPt.y, rot: 0, scale: 1, diag: tvDiag }, worldPerMeter)
     : null;
 
   // === Toolbar (portal next to the # grid button) ===
@@ -239,6 +262,13 @@ export default function FurnitureOverlay({ nodeId, screenToSvg, gridSize = 50, v
     cursor: 'pointer', fontWeight: active ? 600 : 400, lineHeight: 1,
   });
   const piecesInCat = FURNITURE_TYPES.filter((t) => t.cat === category);
+  // The flat-screen TV diagonal control is shown when the TV tool is active
+  // (to set the placement default) or when a placed flat TV is selected.
+  const selectedItem = selected ? items.find((it) => it.id === selected) : null;
+  const showTvDiag = kind === 'tv_flat' || selectedItem?.type === 'tv_flat';
+  const diagValue = selectedItem?.type === 'tv_flat'
+    ? (Number(selectedItem.diag) || DEFAULT_TV_DIAGONAL_IN)
+    : tvDiag;
   const toolbar = (
     <div
       className="absolute top-2 z-10"
@@ -268,6 +298,21 @@ export default function FurnitureOverlay({ nodeId, screenToSvg, gridSize = 50, v
           </button>
         ))}
       </div>
+      {showTvDiag && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.92)', padding: '3px 7px', borderRadius: 5, width: 'fit-content', border: '1px solid #ced4da' }}>
+          <label style={{ fontSize: 11, color: '#495057', fontWeight: 600 }}>TV diagonal</label>
+          <input
+            type="number"
+            min={10}
+            max={150}
+            step={1}
+            value={diagValue}
+            onChange={(e) => setDiagonal(e.target.value)}
+            style={{ width: 56, fontSize: 11, padding: '2px 4px', border: '1px solid #ced4da', borderRadius: 4, color: '#212529' }}
+          />
+          <span style={{ fontSize: 11, color: '#868e96' }}>in</span>
+        </div>
+      )}
       <div style={{ fontSize: 10, color: '#868e96', background: 'rgba(255,255,255,0.85)', padding: '2px 6px', borderRadius: 4, width: 'fit-content', whiteSpace: 'nowrap' }}>
         {selected
           ? 'Drag to move \u00b7 drag the ring handle to rotate (Shift = 15\u00b0 snaps) \u00b7 [ / ] rotate \u00b7 Delete to remove'

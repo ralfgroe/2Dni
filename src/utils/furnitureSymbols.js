@@ -56,6 +56,10 @@ export const FURNITURE_TYPES = [
   { id: 'armchair', label: 'Armchair', cat: 'Living', w: 0.85, h: 0.85 },
   { id: 'coffee_table', label: 'Coffee Table', cat: 'Living', w: 1.2, h: 0.6 },
   { id: 'tv_unit', label: 'TV Unit', cat: 'Living', w: 1.6, h: 0.4 },
+  // Flat-screen TV (top view). Footprint is derived per-item from the screen
+  // diagonal in inches (see tvDiagonalFootprint); w/h here are just the default
+  // 55" footprint used for the toolbar ghost before a diagonal is chosen.
+  { id: 'tv_flat', label: 'Flat-screen TV', cat: 'Living', w: 1.218, h: 0.28, diag: 55 },
 
   // --- Dining -----------------------------------------------------------------
   { id: 'dining_4', label: 'Dining Table (4)', cat: 'Dining', w: 1.9, h: 1.9 },
@@ -83,7 +87,38 @@ export const FURNITURE_LABELS = Object.fromEntries(
   FURNITURE_TYPES.map((t) => [t.id, t.label])
 );
 
-export function furnitureFootprint(type) {
+// Default screen diagonal (inches) for a freshly placed flat-screen TV.
+export const DEFAULT_TV_DIAGONAL_IN = 55;
+
+const INCH_TO_M = 0.0254;
+// 16:9 panel: width = diag * 16/hypot(16,9), height = diag * 9/hypot(16,9).
+const ASPECT_HYP = Math.hypot(16, 9);
+// Physical depth of the panel itself (top-view thickness), in meters.
+const TV_PANEL_DEPTH_M = 0.06;
+// Depth of the stand/base behind the panel, in meters.
+const TV_STAND_DEPTH_M = 0.22;
+
+// Top-view footprint (meters) of a flat-screen TV given its screen diagonal in
+// inches. Width tracks the 16:9 screen width plus a thin bezel; the height (the
+// shallow dimension when viewed from above) is the panel depth plus the stand.
+export function tvDiagonalFootprint(diagonalInches) {
+  const diag = Number(diagonalInches) > 0 ? Number(diagonalInches) : DEFAULT_TV_DIAGONAL_IN;
+  const screenW = (diag * 16) / ASPECT_HYP; // inches
+  const w = screenW * INCH_TO_M + 0.02;     // + ~2cm bezel total
+  const h = TV_PANEL_DEPTH_M + TV_STAND_DEPTH_M;
+  return { w: n(w), h: n(h), diag };
+}
+
+// Footprint (in meters) for a placed item. For most pieces this is the static
+// size from FURNITURE_TYPES; the flat-screen TV is sized from its per-item
+// `diag` (screen diagonal in inches).
+export function furnitureFootprint(typeOrItem) {
+  const item = typeof typeOrItem === 'string' ? { type: typeOrItem } : (typeOrItem || {});
+  const type = item.type;
+  if (type === 'tv_flat') {
+    const { w, h } = tvDiagonalFootprint(item.diag);
+    return { w, h };
+  }
   const t = FURNITURE_TYPES.find((f) => f.id === type);
   return t ? { w: t.w, h: t.h } : { w: 1, h: 1 };
 }
@@ -287,6 +322,27 @@ function tvUnit(w, h) {
   return strokes;
 }
 
+// Flat-screen TV in top view, facing +Y (screen toward the bottom). The screen
+// panel is a wide, shallow bar at the front (bottom) and a smaller stand/base
+// sits behind it. `w`/`h` are the full footprint in meters.
+function tvFlat(w, h) {
+  const strokes = [];
+  const panelD = TV_PANEL_DEPTH_M;
+  // Panel runs the full width along the front (bottom) edge.
+  const panelCy = h / 2 - panelD / 2;
+  strokes.push({ d: rect(0, panelCy, w, panelD), fill: true });
+  // Screen face hint: a thin line just in front of the panel.
+  strokes.push({ d: line(-w / 2, h / 2, w / 2, h / 2), fill: false });
+  // Stand base centered behind the panel.
+  const baseW = Math.min(w * 0.45, 0.6);
+  const baseD = h - panelD;
+  const baseCy = -h / 2 + baseD / 2;
+  strokes.push({ d: roundRect(0, baseCy, baseW, baseD, 0.02), fill: true });
+  // Neck connecting stand to panel.
+  strokes.push({ d: rect(0, 0, Math.min(baseW * 0.4, 0.12), h - panelD), fill: false });
+  return strokes;
+}
+
 // Square dining table with one chair on each side.
 function dining4() {
   const strokes = [];
@@ -386,9 +442,13 @@ function waterHeater(w, h) {
 }
 
 // Return the local-space strokes for a furniture type. Each stroke: { d, fill,
-// and optional local rot/tx/ty applied to that stroke only }.
-export function furnitureSymbol(type) {
-  const { w, h } = furnitureFootprint(type);
+// and optional local rot/tx/ty applied to that stroke only }. Accepts either a
+// type string or a full item object (needed for size-parameterised pieces like
+// the flat-screen TV, which derives its footprint from a per-item diagonal).
+export function furnitureSymbol(typeOrItem) {
+  const item = typeof typeOrItem === 'string' ? { type: typeOrItem } : (typeOrItem || {});
+  const type = item.type;
+  const { w, h } = furnitureFootprint(item);
   switch (type) {
     case 'bed_single':
     case 'bed_double':
@@ -419,6 +479,8 @@ export function furnitureSymbol(type) {
       return coffeeTable(w, h);
     case 'tv_unit':
       return tvUnit(w, h);
+    case 'tv_flat':
+      return tvFlat(w, h);
     case 'dining_4':
       return dining4();
     case 'dining_6':
@@ -458,7 +520,7 @@ export function resolveFurniture(item, worldPerMeter) {
   const tx = Number(item.x) || 0;
   const ty = Number(item.y) || 0;
 
-  const local = furnitureSymbol(item.type);
+  const local = furnitureSymbol(item);
   const prev = paper.project;
   proj.activate();
   try {
@@ -501,7 +563,7 @@ export function resolveFurniture(item, worldPerMeter) {
 // Lightweight world-space footprint (axis-aligned, ignoring rotation) used by
 // the overlay for hit-testing and the rotate-handle placement.
 export function furnitureWorldFootprint(item, worldPerMeter) {
-  const { w, h } = furnitureFootprint(item.type);
+  const { w, h } = furnitureFootprint(item);
   const wpm = worldPerMeter > 0 ? worldPerMeter : 100;
   const s = wpm * (Number(item.scale) > 0 ? Number(item.scale) : 1);
   return { w: w * s, h: h * s };

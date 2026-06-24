@@ -2,7 +2,7 @@
   "id": "furniture",
   "label": "Furniture",
   "category": "Geometry",
-  "description": "Place standard-sized furniture symbols into your drawing, grouped by room: Beds (single/double/queen/king, nightstand, wardrobe), Bath (toilet, sinks, bathtub, shower), Living (sofa, loveseat, armchair, coffee table, TV unit), Dining (4- and 6-seat tables), Kitchen (range, fridge, sink, island), and Laundry (washer, dryer, water heater). Click in the viewport to place the chosen piece, drag it to reposition, drag the rotate handle to spin it, and press Delete/Backspace to remove a selected piece. Sized in real-world meters at the same Screen Units / Meter scale as the Floorplan node so everything lines up.",
+  "description": "Place standard-sized furniture symbols into your drawing, grouped by room: Beds (single/double/queen/king, nightstand, wardrobe), Bath (toilet, sinks, bathtub, shower), Living (sofa, loveseat, armchair, coffee table, TV unit, flat-screen TV sized by screen diagonal in inches), Dining (4- and 6-seat tables), Kitchen (range, fridge, sink, island), and Laundry (washer, dryer, water heater). Click in the viewport to place the chosen piece, drag it to reposition, drag the rotate handle to spin it, and press Delete/Backspace to remove a selected piece. For the flat-screen TV, set the screen diagonal in inches (e.g. 42) in the toolbar to get an accurate top-view footprint. Sized in real-world meters at the same Screen Units / Meter scale as the Floorplan node so everything lines up.",
   "inputs": [
     { "id": "geometry_in", "label": "Geometry In", "type": "geometry" }
   ],
