@@ -1,6 +1,6 @@
 // Release notes for 2Dni. Add a new <Release> block at the top each time we
 // ship new nodes or notable changes, and bump LATEST_RELEASE_DATE below.
-export const LATEST_RELEASE_DATE = 'June 23, 2026';
+export const LATEST_RELEASE_DATE = 'June 24, 2026';
 
 export default function ReleaseNotes({ onClose }) {
   return (
@@ -23,6 +23,22 @@ export default function ReleaseNotes({ onClose }) {
           <h1 style={{ fontSize: 28, fontWeight: 700, color: '#1a1a2e', margin: 0 }}>Release Notes</h1>
           <p style={{ fontSize: 13, color: '#6c757d', marginTop: 8 }}>What's new in 2Dni</p>
         </div>
+
+        <Release version="June 24, 2026" title="Flat-screen TV sized by screen diagonal">
+          <Item name="Flat-screen TV (Furniture)" tag="new">
+            The <b>Furniture</b> node's <b>Living</b> category now has a
+            <b>Flat-screen TV</b>. Buying a 42" TV? Type <b>42</b> in the
+            <b>TV diagonal</b> field and you get an accurate <b>16:9</b> top-view
+            footprint — a slim screen panel with a small stand behind it, drawn
+            at real-world size like every other piece.
+          </Item>
+          <Item name="Resize any placed TV" tag="new">
+            Select a placed TV and change its <b>diagonal</b> in the toolbar to
+            resize it in place — handy for trying a 55" vs. an 85" against the
+            same wall. Rotate it with the ring handle (or <b>[</b> / <b>]</b>) to
+            face any direction.
+          </Item>
+        </Release>
 
         <Release version="June 23, 2026" title="Furniture node + Floorplan cleanups">
           <Item name="Furniture node" tag="new">
