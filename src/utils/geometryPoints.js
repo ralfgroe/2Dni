@@ -72,6 +72,17 @@ function extractFromPathData(pathData) {
 export function extractPoints(geo) {
   if (!geo) return [];
 
+  // A rotated rect/roundedRect can't use its axis-aligned corners directly —
+  // flatten through paper (which applies the rotation) to get true corners.
+  if ((geo.type === 'rect' || geo.type === 'roundedRect') && geo.rotation && geo.rotation % 360 !== 0) {
+    try {
+      const flattened = flattenGeoToPathData(geo);
+      if (flattened && flattened.pathData) return extractFromPathData(flattened.pathData);
+    } catch (e) {
+      console.error('[extractPoints] rotated rect flatten error:', e);
+    }
+  }
+
   switch (geo.type) {
     case 'rect':
       return [

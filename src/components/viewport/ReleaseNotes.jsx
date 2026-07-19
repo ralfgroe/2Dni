@@ -24,6 +24,36 @@ export default function ReleaseNotes({ onClose }) {
           <p style={{ fontSize: 13, color: '#6c757d', marginTop: 8 }}>What's new in 2Dni</p>
         </div>
 
+        <Release version="July 19, 2026" title="Illustrator-style handles — resize & rotate on canvas">
+          <Item name="Corner & edge resize handles" tag="new">
+            Select a <b>Rectangle</b>, <b>Circle</b> or <b>Polygon</b> and grab
+            one of the eight handles right on the shape — four corners and four
+            edge midpoints — to resize it like Adobe Illustrator. Instead of
+            scaling from the center, the <b>opposite corner stays pinned</b> so
+            the shape grows exactly where you pull. Drag anywhere inside to move.
+          </Item>
+          <Item name="Aspect lock & resize from center" tag="new">
+            Hold <b>Shift</b> while dragging a corner to <b>keep the
+            proportions</b>, or hold <b>Alt / Option</b> to <b>resize
+            symmetrically about the center</b> — the same modifier muscle-memory
+            you already have from vector tools. On a circle, corners stay round
+            while an edge handle stretches it into an <b>ellipse</b>.
+          </Item>
+          <Item name="Rotate on hover" tag="new">
+            Move just <b>outside a corner</b> and the cursor turns into a grab
+            handle — drag to <b>rotate</b> the shape around its center. Hold
+            <b>Shift</b> to snap to 15° steps. Rectangle and Circle now have a
+            real <b>Rotation</b> parameter too, so you can dial an exact angle or
+            keyframe it for animation.
+          </Item>
+          <Item name="Rotation everywhere downstream" tag="improved">
+            A rotated shape stays rotated through the whole graph — <b>Radius</b>,
+            <b>Boolean</b>, the <b>Physics</b> sim and every <b>export</b> all see
+            the true tilted outline, and the on-canvas handles rotate right along
+            with the shape.
+          </Item>
+        </Release>
+
         <Release version="July 19, 2026" title="Physics node — gravity, collisions & rigid-body sim">
           <Item name="Physics node" tag="new">
             A new <b>Physics</b> node drops your geometry into a real

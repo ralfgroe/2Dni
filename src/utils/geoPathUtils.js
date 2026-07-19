@@ -49,6 +49,20 @@ export function flattenGeoToPathData(geo) {
 export function geoToPaperPath(geo) {
   if (!geo) return null;
   ensurePaper();
+  const path = buildPaperPath(geo);
+  // Honor a rotation carried by rect/ellipse/arc (degrees, about rotateCenter),
+  // so every consumer of the paper path — radius fillet, boolean ops, point
+  // extraction, physics hull, export — sees the correct world-space outline.
+  if (path && geo.rotation && geo.rotation % 360 !== 0) {
+    const c = geo.rotateCenter || {};
+    path.rotate(geo.rotation, new paper.Point(c.x || 0, c.y || 0));
+  }
+  return path;
+}
+
+function buildPaperPath(geo) {
+  if (!geo) return null;
+  ensurePaper();
 
   switch (geo.type) {
     case 'rect':

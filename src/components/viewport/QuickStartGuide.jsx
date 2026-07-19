@@ -33,6 +33,7 @@ export default function QuickStartGuide({ onClose }) {
             <Step>Select <B>Rectangle</B> from the Geometry category</Step>
             <Step>Click the new node to select it — its parameters appear on the right</Step>
           </Steps>
+          <Tip>Selecting a <B>Rectangle</B>, <B>Circle</B> or <B>Polygon</B> shows <B>Illustrator-style handles</B> right on the shape. Drag a <B>corner or edge</B> to resize (the opposite side stays pinned), drag <B>inside</B> to move, and hover <B>just outside a corner</B> to <B>rotate</B>. Hold <B>Shift</B> to keep proportions (or snap rotation to 15°) and <B>Alt/Option</B> to resize from the center.</Tip>
         </Section>
 
         <Section number="3" title="Connecting Nodes">

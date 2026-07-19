@@ -14,6 +14,7 @@
     { "id": "diameter_y", "label": "Diameter Y", "type": "number", "default": 100, "min": 1, "max": 400 },
     { "id": "arc_start", "label": "Arc Start", "type": "number", "default": 0, "min": 0, "max": 360 },
     { "id": "arc_end", "label": "Arc End", "type": "number", "default": 360, "min": 0, "max": 360 },
+    { "id": "rotation", "label": "Rotation", "type": "number", "default": 0, "min": -360, "max": 360 },
     { "id": "x", "label": "X Position", "type": "number", "default": 0, "min": -500, "max": 500 },
     { "id": "y", "label": "Y Position", "type": "number", "default": 0, "min": -500, "max": 500 },
     { "id": "fill_color", "label": "Fill Color", "type": "color", "default": "#ffffff" },

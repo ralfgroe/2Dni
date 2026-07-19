@@ -9,6 +9,8 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
 
   const geoOpacity = geo.opacity != null ? geo.opacity : undefined;
   const dash = strokeDashProps(geo);
+  // Optional rotation carried by rect/ellipse/arc (degrees, about rotateCenter).
+  const rotTransform = rotateTransform(geo);
 
   switch (geo.type) {
     case 'line':
@@ -48,6 +50,7 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
           y={geo.y}
           width={geo.width}
           height={geo.height}
+          transform={rotTransform}
           fill={geo.fill}
           stroke={geo.stroke}
           strokeWidth={geo.strokeWidth}
@@ -67,6 +70,7 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
           cy={geo.cy}
           rx={geo.rx}
           ry={geo.ry}
+          transform={rotTransform}
           fill={geo.fill}
           stroke={geo.stroke}
           strokeWidth={geo.strokeWidth}
@@ -83,6 +87,7 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
         <path
           key={nodeId}
           d={geo.pathData}
+          transform={rotTransform}
           fill={geo.fill}
           stroke={geo.stroke}
           strokeWidth={geo.strokeWidth}
@@ -269,6 +274,15 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
     default:
       return null;
   }
+}
+
+function rotateTransform(geo) {
+  const rot = geo && geo.rotation;
+  if (!rot || rot % 360 === 0) return undefined;
+  const c = geo.rotateCenter || {};
+  const cx = c.x || 0;
+  const cy = c.y || 0;
+  return `rotate(${rot} ${cx} ${cy})`;
 }
 
 function strokeDashProps(geo) {

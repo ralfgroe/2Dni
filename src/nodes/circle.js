@@ -6,6 +6,7 @@ export function circleRuntime(params) {
     diameter_y = 100,
     arc_start = 0,
     arc_end = 360,
+    rotation = 0,
     x = 0,
     y = 0,
     fill_color = '#ffffff',
@@ -19,11 +20,23 @@ export function circleRuntime(params) {
   const cx = x;
   const cy = y;
 
+  // Rotation (degrees, about the center) is honored by the SVG renderer and
+  // geoToPaperPath. A perfect circle looks identical rotated, but an ellipse or
+  // arc does not, so we carry it on the geometry when non-zero.
+  const rot = rotation % 360;
+  const applyRot = (geo) => {
+    if (rot !== 0) {
+      geo.rotation = rotation;
+      geo.rotateCenter = { x: cx, y: cy };
+    }
+    return geo;
+  };
+
   const sweep = arc_end - arc_start;
   const isFullCircle = sweep >= 360 || sweep <= -360;
 
   if (isFullCircle) {
-    return {
+    return applyRot({
       type: 'ellipse',
       cx,
       cy,
@@ -33,7 +46,7 @@ export function circleRuntime(params) {
       stroke: stroke_color,
       strokeWidth: stroke_width,
       bounds: { x: cx - rx, y: cy - ry, width: rx * 2, height: ry * 2 },
-    };
+    });
   }
 
   const startRad = (arc_start - 90) * Math.PI / 180;
@@ -54,7 +67,7 @@ export function circleRuntime(params) {
     'Z',
   ].join(' ');
 
-  return {
+  return applyRot({
     type: 'arc',
     pathData,
     cx,
@@ -67,5 +80,5 @@ export function circleRuntime(params) {
     stroke: stroke_color,
     strokeWidth: stroke_width,
     bounds: { x: cx - rx, y: cy - ry, width: rx * 2, height: ry * 2 },
-  };
+  });
 }
