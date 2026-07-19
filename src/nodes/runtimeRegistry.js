@@ -48,6 +48,7 @@ import { dimensionRuntime } from '../nodes/dimension';
 import { nullRuntime } from '../nodes/null';
 import { floorplanRuntime } from '../nodes/floorplan';
 import { furnitureRuntime } from '../nodes/furniture';
+import { physicsRuntime } from '../nodes/physics';
 
 const runtimeMap = {
   line: lineRuntime,
@@ -101,6 +102,7 @@ const runtimeMap = {
   null: nullRuntime,
   floorplan: floorplanRuntime,
   furniture: furnitureRuntime,
+  physics: physicsRuntime,
 };
 
 export function getRuntime(runtimeId) {

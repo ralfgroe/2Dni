@@ -2,7 +2,7 @@ import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { useGraphStore } from '../../store/graphStore';
 import { useNodeRegistryStore } from '../../store/nodeRegistryStore';
 import { useAnimationStore } from '../../store/animationStore';
-import { evaluateGraph } from '../../utils/evaluateGraph';
+import { evaluateGraph, buildColliderTracks } from '../../utils/evaluateGraph';
 import { resolveAllNodesAtFrame, interpolateValue, EASING_OPTIONS } from '../../utils/interpolation';
 import { exportSVG, exportSVGmm, exportDXF, exportPNG, exportJPEG, exportOBJ, exportGEO } from '../../utils/exportUtils';
 import { extractPoints } from '../../utils/geometryPoints';
@@ -20,6 +20,7 @@ export default function ParameterPanel() {
   const animEnabled = useAnimationStore((s) => s.enabled);
   const currentFrame = useAnimationStore((s) => s.currentFrame);
   const allKeyframes = useAnimationStore((s) => s.keyframes);
+  const animFps = useAnimationStore((s) => s.fps);
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId);
   const definition = selectedNode
@@ -31,9 +32,29 @@ export default function ParameterPanel() {
     return resolveAllNodesAtFrame(nodes, allKeyframes, currentFrame);
   }, [nodes, animEnabled, allKeyframes, currentFrame]);
 
+  const restNodes = useMemo(() => {
+    if (!animEnabled || Object.keys(allKeyframes).length === 0) return nodes;
+    return resolveAllNodesAtFrame(nodes, allKeyframes, 0);
+  }, [nodes, animEnabled, allKeyframes]);
+
+  const restResults = useMemo(
+    () => evaluateGraph(restNodes, edges, definitions, displayNodeId, { frame: 0, fps: animFps }),
+    [restNodes, edges, definitions, displayNodeId, animFps]
+  );
+
+  const colliderTrack = useMemo(() => {
+    if (!animEnabled) return null;
+    return buildColliderTracks(nodes, edges, definitions, allKeyframes, currentFrame);
+  }, [nodes, edges, definitions, allKeyframes, currentFrame, animEnabled]);
+
+  const evalContext = useMemo(
+    () => ({ frame: animEnabled ? currentFrame : 0, fps: animFps, restResults, colliderTrack }),
+    [animEnabled, currentFrame, animFps, restResults, colliderTrack]
+  );
+
   const results = useMemo(
-    () => evaluateGraph(animatedNodes, edges, definitions, displayNodeId),
-    [animatedNodes, edges, definitions, displayNodeId]
+    () => evaluateGraph(animatedNodes, edges, definitions, displayNodeId, evalContext),
+    [animatedNodes, edges, definitions, displayNodeId, evalContext]
   );
 
   function resolveEdgeResult(edge) {
@@ -147,7 +168,7 @@ export default function ParameterPanel() {
 
   const handleExport = () => {
     const fullResults = displayNodeId
-      ? evaluateGraph(animatedNodes, edges, definitions, null)
+      ? evaluateGraph(animatedNodes, edges, definitions, null, evalContext)
       : results;
 
     const geo = fullResults.get(selectedNode.id);
@@ -196,7 +217,7 @@ export default function ParameterPanel() {
   };
 
   return (
-    <div className="flex h-full w-full flex-col overflow-y-auto overflow-x-hidden bg-bg-primary" style={{ padding: '12px 14px 0 26px' }}>
+    <div className="flex h-full w-full flex-col overflow-y-auto overflow-x-hidden bg-bg-primary" style={{ padding: '12px 14px 32px 26px' }}>
       {/* Header */}
       <div className="shrink-0 border-b border-border-primary pb-3 pt-10">
         <h2 className="text-sm font-semibold text-text-primary">{definition.label}</h2>
@@ -769,6 +790,11 @@ function ParameterInput({ paramDef, value, onChange, nodeId }) {
             onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
             className="w-16 rounded border border-border-primary bg-bg-primary px-2 py-1 text-xs text-text-primary outline-none focus:border-accent"
           />
+          {paramDef.unit && (
+            <span className="shrink-0 text-[10px] text-text-muted" style={{ minWidth: 24 }}>
+              {paramDef.unit}
+            </span>
+          )}
         </div>
       );
 

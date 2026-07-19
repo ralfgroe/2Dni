@@ -1,6 +1,7 @@
 import { getRuntime } from '../nodes/runtimeRegistry';
+import { resolveAllNodesAtFrame } from './interpolation';
 
-export function evaluateGraph(nodes, edges, definitions, displayNodeId) {
+export function evaluateGraph(nodes, edges, definitions, displayNodeId, context = null) {
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
   const results = new Map();
 
@@ -77,8 +78,40 @@ export function evaluateGraph(nodes, edges, definitions, displayNodeId) {
       }
     }
 
+    // If a frame-0 (rest) snapshot of the graph was supplied, resolve this
+    // node's inputs against it too. Stateful runtimes (e.g. the physics bake)
+    // use this to know an input's pose at frame 0 without re-walking the graph.
+    let nodeContext = context;
+    const restResults = context && context.restResults;
+    if (restResults) {
+      const restInputs = {};
+      for (const edge of incomingEdges) {
+        const sourceResult = restResults.get(edge.source);
+        if (sourceResult !== undefined) {
+          let value;
+          if (sourceResult && sourceResult.__multiOutput && edge.sourceHandle) {
+            value = sourceResult[edge.sourceHandle];
+          } else {
+            value = sourceResult;
+          }
+          restInputs[edge.targetHandle] = stripDimAnnotations(value);
+        }
+      }
+      nodeContext = { ...context, restInputs };
+    }
+
+    // Per-frame collider motion track (physics bake). The call site pre-samples
+    // each animated collision input at every integer frame so a stateful runtime
+    // can move a kinematic collider along its REAL keyframe path (and stop when
+    // its animation ends) instead of stretching one rest->current sweep across
+    // the whole bake.
+    const colliderTrack = context && context.colliderTrack;
+    if (colliderTrack && colliderTrack[nodeId]) {
+      nodeContext = { ...(nodeContext || context), colliderTrackInput: colliderTrack[nodeId] };
+    }
+
     try {
-      const result = runtime(node.data.params, inputs);
+      const result = runtime(node.data.params, inputs, nodeContext);
       results.set(nodeId, result);
     } catch (e) {
       results.set(nodeId, { type: 'error', message: e.message });
@@ -99,6 +132,76 @@ function stripDimAnnotations(value) {
   if (real.length === 0) return value;
   if (real.length === 1) return real[0];
   return { ...value, children: real };
+}
+
+/* Build a per-frame motion track for every physics node's `collision_in` input.
+
+   The physics bake is stateful: it re-runs the whole simulation from frame 0 up
+   to the current frame on every render. For an ANIMATED kinematic collider we
+   want it to travel along its true keyframed path over the bake and then hold
+   still once its animation ends, so the pile it disturbed can actually settle.
+   A single rest->current interpolation can't do that (it stretches the motion
+   across the entire bake, so the collider never stops and the pile jitters).
+
+   So here we pre-sample each animated collision input at every integer frame
+   0..uptoFrame and hand the physics runtime the resulting position track via
+   context. Sampling is pruned to each physics node's upstream subgraph, so it
+   only re-evaluates the (cheap) collider chain, not the whole graph.
+
+   Returns a map: { [physicsNodeId]: Array<geometryAtFrame> } where index i is
+   the collision_in geometry at frame i. Nodes with no animated collider input
+   are omitted (nothing to track). */
+export function buildColliderTracks(nodes, edges, definitions, allKeyframes, uptoFrame) {
+  const physicsNodes = nodes.filter(
+    (n) => n.data && n.data.definitionId === 'physics' && !n.data.bypassed
+  );
+  if (physicsNodes.length === 0) return null;
+
+  // Which physics nodes actually have something wired into collision_in?
+  const colliderEdgeByTarget = new Map();
+  for (const e of edges) {
+    if (e.targetHandle === 'collision_in') colliderEdgeByTarget.set(e.target, e);
+  }
+  const tracked = physicsNodes.filter((n) => colliderEdgeByTarget.has(n.id));
+  if (tracked.length === 0) return null;
+
+  // Does the collider chain feeding any tracked node depend on a keyframe? If
+  // not, the collider is static and needs no track (cheap early-out).
+  const hasAnyKeyframes = allKeyframes && Object.keys(allKeyframes).length > 0;
+
+  const track = {};
+  for (const pnode of tracked) track[pnode.id] = new Array(uptoFrame + 1);
+
+  const N = Math.max(0, Math.round(uptoFrame));
+  for (let f = 0; f <= N; f++) {
+    const frameNodes = hasAnyKeyframes
+      ? resolveAllNodesAtFrame(nodes, allKeyframes, f)
+      : nodes;
+    for (const pnode of tracked) {
+      // Evaluate pruned to the COLLIDER's source node (not the physics node), so
+      // only the collider's upstream chain runs. Pruning to the physics node
+      // would re-run its full bake here on every sampled frame — wasteful, and it
+      // would also clobber the physics node's cross-frame bake cache with these
+      // frame-sample evaluations. Reading the source's output gives us the same
+      // collider geometry without touching the sim.
+      const edge = colliderEdgeByTarget.get(pnode.id);
+      const results = evaluateGraph(frameNodes, edges, definitions, edge.source, null);
+      let value = results.get(edge.source);
+      if (value && value.__multiOutput && edge.sourceHandle) value = value[edge.sourceHandle];
+      track[pnode.id][f] = stripDimAnnotations(value);
+    }
+    // Static colliders: the first frame already captured it; if there are no
+    // keyframes anywhere the geometry never changes, so stop after frame 0.
+    if (!hasAnyKeyframes) {
+      for (const pnode of tracked) {
+        const g0 = track[pnode.id][0];
+        for (let k = 1; k <= N; k++) track[pnode.id][k] = g0;
+      }
+      break;
+    }
+  }
+
+  return track;
 }
 
 function getUpstreamNodes(nodeId, adjacency, nodeMap) {

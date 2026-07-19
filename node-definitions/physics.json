@@ -1,0 +1,33 @@
+{
+  "id": "physics",
+  "label": "Physics",
+  "category": "Transform",
+  "description": "A simple 2D rigid-body physics engine. Each top-level shape in the main geometry input becomes a dynamic body (a convex hull of its real outline) that falls under gravity, tumbles, lands on the page floor, and collides with the other bodies. Gravity is given in m/s\u00b2 (Earth \u2248 9.81). The Mass slider scales how heavy the falling pieces are - heavier pieces resist being pushed and settle more firmly. The Sleep Speed slider (px/s) sets the speed under which a resting piece is treated as still and frozen: raise it if pieces still jitter after landing (they lock down sooner), lower it for longer-lived, more precise motion. The optional Collision input accepts kinematic collider geometry: it is immovable, but its Collider Mass scales how hard it shoves the dynamic bodies; if you animate the collider it sweeps from its rest pose to its current animated pose across the bake, imparting momentum to whatever it hits (like a paddle). The whole simulation is baked from frame 0 up to the current timeline frame, so scrubbing and export stay deterministic. Enable Animation and scrub/play the timeline to watch pieces fall and collide.",
+  "inputs": [
+    { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true },
+    { "id": "collision_in", "label": "Collision In", "type": "geometry", "required": false }
+  ],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "gravity", "label": "Gravity", "type": "number", "unit": "m/s\u00b2", "default": 9.81, "min": -50, "max": 50, "step": 0.1 },
+    { "id": "mass", "label": "Mass", "type": "number", "unit": "\u00d7", "default": 1, "min": 0.1, "max": 20, "step": 0.1 },
+    { "id": "restitution", "label": "Bounciness", "type": "number", "default": 0.2, "min": 0, "max": 1, "step": 0.05 },
+    { "id": "friction", "label": "Friction", "type": "number", "default": 0.2, "min": 0, "max": 1, "step": 0.05 },
+    { "id": "linear_damping", "label": "Linear Damping", "type": "number", "default": 0, "min": 0, "max": 5, "step": 0.05 },
+    { "id": "angular_damping", "label": "Angular Damping", "type": "number", "default": 0.5, "min": 0, "max": 10, "step": 0.1 },
+    { "id": "cohesion", "label": "Cohesion", "type": "number", "default": 0, "min": 0, "max": 1, "step": 0.05 },
+    { "id": "sleep_speed", "label": "Sleep Speed", "type": "number", "unit": "px/s", "default": 15, "min": 1, "max": 60, "step": 1 },
+    { "id": "walls", "label": "Side Walls", "type": "boolean", "default": false },
+    { "id": "rotation", "label": "Rotation", "type": "boolean", "default": true },
+    { "id": "initial_spin", "label": "Initial Spin", "type": "number", "default": 0, "min": 0, "max": 20, "step": 0.5 },
+    { "id": "collider_mass", "label": "Collider Mass", "type": "number", "unit": "\u00d7", "default": 1, "min": 0.1, "max": 50, "step": 0.1 },
+    { "id": "seed", "label": "Seed", "type": "number", "default": 0, "min": 0, "max": 9999, "step": 1 },
+    { "id": "floor_y", "label": "Floor Y", "type": "number", "default": 300, "min": -2000, "max": 2000, "step": 1 },
+    { "id": "left_x", "label": "Left Wall X", "type": "number", "default": -400, "min": -2000, "max": 2000, "step": 1 },
+    { "id": "right_x", "label": "Right Wall X", "type": "number", "default": 400, "min": -2000, "max": 2000, "step": 1 },
+    { "id": "substeps", "label": "Substeps", "type": "number", "default": 8, "min": 1, "max": 32, "step": 1 }
+  ],
+  "runtime": "physics"
+}

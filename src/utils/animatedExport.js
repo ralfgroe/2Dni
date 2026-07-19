@@ -1,9 +1,10 @@
-import { evaluateGraph } from './evaluateGraph';
+import { evaluateGraph, buildColliderTracks } from './evaluateGraph';
 import { resolveAllNodesAtFrame } from './interpolation';
 
-function renderFrameToSVGString(nodes, edges, definitions, displayNodeId, allKeyframes, frame, width, height, viewBox) {
+function renderFrameToSVGString(nodes, edges, definitions, displayNodeId, allKeyframes, frame, width, height, viewBox, fps = 30, restResults = null) {
   const animated = resolveAllNodesAtFrame(nodes, allKeyframes, frame);
-  const results = evaluateGraph(animated, edges, definitions, displayNodeId);
+  const colliderTrack = buildColliderTracks(nodes, edges, definitions, allKeyframes, frame);
+  const results = evaluateGraph(animated, edges, definitions, displayNodeId, { frame, fps, restResults, colliderTrack });
 
   const nodesWithDownstream = new Set();
   for (const edge of edges) nodesWithDownstream.add(edge.source);
@@ -118,12 +119,17 @@ export async function exportAnimatedMP4(
   canvas.height = height;
   const ctx = canvas.getContext('2d');
 
+  // Frame-0 (rest pose) snapshot, reused across all frames so stateful runtimes
+  // (physics) can sweep animated inputs like colliders from their rest pose.
+  const restNodes = resolveAllNodesAtFrame(nodes, allKeyframes, 0);
+  const restResults = evaluateGraph(restNodes, edges, definitions, displayNodeId, { frame: 0, fps });
+
   for (let frame = 0; frame <= duration; frame++) {
     onProgress(frame, duration);
 
     const svgStr = renderFrameToSVGString(
       nodes, edges, definitions, displayNodeId,
-      allKeyframes, frame, width, height, viewBox
+      allKeyframes, frame, width, height, viewBox, fps, restResults
     );
 
     const frameCanvas = await svgStringToCanvas(svgStr, width, height);

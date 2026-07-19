@@ -3,7 +3,7 @@ import { useGraphStore } from '../../store/graphStore';
 import { useNodeRegistryStore } from '../../store/nodeRegistryStore';
 import { useViewportStore } from '../../store/viewportStore';
 import { useAnimationStore, RESOLUTION_PRESETS } from '../../store/animationStore';
-import { evaluateGraph } from '../../utils/evaluateGraph';
+import { evaluateGraph, buildColliderTracks } from '../../utils/evaluateGraph';
 import { resolveAllNodesAtFrame } from '../../utils/interpolation';
 import { renderGeometry } from '../../utils/svgRenderer';
 import { centerTranslate } from '../../utils/exportUtils';
@@ -56,6 +56,7 @@ export default function Viewport() {
   const allKeyframes = useAnimationStore((s) => s.keyframes);
   const showCameraFrame = useAnimationStore((s) => s.showCameraFrame);
   const resolution = useAnimationStore((s) => s.resolution);
+  const fps = useAnimationStore((s) => s.fps);
 
   const cameraRect = useMemo(() => {
     if (!animEnabled || !showCameraFrame) return null;
@@ -80,9 +81,34 @@ export default function Viewport() {
     return resolveAllNodesAtFrame(nodes, allKeyframes, currentFrame);
   }, [nodes, animEnabled, allKeyframes, currentFrame]);
 
+  // Frame-0 (rest pose) nodes, used to give stateful runtimes (physics) a
+  // deterministic starting pose for inputs like an animated collider.
+  const restNodes = useMemo(() => {
+    if (!animEnabled || Object.keys(allKeyframes).length === 0) return nodes;
+    return resolveAllNodesAtFrame(nodes, allKeyframes, 0);
+  }, [nodes, animEnabled, allKeyframes]);
+
+  const restResults = useMemo(
+    () => evaluateGraph(restNodes, edges, definitions, displayNodeId, { frame: 0, fps }),
+    [restNodes, edges, definitions, displayNodeId, fontVersion, fps]
+  );
+
+  // Per-frame motion track for any animated physics collider, so a moving
+  // obstacle follows its true keyframe path and then holds still (letting the
+  // bodies it disturbed actually settle). Only built when animating.
+  const colliderTrack = useMemo(() => {
+    if (!animEnabled) return null;
+    return buildColliderTracks(nodes, edges, definitions, allKeyframes, currentFrame);
+  }, [nodes, edges, definitions, allKeyframes, currentFrame, animEnabled, fontVersion]);
+
+  const evalContext = useMemo(
+    () => ({ frame: animEnabled ? currentFrame : 0, fps, restResults, colliderTrack }),
+    [animEnabled, currentFrame, fps, restResults, colliderTrack]
+  );
+
   const results = useMemo(
-    () => evaluateGraph(animatedNodes, edges, definitions, displayNodeId),
-    [animatedNodes, edges, definitions, displayNodeId, fontVersion]
+    () => evaluateGraph(animatedNodes, edges, definitions, displayNodeId, evalContext),
+    [animatedNodes, edges, definitions, displayNodeId, fontVersion, evalContext]
   );
 
   // Changes whenever the evaluated graph output changes; used to reset the
@@ -474,8 +500,8 @@ export default function Viewport() {
         style={{ cursor: isPanning ? 'grabbing' : 'default' }}
       >
         <defs>
-          <filter id="selection-glow" x="-30%" y="-30%" width="160%" height="160%">
-            <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#4263eb" floodOpacity="0.6" />
+          <filter id="selection-glow" x="-15%" y="-15%" width="130%" height="130%">
+            <feDropShadow dx="0" dy="0" stdDeviation="1" floodColor="#4263eb" floodOpacity="0.8" />
           </filter>
 
           {showGrid && !splashVisible && (
