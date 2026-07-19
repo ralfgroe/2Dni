@@ -1,6 +1,6 @@
 // Release notes for 2Dni. Add a new <Release> block at the top each time we
 // ship new nodes or notable changes, and bump LATEST_RELEASE_DATE below.
-export const LATEST_RELEASE_DATE = 'June 24, 2026';
+export const LATEST_RELEASE_DATE = 'July 19, 2026';
 
 export default function ReleaseNotes({ onClose }) {
   return (
@@ -23,6 +23,52 @@ export default function ReleaseNotes({ onClose }) {
           <h1 style={{ fontSize: 28, fontWeight: 700, color: '#1a1a2e', margin: 0 }}>Release Notes</h1>
           <p style={{ fontSize: 13, color: '#6c757d', marginTop: 8 }}>What's new in 2Dni</p>
         </div>
+
+        <Release version="July 19, 2026" title="Physics node — gravity, collisions & rigid-body sim">
+          <Item name="Physics node" tag="new">
+            A new <b>Physics</b> node drops your geometry into a real
+            <b>rigid-body simulation</b>. Turn on gravity and watch pieces
+            fall, tumble, collide and stack on the page floor. Every shape
+            becomes a solid body — circles stay round and irregular shapes use
+            a tight convex hull — so piles settle the way you'd expect. It
+            bakes a <b>deterministic</b> sim, so scrubbing the timeline always
+            shows the same motion.
+          </Item>
+          <Item name="Gravity, Bounciness, Friction & damping" tag="new">
+            Dial in <b>Gravity</b> in real <b>m/s²</b> (Earth is 9.81),
+            set <b>Bounciness</b> from a dead thud to a near-elastic bounce,
+            and tune <b>Friction</b>, <b>Linear</b> / <b>Angular Damping</b>
+            and a <b>Cohesion</b> nudge that closes hairline seams so settled
+            pieces nestle together.
+          </Item>
+          <Item name="Animated colliders" tag="new">
+            Wire a second input into <b>Collision</b> to add a kinematic
+            obstacle — like Houdini's collision input. Keyframe it and it
+            sweeps through your falling pieces like a paddle, following its
+            <b>real animation path</b> and then holding still once the
+            keyframes end.
+          </Item>
+          <Item name="Mass, Sleep Speed & rotation" tag="new">
+            Control the <b>Mass</b> of dynamic pieces and how hard a collider
+            <b>shoves</b> them, set a <b>Sleep Speed</b> that decides how
+            slowly pieces come fully to rest, and toggle rotation (with an
+            optional <b>initial spin</b>) on or off.
+          </Item>
+          <Item name="Rock-solid settling — no more jitter" tag="fixed">
+            Rebuilt the solver from scratch on a modern <b>soft-contact</b>
+            approach and made each frame <b>continue from the last</b> instead
+            of re-simulating from the start. Piles that used to shimmer and
+            twitch as they came to rest now settle into a dead-still, solid
+            stack — and the motion through the middle of an animation is smooth
+            and continuous.
+          </Item>
+          <Item name="Bounciness that actually bounces" tag="fixed">
+            Restitution now reaches the value you set — crank <b>Bounciness</b>
+            toward 1.0 for a lively, near-elastic rebound instead of a muted
+            plop. Animated MP4 exports use the exact same simulation as the
+            live viewport.
+          </Item>
+        </Release>
 
         <Release version="June 24, 2026" title="Flat-screen TV sized by screen diagonal">
           <Item name="Flat-screen TV (Furniture)" tag="new">
