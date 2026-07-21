@@ -113,6 +113,20 @@ export default function Viewport() {
     [animatedNodes, edges, definitions, displayNodeId, fontVersion, evalContext]
   );
 
+  // Snap needs the geometry of EVERY node, not just the displayed subtree — a
+  // shape you want to latch onto is usually a separate, disconnected node that
+  // never enters `results` (which only evaluates the display node's upstream).
+  // Passing displayNodeId=null forces a full evaluation of all nodes. Only run
+  // while the snap toggle is on so it costs nothing otherwise.
+  const allResults = useMemo(() => {
+    if (!snapPoints) return null;
+    try {
+      return evaluateGraph(animatedNodes, edges, definitions, null, evalContext);
+    } catch {
+      return null;
+    }
+  }, [snapPoints, animatedNodes, edges, definitions, fontVersion, evalContext]);
+
   // Changes whenever the evaluated graph output changes; used to reset the
   // geometry error boundary so it recovers after the user fixes a bad value.
   const renderResetKey = useMemo(() => `${displayNodeId || ''}:${Date.now()}`, [results, displayNodeId]);
@@ -131,6 +145,7 @@ export default function Viewport() {
   // and something is selected, so it stays cheap when unused.
   const snapCandidates = useMemo(() => {
     if (!snapPoints || !selectedNodeId) return [];
+    const source = allResults || results;
     const pts = [];
     const seen = new Set();
     const push = (geo) => {
@@ -158,12 +173,12 @@ export default function Viewport() {
         pts.push({ x: p.x, y: p.y });
       }
     };
-    for (const [nodeId, geo] of results.entries()) {
+    for (const [nodeId, geo] of source.entries()) {
       if (nodeId === selectedNodeId) continue;
       push(geo);
     }
     return pts;
-  }, [snapPoints, selectedNodeId, results]);
+  }, [snapPoints, selectedNodeId, results, allResults]);
 
   // Magical reveal: the grid stays hidden until a Polyline turns on Snap to Grid,
   // then it appears so you can see what you're snapping to. We only auto-enable
