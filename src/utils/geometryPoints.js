@@ -69,6 +69,22 @@ function extractFromPathData(pathData) {
   return points;
 }
 
+// Rotate a list of {x,y} points about a center by `deg` degrees. A no-op when
+// the rotation is absent or a multiple of 360, so unrotated shapes are untouched.
+function rotatePoints(points, deg, center) {
+  if (!deg || deg % 360 === 0) return points;
+  const rad = (deg * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const cx = center?.x || 0;
+  const cy = center?.y || 0;
+  return points.map((p) => {
+    const dx = p.x - cx;
+    const dy = p.y - cy;
+    return { x: cx + dx * cos - dy * sin, y: cy + dx * sin + dy * cos };
+  });
+}
+
 export function extractPoints(geo) {
   if (!geo) return [];
 
@@ -111,9 +127,51 @@ export function extractPoints(geo) {
       }
     }
 
+    case 'ellipse': {
+      // Axis extremes (N/E/S/W) plus the center — the geometrically meaningful
+      // handles. Rotation, if any, is applied about the center.
+      const cx = geo.cx || 0;
+      const cy = geo.cy || 0;
+      const rx = geo.rx || 0;
+      const ry = geo.ry || 0;
+      const raw = [
+        { x: cx, y: cy - ry },
+        { x: cx + rx, y: cy },
+        { x: cx, y: cy + ry },
+        { x: cx - rx, y: cy },
+        { x: cx, y: cy },
+      ];
+      return rotatePoints(raw, geo.rotation, geo.rotateCenter || { x: cx, y: cy })
+        .map((p, i) => ({ ...p, sharp: true, idx: i }));
+    }
+
+    case 'arc': {
+      // For an arc we want the two endpoints of the sweep and the pie center,
+      // plus any axis extreme (0/90/180/270°) that falls inside the sweep — these
+      // are the tangent points a user naturally snaps to. Derived analytically so
+      // they're exact, not paper's coarse flattening.
+      const cx = geo.cx || 0;
+      const cy = geo.cy || 0;
+      const rx = geo.rx || 0;
+      const ry = geo.ry || 0;
+      const aStart = geo.arcStart || 0;
+      const aEnd = geo.arcEnd ?? 360;
+      const ptAt = (deg) => {
+        // Runtime draws with a -90° phase (see circle.js), match it exactly.
+        const rad = (deg - 90) * Math.PI / 180;
+        return { x: cx + rx * Math.cos(rad), y: cy + ry * Math.sin(rad) };
+      };
+      const raw = [{ x: cx, y: cy }, ptAt(aStart), ptAt(aEnd)];
+      const lo = Math.min(aStart, aEnd);
+      const hi = Math.max(aStart, aEnd);
+      for (const deg of [0, 90, 180, 270, 360]) {
+        if (deg > lo && deg < hi) raw.push(ptAt(deg));
+      }
+      return rotatePoints(raw, geo.rotation, geo.rotateCenter || { x: cx, y: cy })
+        .map((p, i) => ({ ...p, sharp: true, idx: i }));
+    }
+
     case 'group':
-    case 'ellipse':
-    case 'arc':
     case 'text': {
       try {
         const flattened = flattenGeoToPathData(geo);
