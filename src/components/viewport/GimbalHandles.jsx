@@ -61,6 +61,14 @@ export default function GimbalHandles({ geometry, node, definition, screenToSvg,
       // candidate and offset the whole drag so it lands exactly on it.
       if (snapEnabled && type === 'move' && !me.altKey && ownPoints.length && snapCandidates.length) {
         const snap = findSnap(ownPoints, dx, dy, snapCandidates, snapDist);
+        if (typeof window !== 'undefined' && window.__SNAP_DEBUG) {
+          (window.__snapLog = window.__snapLog || []).push({
+            dx: +dx.toFixed(2), dy: +dy.toFixed(2), snapDist: +snapDist.toFixed(2),
+            wpp: worldPerPixel, own: ownPoints.length, cand: snapCandidates.length,
+            hit: snap ? { ox: +snap.ox.toFixed(2), oy: +snap.oy.toFixed(2), tx: snap.tx, ty: snap.ty } : null,
+            candSample: snapCandidates.slice(0, 6), ownSample: ownPoints.slice(0, 4),
+          });
+        }
         if (snap) {
           dx += snap.ox;
           dy += snap.oy;
@@ -69,6 +77,12 @@ export default function GimbalHandles({ geometry, node, definition, screenToSvg,
           setSnapMark(null);
         }
       } else {
+        if (typeof window !== 'undefined' && window.__SNAP_DEBUG) {
+          (window.__snapLog = window.__snapLog || []).push({
+            inactive: true, snapEnabled, type, alt: me.altKey,
+            own: ownPoints.length, cand: snapCandidates.length,
+          });
+        }
         setSnapMark(null);
       }
 
