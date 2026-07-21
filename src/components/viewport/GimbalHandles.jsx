@@ -34,45 +34,44 @@ export default function GimbalHandles({ geometry, node, definition, screenToSvg,
 
   const startDrag = useCallback((type, e) => {
     e.stopPropagation();
+    e.preventDefault();
     // Own vertices of the selected shape, captured at drag start. During a move
     // we translate these by (dx,dy) and look for the nearest candidate to latch on.
     const ownPoints = snapEnabled ? safeExtractPoints(geometry) : [];
-    setDragging({ type, startX: e.clientX, startY: e.clientY, startParams: { ...node.data.params } });
+    const startParams = { ...node.data.params };
+    const startX = e.clientX;
+    const startY = e.clientY;
+    setDragging({ type });
     useGraphStore.getState().beginOperation();
 
     // World-space snap radius that tracks zoom, matching the ~10px handle size.
     const snapDist = (viewBox ? viewBox.w / 800 : 1) * 12;
 
     const handleMove = (me) => {
-      setDragging((prev) => {
-        if (!prev) return null;
-        const startPt = screenToSvg(prev.startX, prev.startY);
-        const svgStart = startPt;
-        const svgCurrent = screenToSvg(me.clientX, me.clientY);
-        let dx = svgCurrent.x - svgStart.x;
-        let dy = svgCurrent.y - svgStart.y;
-        const mods = { shift: me.shiftKey, alt: me.altKey };
+      const svgStart = screenToSvg(startX, startY);
+      const svgCurrent = screenToSvg(me.clientX, me.clientY);
+      let dx = svgCurrent.x - svgStart.x;
+      let dy = svgCurrent.y - svgStart.y;
+      const mods = { shift: me.shiftKey, alt: me.altKey };
 
-        // Snap-to-points on a plain move (Alt temporarily disables snapping — the
-        // usual "free move" escape hatch). Find the shape vertex closest to any
-        // candidate and offset the whole drag so it lands exactly on it.
-        if (snapEnabled && type === 'move' && !me.altKey && ownPoints.length && snapCandidates.length) {
-          const snap = findSnap(ownPoints, dx, dy, snapCandidates, snapDist);
-          if (snap) {
-            dx += snap.ox;
-            dy += snap.oy;
-            setSnapMark({ x: snap.tx, y: snap.ty });
-          } else {
-            setSnapMark(null);
-          }
+      // Snap-to-points on a plain move (Alt temporarily disables snapping — the
+      // usual "free move" escape hatch). Find the shape vertex closest to any
+      // candidate and offset the whole drag so it lands exactly on it.
+      if (snapEnabled && type === 'move' && !me.altKey && ownPoints.length && snapCandidates.length) {
+        const snap = findSnap(ownPoints, dx, dy, snapCandidates, snapDist);
+        if (snap) {
+          dx += snap.ox;
+          dy += snap.oy;
+          setSnapMark({ x: snap.tx, y: snap.ty });
         } else {
           setSnapMark(null);
         }
+      } else {
+        setSnapMark(null);
+      }
 
-        applyDrag(prev.type, dx, dy, prev.startParams, node.id, defId, updateNodeParams, mods, {
-          startX: svgStart.x, startY: svgStart.y, curX: svgCurrent.x, curY: svgCurrent.y,
-        });
-        return prev;
+      applyDrag(type, dx, dy, startParams, node.id, defId, updateNodeParams, mods, {
+        startX: svgStart.x, startY: svgStart.y, curX: svgCurrent.x, curY: svgCurrent.y,
       });
     };
 

@@ -507,8 +507,7 @@ export default function Viewport() {
         title="Snap to points — dragged shapes latch onto vertices of other geometry"
       >
         <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2" opacity={snapPoints ? 1 : 0.5}>
-          <path d="M6 0.5v3M6 8.5v3M0.5 6h3M8.5 6h3" />
-          <circle cx="6" cy="6" r="1.6" fill="currentColor" stroke="none" />
+          <circle cx="6" cy="6" r="2.4" fill="currentColor" stroke="none" />
         </svg>
       </button>
 
@@ -661,6 +660,26 @@ export default function Viewport() {
           });
         })()}
         </GeometryErrorBoundary>
+
+        {snapPoints && snapCandidates.length > 0 && (() => {
+          const u = viewBox.w / 800;
+          return (
+            <g pointerEvents="none">
+              {snapCandidates.map((p, i) => (
+                <circle
+                  key={`snapcand${i}`}
+                  cx={p.x}
+                  cy={p.y}
+                  r={3 * u}
+                  fill="#e8590c"
+                  fillOpacity={0.55}
+                  stroke="#e8590c"
+                  strokeWidth={0.8 * u}
+                />
+              ))}
+            </g>
+          );
+        })()}
 
         {selectedGeo && selectedNode && selectedDef && (
           <GimbalHandles
