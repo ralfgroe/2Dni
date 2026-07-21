@@ -40,6 +40,10 @@ export default function GimbalHandles({ geometry, node, definition, screenToSvg,
     // (not just the corners). During a move we translate these by (dx,dy) and look
     // for the nearest candidate to latch on.
     const ownPoints = snapEnabled ? withEdgeMidpoints(safeExtractPoints(geometry)) : [];
+    // For a resize drag we snap the single corner/edge being dragged (its world
+    // position at drag start), not the whole shape. Derived from the params so it
+    // tracks the exact handle the user grabbed.
+    const resizeAnchor = snapEnabled ? resizeHandleWorldPoint(type, node.data.params, defId, geometry) : null;
     const startParams = { ...node.data.params };
     const startX = e.clientX;
     const startY = e.clientY;
@@ -69,6 +73,16 @@ export default function GimbalHandles({ geometry, node, definition, screenToSvg,
         } else {
           setSnapMark(null);
         }
+      } else if (snapEnabled && !me.altKey && resizeAnchor && snapCandidates.length && type.startsWith('resize-')) {
+        // Snap the dragged corner/edge itself onto the nearest candidate.
+        const snap = findSnap([resizeAnchor], dx, dy, snapCandidates, snapDist);
+        if (snap) {
+          dx += snap.ox;
+          dy += snap.oy;
+          setSnapMark({ x: snap.tx, y: snap.ty });
+        } else {
+          setSnapMark(null);
+        }
       } else {
         setSnapMark(null);
       }
@@ -91,7 +105,6 @@ export default function GimbalHandles({ geometry, node, definition, screenToSvg,
   }, [node, defId, screenToSvg, updateNodeParams, geometry, snapEnabled, snapCandidates, worldPerPixel]);
 
   if (!geometry) return null;
-
   const u = viewBox ? viewBox.w / 800 : 1;
   const snapOverlay = snapMark ? (
     <g pointerEvents="none">
@@ -175,6 +188,35 @@ function findSnap(ownPoints, dx, dy, candidates, dist) {
 function rotCenter(node) {
   const p = node.data.params || {};
   return { x: p.x || 0, y: p.y || 0 };
+}
+
+// World-space position of the specific corner/edge handle being dragged, at
+// drag start — used to snap that handle onto candidate points during a resize.
+// Covers the box-based shapes (rectangle, and the bounds of circle/polygon).
+function resizeHandleWorldPoint(type, params, defId, geometry) {
+  if (!type || !type.startsWith('resize-')) return null;
+  const key = type.replace('resize-', '');
+  let cx, cy, hw, hh;
+  if (defId === 'rectangle') {
+    const s = params.scale || 1;
+    cx = params.x || 0; cy = params.y || 0;
+    hw = ((params.width || 0) * s) / 2;
+    hh = ((params.height || 0) * s) / 2;
+  } else if ((defId === 'circle' || defId === 'polygon') && geometry && geometry.bounds) {
+    const b = geometry.bounds;
+    cx = b.x + b.width / 2; cy = b.y + b.height / 2;
+    hw = b.width / 2; hh = b.height / 2;
+  } else {
+    return null;
+  }
+  const map = {
+    tl: [cx - hw, cy - hh], tr: [cx + hw, cy - hh],
+    bl: [cx - hw, cy + hh], br: [cx + hw, cy + hh],
+    t: [cx, cy - hh], b: [cx, cy + hh],
+    l: [cx - hw, cy], r: [cx + hw, cy],
+  };
+  const p = map[key];
+  return p ? { x: p[0], y: p[1] } : null;
 }
 
 function applyDrag(type, dx, dy, startParams, nodeId, defId, updateNodeParams, mods = {}, pts = null) {
