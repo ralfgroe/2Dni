@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useGraphStore } from '../../store/graphStore';
 import { useAnimationStore } from '../../store/animationStore';
+import { extractPoints } from '../../utils/geometryPoints';
 
 const HANDLE_SIZE = 8;
 const HANDLE_COLOR = '#4263eb';
@@ -24,16 +25,23 @@ function rotateVec(dx, dy, deg) {
   return [dx * c - dy * s, dx * s + dy * c];
 }
 
-export default function GimbalHandles({ geometry, node, definition, screenToSvg, viewBox }) {
+export default function GimbalHandles({ geometry, node, definition, screenToSvg, viewBox, snapEnabled = false, snapCandidates = [] }) {
   const updateNodeParams = useGraphStore((s) => s.updateNodeParams);
   const [dragging, setDragging] = useState(null);
+  const [snapMark, setSnapMark] = useState(null);
 
   const defId = definition.id;
 
   const startDrag = useCallback((type, e) => {
     e.stopPropagation();
+    // Own vertices of the selected shape, captured at drag start. During a move
+    // we translate these by (dx,dy) and look for the nearest candidate to latch on.
+    const ownPoints = snapEnabled ? safeExtractPoints(geometry) : [];
     setDragging({ type, startX: e.clientX, startY: e.clientY, startParams: { ...node.data.params } });
     useGraphStore.getState().beginOperation();
+
+    // World-space snap radius that tracks zoom, matching the ~10px handle size.
+    const snapDist = (viewBox ? viewBox.w / 800 : 1) * 12;
 
     const handleMove = (me) => {
       setDragging((prev) => {
@@ -41,9 +49,26 @@ export default function GimbalHandles({ geometry, node, definition, screenToSvg,
         const startPt = screenToSvg(prev.startX, prev.startY);
         const svgStart = startPt;
         const svgCurrent = screenToSvg(me.clientX, me.clientY);
-        const dx = svgCurrent.x - svgStart.x;
-        const dy = svgCurrent.y - svgStart.y;
+        let dx = svgCurrent.x - svgStart.x;
+        let dy = svgCurrent.y - svgStart.y;
         const mods = { shift: me.shiftKey, alt: me.altKey };
+
+        // Snap-to-points on a plain move (Alt temporarily disables snapping — the
+        // usual "free move" escape hatch). Find the shape vertex closest to any
+        // candidate and offset the whole drag so it lands exactly on it.
+        if (snapEnabled && type === 'move' && !me.altKey && ownPoints.length && snapCandidates.length) {
+          const snap = findSnap(ownPoints, dx, dy, snapCandidates, snapDist);
+          if (snap) {
+            dx += snap.ox;
+            dy += snap.oy;
+            setSnapMark({ x: snap.tx, y: snap.ty });
+          } else {
+            setSnapMark(null);
+          }
+        } else {
+          setSnapMark(null);
+        }
+
         applyDrag(prev.type, dx, dy, prev.startParams, node.id, defId, updateNodeParams, mods, {
           startX: svgStart.x, startY: svgStart.y, curX: svgCurrent.x, curY: svgCurrent.y,
         });
@@ -53,6 +78,7 @@ export default function GimbalHandles({ geometry, node, definition, screenToSvg,
 
     const handleUp = () => {
       setDragging(null);
+      setSnapMark(null);
       window.removeEventListener('mousemove', handleMove);
       window.removeEventListener('mouseup', handleUp);
       useGraphStore.getState().endOperation();
@@ -60,28 +86,73 @@ export default function GimbalHandles({ geometry, node, definition, screenToSvg,
 
     window.addEventListener('mousemove', handleMove);
     window.addEventListener('mouseup', handleUp);
-  }, [node, defId, screenToSvg, updateNodeParams]);
+  }, [node, defId, screenToSvg, updateNodeParams, geometry, snapEnabled, snapCandidates, viewBox]);
 
   if (!geometry) return null;
 
-  if (defId === 'line') return renderLineHandles(geometry, startDrag);
-  if (defId === 'rectangle') {
+  const u = viewBox ? viewBox.w / 800 : 1;
+  const snapOverlay = snapMark ? (
+    <g pointerEvents="none">
+      <circle cx={snapMark.x} cy={snapMark.y} r={6 * u} fill="none" stroke="#e8590c" strokeWidth={1.5 * u} />
+      <line x1={snapMark.x - 9 * u} y1={snapMark.y} x2={snapMark.x + 9 * u} y2={snapMark.y} stroke="#e8590c" strokeWidth={1.2 * u} />
+      <line x1={snapMark.x} y1={snapMark.y - 9 * u} x2={snapMark.x} y2={snapMark.y + 9 * u} stroke="#e8590c" strokeWidth={1.2 * u} />
+    </g>
+  ) : null;
+
+  let handles;
+  if (defId === 'line') handles = renderLineHandles(geometry, startDrag);
+  else if (defId === 'rectangle') {
     const rot = node.data.params.rotation || 0;
-    return renderBoxHandles(geometry, startDrag, viewBox, rot, rotCenter(node));
-  }
-  if (defId === 'circle') {
+    handles = renderBoxHandles(geometry, startDrag, viewBox, rot, rotCenter(node));
+  } else if (defId === 'circle') {
     const rot = node.data.params.rotation || 0;
-    return renderBoxHandles(geometry.bounds, startDrag, viewBox, rot, rotCenter(node));
-  }
-  if (defId === 'polygon') {
+    handles = renderBoxHandles(geometry.bounds, startDrag, viewBox, rot, rotCenter(node));
+  } else if (defId === 'polygon') {
     // Polygon's own `rotation` already bakes into its geometry, so its bounding
     // box is axis-aligned in world space — the box gizmo must NOT re-rotate. The
     // rotate handle still edits the `rotation` param.
-    return renderBoxHandles(geometry.bounds, startDrag, viewBox, 0, rotCenter(node));
-  }
-  if (defId === 'transform') return renderTransformHandles(geometry, node, startDrag, viewBox);
+    handles = renderBoxHandles(geometry.bounds, startDrag, viewBox, 0, rotCenter(node));
+  } else if (defId === 'transform') handles = renderTransformHandles(geometry, node, startDrag, viewBox);
+  else handles = renderBoundsHandles(geometry, startDrag);
 
-  return renderBoundsHandles(geometry, startDrag);
+  return (
+    <g>
+      {handles}
+      {snapOverlay}
+    </g>
+  );
+}
+
+// Extract a shape's own vertices without throwing — used to build the moving
+// point set for snapping.
+function safeExtractPoints(geo) {
+  try {
+    return extractPoints(geo).map((p) => ({ x: p.x, y: p.y }));
+  } catch {
+    return [];
+  }
+}
+
+// Given the shape's own points and the current drag delta, find the single
+// (own point → candidate) pair within `dist` that is closest, and return the
+// extra offset (ox, oy) that lands that own point exactly on the candidate,
+// plus the candidate location (tx, ty) for the on-screen marker.
+function findSnap(ownPoints, dx, dy, candidates, dist) {
+  let best = null;
+  const d2Max = dist * dist;
+  for (const op of ownPoints) {
+    const px = op.x + dx;
+    const py = op.y + dy;
+    for (const c of candidates) {
+      const ddx = c.x - px;
+      const ddy = c.y - py;
+      const d2 = ddx * ddx + ddy * ddy;
+      if (d2 <= d2Max && (!best || d2 < best.d2)) {
+        best = { d2, ox: ddx, oy: ddy, tx: c.x, ty: c.y };
+      }
+    }
+  }
+  return best;
 }
 
 // The world-space center a shape rotates about (its x/y position params).

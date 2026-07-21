@@ -1,6 +1,6 @@
 // Release notes for 2Dni. Add a new <Release> block at the top each time we
 // ship new nodes or notable changes, and bump LATEST_RELEASE_DATE below.
-export const LATEST_RELEASE_DATE = 'July 19, 2026';
+export const LATEST_RELEASE_DATE = 'July 21, 2026';
 
 export default function ReleaseNotes({ onClose }) {
   return (
@@ -23,6 +23,22 @@ export default function ReleaseNotes({ onClose }) {
           <h1 style={{ fontSize: 28, fontWeight: 700, color: '#1a1a2e', margin: 0 }}>Release Notes</h1>
           <p style={{ fontSize: 13, color: '#6c757d', marginTop: 8 }}>What's new in 2Dni</p>
         </div>
+
+        <Release version="July 21, 2026" title="Snap to points — latch shapes onto existing geometry">
+          <Item name="Snap to points" tag="new">
+            A new <b>snap</b> button sits right next to the grid toggle in the
+            viewport. Turn it on and, as you <b>drag a shape</b>, its corners and
+            vertices <b>latch onto the vertices of every other shape</b> on the
+            page — perfect for lining up a rectangle's corner with another's,
+            or joining two pieces edge-to-edge without eyeballing it.
+          </Item>
+          <Item name="Live snap marker & free-move override" tag="new">
+            When a vertex is in range (about a handle's width, so it scales with
+            zoom) an <b>orange crosshair</b> pops up on the target point and the
+            shape jumps exactly onto it. Hold <b>Alt / Option</b> while dragging
+            to temporarily <b>ignore snapping</b> for a free move.
+          </Item>
+        </Release>
 
         <Release version="July 19, 2026" title="Illustrator-style handles — resize & rotate on canvas">
           <Item name="Corner & edge resize handles" tag="new">

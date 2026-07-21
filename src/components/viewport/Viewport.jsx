@@ -6,6 +6,7 @@ import { useAnimationStore, RESOLUTION_PRESETS } from '../../store/animationStor
 import { evaluateGraph, buildColliderTracks } from '../../utils/evaluateGraph';
 import { resolveAllNodesAtFrame } from '../../utils/interpolation';
 import { renderGeometry } from '../../utils/svgRenderer';
+import { extractPoints } from '../../utils/geometryPoints';
 import { centerTranslate } from '../../utils/exportUtils';
 import GimbalHandles from './GimbalHandles';
 import CornerPickOverlay from './CornerPickOverlay';
@@ -28,6 +29,7 @@ export default function Viewport() {
   const [isPanning, setIsPanning] = useState(false);
   const panRef = useRef({ active: false, x: 0, y: 0 });
   const [showGrid, setShowGrid] = useState(false);
+  const [snapPoints, setSnapPoints] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
   const [fontVersion, setFontVersion] = useState(0);
   const exportPanRef = useRef({ active: false, x: 0, y: 0 });
@@ -123,6 +125,45 @@ export default function Viewport() {
   const selectedDef = selectedNode
     ? definitions[selectedNode.data.definitionId]
     : null;
+
+  // Snap-to-points: gather the vertices of every OTHER piece of geometry so a
+  // dragged shape can latch onto them. Only computed while the snap toggle is on
+  // and something is selected, so it stays cheap when unused.
+  const snapCandidates = useMemo(() => {
+    if (!snapPoints || !selectedNodeId) return [];
+    const pts = [];
+    const seen = new Set();
+    const push = (geo) => {
+      if (!geo) return;
+      let g = geo;
+      if (g.__multiOutput) {
+        for (const [k, v] of Object.entries(g)) {
+          if (k !== '__multiOutput' && v) push(v);
+        }
+        return;
+      }
+      if (g.type === 'export') g = g.geometry;
+      if (!g) return;
+      let vs = [];
+      try {
+        vs = extractPoints(g);
+      } catch {
+        vs = [];
+      }
+      for (const p of vs) {
+        if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
+        const key = `${Math.round(p.x * 10)},${Math.round(p.y * 10)}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        pts.push({ x: p.x, y: p.y });
+      }
+    };
+    for (const [nodeId, geo] of results.entries()) {
+      if (nodeId === selectedNodeId) continue;
+      push(geo);
+    }
+    return pts;
+  }, [snapPoints, selectedNodeId, results]);
 
   // Magical reveal: the grid stays hidden until a Polyline turns on Snap to Grid,
   // then it appears so you can see what you're snapping to. We only auto-enable
@@ -459,6 +500,18 @@ export default function Viewport() {
         </svg>
       </button>
 
+      <button
+        onClick={() => setSnapPoints((v) => !v)}
+        className={`absolute top-2 z-10 flex items-center gap-1 rounded border border-border-primary text-[10px] hover:bg-bg-tertiary ${snapPoints ? 'bg-accent text-white' : 'bg-bg-secondary text-text-secondary'}`}
+        style={{ padding: '2px 8px', height: 22, left: 40 }}
+        title="Snap to points — dragged shapes latch onto vertices of other geometry"
+      >
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2" opacity={snapPoints ? 1 : 0.5}>
+          <path d="M6 0.5v3M6 8.5v3M0.5 6h3M8.5 6h3" />
+          <circle cx="6" cy="6" r="1.6" fill="currentColor" stroke="none" />
+        </svg>
+      </button>
+
       <div className="absolute left-3 z-10 flex flex-col overflow-hidden rounded-lg border border-border-primary bg-white shadow-sm"
         style={{ borderRadius: 8, bottom: 12 }}
       >
@@ -616,6 +669,8 @@ export default function Viewport() {
             definition={selectedDef}
             screenToSvg={screenToSvg}
             viewBox={viewBox}
+            snapEnabled={snapPoints}
+            snapCandidates={snapCandidates}
           />
         )}
 
