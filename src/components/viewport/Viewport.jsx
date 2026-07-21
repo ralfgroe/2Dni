@@ -670,11 +670,11 @@ export default function Viewport() {
                   key={`snapcand${i}`}
                   cx={p.x}
                   cy={p.y}
-                  r={3 * u}
+                  r={4 * u}
                   fill="#e8590c"
-                  fillOpacity={0.55}
-                  stroke="#e8590c"
-                  strokeWidth={0.8 * u}
+                  fillOpacity={0.9}
+                  stroke="#ffffff"
+                  strokeWidth={1 * u}
                 />
               ))}
             </g>
