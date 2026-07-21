@@ -27,16 +27,30 @@ export default function ReleaseNotes({ onClose }) {
         <Release version="July 21, 2026" title="Snap to points — latch shapes onto existing geometry">
           <Item name="Snap to points" tag="new">
             A new <b>snap</b> button sits right next to the grid toggle in the
-            viewport. Turn it on and, as you <b>drag a shape</b>, its corners and
-            vertices <b>latch onto the vertices of every other shape</b> on the
-            page — perfect for lining up a rectangle's corner with another's,
-            or joining two pieces edge-to-edge without eyeballing it.
+            viewport. Turn it on and every other shape on the page lights up its
+            key points — corners, edge midpoints, and a circle's or arc's
+            <b>tangent points</b> and center — as orange dots you can latch onto.
+            Perfect for lining a rectangle's corner up with a circle's edge, or
+            joining two pieces without eyeballing it.
+          </Item>
+          <Item name="Snaps when you move AND when you resize" tag="new">
+            Drag a shape's <b>body</b> and its corners/edges latch onto nearby
+            points. Or, Illustrator-style, grab a <b>corner or edge handle</b>
+            and pull it directly onto a point — that exact handle snaps, resizing
+            the shape to meet the target. Works for <b>Rectangle</b>,
+            <b>Circle</b> and <b>Polygon</b>.
+          </Item>
+          <Item name="Snap across disconnected shapes" tag="fixed">
+            Snapping now sees <b>every shape in your project</b>, not just the one
+            wired to the display node — so you can latch onto a circle sitting off
+            on its own branch. Circle and arc points are computed exactly, so the
+            tangent dots land precisely where the curve actually is.
           </Item>
           <Item name="Live snap marker & free-move override" tag="new">
-            When a vertex is in range (about a handle's width, so it scales with
-            zoom) an <b>orange crosshair</b> pops up on the target point and the
-            shape jumps exactly onto it. Hold <b>Alt / Option</b> while dragging
-            to temporarily <b>ignore snapping</b> for a free move.
+            When a point is in range (a generous catch radius that scales with
+            zoom) an <b>orange crosshair</b> pops up on the target and the shape
+            jumps exactly onto it. Hold <b>Alt / Option</b> while dragging to
+            temporarily <b>ignore snapping</b> for a free move.
           </Item>
         </Release>
 
