@@ -61,6 +61,10 @@ export default function GimbalHandles({ geometry, node, definition, screenToSvg,
       // candidate and offset the whole drag so it lands exactly on it.
       if (snapEnabled && type === 'move' && !me.altKey && ownPoints.length && snapCandidates.length) {
         const snap = findSnap(ownPoints, dx, dy, snapCandidates, snapDist);
+        if (window.__SNAP_DEBUG) {
+          // eslint-disable-next-line no-console
+          console.log('[snap]', { type, snapEnabled, own: ownPoints.length, cand: snapCandidates.length, snapDist: +snapDist.toFixed(1), hit: !!snap, snap });
+        }
         if (snap) {
           dx += snap.ox;
           dy += snap.oy;
@@ -69,6 +73,10 @@ export default function GimbalHandles({ geometry, node, definition, screenToSvg,
           setSnapMark(null);
         }
       } else {
+        if (window.__SNAP_DEBUG) {
+          // eslint-disable-next-line no-console
+          console.log('[snap] inactive', { type, snapEnabled, alt: me.altKey, own: ownPoints.length, cand: snapCandidates.length });
+        }
         setSnapMark(null);
       }
 
