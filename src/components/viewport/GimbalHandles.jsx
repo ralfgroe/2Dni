@@ -25,7 +25,7 @@ function rotateVec(dx, dy, deg) {
   return [dx * c - dy * s, dx * s + dy * c];
 }
 
-export default function GimbalHandles({ geometry, node, definition, screenToSvg, viewBox, snapEnabled = false, snapCandidates = [] }) {
+export default function GimbalHandles({ geometry, node, definition, screenToSvg, viewBox, snapEnabled = false, snapCandidates = [], worldPerPixel = 1 }) {
   const updateNodeParams = useGraphStore((s) => s.updateNodeParams);
   const [dragging, setDragging] = useState(null);
   const [snapMark, setSnapMark] = useState(null);
@@ -35,17 +35,19 @@ export default function GimbalHandles({ geometry, node, definition, screenToSvg,
   const startDrag = useCallback((type, e) => {
     e.stopPropagation();
     e.preventDefault();
-    // Own vertices of the selected shape, captured at drag start. During a move
-    // we translate these by (dx,dy) and look for the nearest candidate to latch on.
-    const ownPoints = snapEnabled ? safeExtractPoints(geometry) : [];
+    // Own snap points of the selected shape, captured at drag start: its vertices
+    // PLUS edge midpoints, so the middle of an edge can latch onto a target too
+    // (not just the corners). During a move we translate these by (dx,dy) and look
+    // for the nearest candidate to latch on.
+    const ownPoints = snapEnabled ? withEdgeMidpoints(safeExtractPoints(geometry)) : [];
     const startParams = { ...node.data.params };
     const startX = e.clientX;
     const startY = e.clientY;
     setDragging({ type });
     useGraphStore.getState().beginOperation();
 
-    // World-space snap radius that tracks zoom, matching the ~10px handle size.
-    const snapDist = (viewBox ? viewBox.w / 800 : 1) * 12;
+    // Snap radius in world units for a constant ~14px on-screen catch distance.
+    const snapDist = (worldPerPixel || 1) * 14;
 
     const handleMove = (me) => {
       const svgStart = screenToSvg(startX, startY);
@@ -55,7 +57,7 @@ export default function GimbalHandles({ geometry, node, definition, screenToSvg,
       const mods = { shift: me.shiftKey, alt: me.altKey };
 
       // Snap-to-points on a plain move (Alt temporarily disables snapping — the
-      // usual "free move" escape hatch). Find the shape vertex closest to any
+      // usual "free move" escape hatch). Find the shape point closest to any
       // candidate and offset the whole drag so it lands exactly on it.
       if (snapEnabled && type === 'move' && !me.altKey && ownPoints.length && snapCandidates.length) {
         const snap = findSnap(ownPoints, dx, dy, snapCandidates, snapDist);
@@ -85,7 +87,7 @@ export default function GimbalHandles({ geometry, node, definition, screenToSvg,
 
     window.addEventListener('mousemove', handleMove);
     window.addEventListener('mouseup', handleUp);
-  }, [node, defId, screenToSvg, updateNodeParams, geometry, snapEnabled, snapCandidates, viewBox]);
+  }, [node, defId, screenToSvg, updateNodeParams, geometry, snapEnabled, snapCandidates, worldPerPixel]);
 
   if (!geometry) return null;
 
@@ -130,6 +132,20 @@ function safeExtractPoints(geo) {
   } catch {
     return [];
   }
+}
+
+// Add the midpoint of each edge (consecutive vertex pair, treated as a closed
+// loop) so the middle of an edge can snap onto a target, not just corners.
+function withEdgeMidpoints(points) {
+  if (!points || points.length < 2) return points || [];
+  const out = points.slice();
+  const n = points.length;
+  for (let i = 0; i < n; i++) {
+    const a = points[i];
+    const b = points[(i + 1) % n];
+    out.push({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+  }
+  return out;
 }
 
 // Given the shape's own points and the current drag delta, find the single

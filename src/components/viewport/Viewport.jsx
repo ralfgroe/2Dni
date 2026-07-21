@@ -486,6 +486,18 @@ export default function Viewport() {
   const gridSize = 50;
   const splashVisible = showSplash && nodes.length === 0;
 
+  // World units per on-screen pixel, so the snap radius stays a constant screen
+  // distance at any zoom. Falls back to the viewBox/reference ratio if the SVG
+  // hasn't measured yet.
+  const worldPerPixel = (() => {
+    const svg = svgRef.current;
+    if (svg) {
+      const rect = svg.getBoundingClientRect();
+      if (rect.width > 0) return viewBox.w / rect.width;
+    }
+    return viewBox.w / 800;
+  })();
+
   return (
     <div className="flex h-full w-full flex-col">
       <div className="relative flex-1 w-full bg-bg-primary" style={{ minHeight: 0 }} data-viewport-canvas>
@@ -690,6 +702,7 @@ export default function Viewport() {
             viewBox={viewBox}
             snapEnabled={snapPoints}
             snapCandidates={snapCandidates}
+            worldPerPixel={worldPerPixel}
           />
         )}
 
