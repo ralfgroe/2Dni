@@ -349,7 +349,7 @@ function containmentPolygon(path) {
     const pts = [];
     const len = child.length;
     if (!isFinite(len) || len <= 0) return pts;
-    const n = Math.max(12, Math.min(160, Math.ceil(len / 2)));
+    const n = Math.max(48, Math.min(512, Math.ceil(len / 3)));
     for (let i = 0; i < n; i++) {
       const pt = child.getPointAt((i / n) * len);
       if (pt) pts.push({ x: pt.x, y: pt.y });
@@ -720,21 +720,38 @@ function pointInPolygon(poly, x, y) {
   return inside;
 }
 
-// Closest point on a raw world-space polygon boundary to (wx, wy).
+// Closest point on a raw world-space polygon boundary to (wx, wy). Also returns
+// the boundary EDGE tangent/normal at the closest point and whether the closest
+// feature is the interior of an edge (vs an endpoint/vertex). For containment we
+// prefer the edge's true perpendicular over the point-to-center vector: the
+// latter picks up a tiny lateral component from asymmetric contour faceting,
+// and with zero friction that lateral kick never decays — the ball drifts into
+// a wall and rides it down. The edge perpendicular is symmetric and stable.
 function closestPointOnContour(poly, wx, wy) {
   let bestX = poly[0].x, bestY = poly[0].y, bestDist = Infinity;
-  for (let i = 0; i < poly.length; i++) {
+  let bestEx = 1, bestEy = 0, bestOnEdge = false, bestLen = 1;
+  const n = poly.length;
+  for (let i = 0; i < n; i++) {
     const p = poly[i];
-    const q = poly[(i + 1) % poly.length];
+    const q = poly[(i + 1) % n];
     const ex = q.x - p.x, ey = q.y - p.y;
     const len2 = ex * ex + ey * ey || 1e-6;
     let t = ((wx - p.x) * ex + (wy - p.y) * ey) / len2;
     t = Math.max(0, Math.min(1, t));
     const qx = p.x + t * ex, qy = p.y + t * ey;
     const d = (wx - qx) * (wx - qx) + (wy - qy) * (wy - qy);
-    if (d < bestDist) { bestDist = d; bestX = qx; bestY = qy; }
+    if (d < bestDist) {
+      bestDist = d; bestX = qx; bestY = qy;
+      bestEx = ex; bestEy = ey; bestLen = Math.sqrt(len2);
+      // On the interior of the edge (not clamped to a vertex) the edge
+      // perpendicular is the meaningful contact normal.
+      bestOnEdge = (t > 1e-4 && t < 1 - 1e-4);
+    }
   }
-  return { x: bestX, y: bestY, dist: Math.sqrt(bestDist) };
+  // Unit tangent along the edge and its two perpendiculars.
+  const inv = 1 / (bestLen || 1e-6);
+  const tx = bestEx * inv, ty = bestEy * inv;
+  return { x: bestX, y: bestY, dist: Math.sqrt(bestDist), tx, ty, onEdge: bestOnEdge };
 }
 
 // Keep a dynamic body (treated as a disc of its bounding radius) INSIDE the
@@ -757,10 +774,20 @@ function collideContainment(cont, body) {
     // Fully inside with clearance: no contact.
     if (cp.dist >= r) return null;
     // Near the wall from the inside: push inward (away from the wall point).
-    // Normal points from the wall toward the interior = from cp toward center.
     let nx, ny;
-    if (d > 1e-6) { nx = dx / d; ny = dy / d; }
-    else {
+    if (cp.onEdge) {
+      // Use the wall EDGE perpendicular, oriented toward the interior. This is
+      // symmetric and stable: a body falling straight down a symmetric cavity
+      // gets a purely vertical/horizontal normal, so it never picks up a
+      // spurious lateral kick from asymmetric contour faceting (which, with
+      // zero friction, would otherwise never decay and make it ride a wall).
+      let px = -cp.ty, py = cp.tx;              // edge perpendicular
+      if (px * dx + py * dy < 0) { px = -px; py = -py; } // orient toward center
+      nx = px; ny = py;
+    } else if (d > 1e-6) {
+      // Closest feature is a vertex: fall back to the point-to-center vector.
+      nx = dx / d; ny = dy / d;
+    } else {
       // Center sits exactly on the wall; aim toward the cavity centroid.
       const c = polygonAreaCentroid(poly);
       const ox = c.cx - cx, oy = c.cy - cy, om = Math.hypot(ox, oy) || 1e-6;
@@ -776,8 +803,13 @@ function collideContainment(cont, body) {
   // inward direction is from the center toward the nearest boundary point.
   const pen = r + cp.dist;
   let nx, ny;
-  if (d > 1e-6) { nx = -dx / d; ny = -dy / d; }
-  else { nx = 0; ny = 1; }
+  if (cp.onEdge) {
+    let px = -cp.ty, py = cp.tx;                 // edge perpendicular
+    if (px * dx + py * dy > 0) { px = -px; py = -py; } // point back toward wall/interior
+    nx = px; ny = py;
+  } else if (d > 1e-6) {
+    nx = -dx / d; ny = -dy / d;
+  } else { nx = 0; ny = 1; }
   return { nx, ny, pen, px: cp.x, py: cp.y };
 }
 
