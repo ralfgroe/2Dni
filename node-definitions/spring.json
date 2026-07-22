@@ -2,7 +2,7 @@
   "id": "spring",
   "label": "Spring",
   "category": "Transform",
-  "description": "Adds springy secondary motion (overshoot and oscillation) to an animated piece, like Houdini's Spring motion effect. A virtual mass on a spring chases the input's animated position: while the input moves the spring lags slightly behind, and when the input stops the mass overshoots and oscillates around the rest point before settling. Wire an animated shape into Geometry In and enable Animation, then scrub/play the timeline. Spring Constant sets the spring strength - higher values give faster, tighter oscillations; lower values give slow, wide swings. Mass is the weight on the end of the spring - heavier masses oscillate slower, swing wider, and resist damping (so they need more damping to settle). Damping is resistance - higher damping kills the wobble sooner, lower damping lets it ring for longer. The simulation is baked deterministically from frame 0 up to the current frame, so scrubbing and export are stable. This node only translates the piece (it never changes its shape), so it composes cleanly after any animation.",
+  "description": "Adds springy secondary motion (overshoot and oscillation) to an animated piece, like Houdini's Spring motion effect. A virtual mass on a spring chases the input's animation: while the input moves the spring lags behind, and when the input stops the mass overshoots and oscillates before settling. Wire an animated shape into Geometry In and enable Animation, then scrub/play the timeline.\n\nSpring Mode picks how it springs: LINEAR springs the piece's position (great for a shape that flies in and settles). TORSION springs its ANGLE about a pivot - a real torsion spring at the rotation centre, so a rotating arm or pendulum overshoots its swing and wobbles rotationally, physically accurate like a mechanical hinge spring. AUTO TORSION is the same but the pivot is detected automatically by fitting the arc the piece travels along (use it when the piece rotates about an external point). For TORSION, set Pivot X / Pivot Y to the rotation centre (the point you rotate around).\n\nSpring Constant sets strength - higher gives faster, tighter oscillations. Mass is the weight on the spring - heavier oscillates slower, swings wider, and resists damping. Damping is resistance - higher kills the wobble sooner. The sim is baked deterministically from frame 0, so scrubbing and export are stable. This node only moves/rotates the piece; it never changes its shape.",
   "inputs": [
     { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }
   ],
@@ -10,13 +10,16 @@
     { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
   ],
   "parameters": [
+    { "id": "mode", "label": "Spring Mode", "type": "select", "default": "Linear", "options": ["Linear", "Torsion", "Auto Torsion"] },
     { "id": "spring_constant", "label": "Spring Constant", "type": "number", "default": 40, "min": 0.5, "max": 400, "step": 0.5 },
     { "id": "mass", "label": "Mass", "type": "number", "unit": "\u00d7", "default": 1, "min": 0.05, "max": 20, "step": 0.05 },
     { "id": "damping", "label": "Damping", "type": "number", "default": 4, "min": 0, "max": 60, "step": 0.5 },
     { "id": "amount", "label": "Amount", "type": "number", "unit": "\u00d7", "default": 1, "min": 0, "max": 3, "step": 0.05 },
-    { "id": "affect_x", "label": "Affect X", "type": "boolean", "default": true },
-    { "id": "affect_y", "label": "Affect Y", "type": "boolean", "default": true },
-    { "id": "affect_rotation", "label": "Affect Rotation", "type": "boolean", "default": false },
+    { "id": "pivot_x", "label": "Pivot X", "type": "number", "default": 0, "min": -5000, "max": 5000, "step": 1 },
+    { "id": "pivot_y", "label": "Pivot Y", "type": "number", "default": 0, "min": -5000, "max": 5000, "step": 1 },
+    { "id": "affect_x", "label": "Affect X (Linear)", "type": "boolean", "default": true },
+    { "id": "affect_y", "label": "Affect Y (Linear)", "type": "boolean", "default": true },
+    { "id": "affect_rotation", "label": "Lean (Linear)", "type": "boolean", "default": false },
     { "id": "substeps", "label": "Substeps", "type": "number", "default": 8, "min": 1, "max": 32, "step": 1 }
   ],
   "runtime": "spring"

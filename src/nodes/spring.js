@@ -95,10 +95,80 @@ function translateGeo(geo, dx, dy, rotDeg, cx, cy) {
   };
 }
 
+// Least-squares circle fit (Kåsa method) to a set of points. Returns the fitted
+// centre {x, y} and radius, or null if the points are (near-)collinear / too few
+// — in which case there's no meaningful arc/pivot to spring about. Used for the
+// Auto Torsion mode where the pivot is inferred from the arc the piece travels.
+function fitCircle(pts) {
+  const clean = pts.filter(Boolean);
+  const n = clean.length;
+  if (n < 3) return null;
+  let sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0, sxz = 0, syz = 0, sz = 0;
+  for (const p of clean) {
+    const z = p.x * p.x + p.y * p.y;
+    sx += p.x; sy += p.y;
+    sxx += p.x * p.x; syy += p.y * p.y; sxy += p.x * p.y;
+    sxz += p.x * z; syz += p.y * z; sz += z;
+  }
+  // Solve the normal equations for a*x + b*y + c = z where centre = (a/2, b/2).
+  const A = [
+    [sxx, sxy, sx],
+    [sxy, syy, sy],
+    [sx, sy, n],
+  ];
+  const B = [sxz, syz, sz];
+  const det =
+    A[0][0] * (A[1][1] * A[2][2] - A[1][2] * A[2][1]) -
+    A[0][1] * (A[1][0] * A[2][2] - A[1][2] * A[2][0]) +
+    A[0][2] * (A[1][0] * A[2][1] - A[1][1] * A[2][0]);
+  if (Math.abs(det) < 1e-6) return null;
+  const inv = (i, j) => {
+    // Cramer's rule per component.
+    const M = A.map((row) => row.slice());
+    for (let r = 0; r < 3; r++) M[r][i] = B[r];
+    const d =
+      M[0][0] * (M[1][1] * M[2][2] - M[1][2] * M[2][1]) -
+      M[0][1] * (M[1][0] * M[2][2] - M[1][2] * M[2][0]) +
+      M[0][2] * (M[1][0] * M[2][1] - M[1][1] * M[2][0]);
+    return d / det;
+  };
+  const a = inv(0);
+  const b = inv(1);
+  const cx = a / 2, cy = b / 2;
+  if (!isFinite(cx) || !isFinite(cy)) return null;
+  return { x: cx, y: cy };
+}
+
+// Unwrap an angle sequence so it stays continuous (no ±2π jumps), enabling a
+// spring to integrate through multiple turns smoothly.
+function unwrapAngles(raw) {
+  const out = new Array(raw.length);
+  let prev = raw[0] ?? 0;
+  let acc = prev;
+  out[0] = acc;
+  for (let i = 1; i < raw.length; i++) {
+    let a = raw[i];
+    if (a == null) { out[i] = acc; continue; }
+    let d = a - prev;
+    while (d > Math.PI) d -= 2 * Math.PI;
+    while (d < -Math.PI) d += 2 * Math.PI;
+    acc += d;
+    out[i] = acc;
+    prev = a;
+  }
+  return out;
+}
+
+// Rotate a geometry (recursively) by rotDeg about pivot (cx, cy).
+function rotateGeoAbout(geo, rotDeg, cx, cy) {
+  return translateGeo(geo, 0, 0, rotDeg, cx, cy);
+}
+
 export function springRuntime(params, inputs, context) {
   const geo = inputs?.geometry_in;
   if (!geo) return null;
 
+  const mode = params.mode || 'Linear';
   const k = Math.max(0.01, params.spring_constant ?? 40);
   const m = Math.max(0.01, params.mass ?? 1);
   const c = Math.max(0, params.damping ?? 4);
@@ -121,21 +191,55 @@ export function springRuntime(params, inputs, context) {
   const track = context?.springTrackInput;
   if (!Array.isArray(track) || track.length === 0) return geo;
 
-  // Resolve each track frame's target centre once.
-  const targets = track.map((g) => geoCenter(g));
-  // Current (this-frame) centre — the reference we offset from.
-  const curCenter = geoCenter(geo) || targets[Math.min(frame, targets.length - 1)];
+  // Resolve each track frame's centre once.
+  const centers = track.map((g) => geoCenter(g));
+  const curCenter = geoCenter(geo) || centers[Math.min(frame, centers.length - 1)];
   if (!curCenter) return geo;
 
-  // Seed the spring at the frame-0 target so it starts perfectly at rest.
+  const dt = 1 / (fps * substeps);
+  const N = Math.min(frame, centers.length - 1);
+
+  // ---- TORSION: spring the ANGLE about a pivot (a real torsion spring). ------
+  if (mode === 'Torsion' || mode === 'Auto Torsion') {
+    // Resolve the pivot. Auto mode fits the arc the centre travels; explicit
+    // mode uses the user pivot. If the auto-fit fails (piece barely rotates /
+    // moves in a straight line) fall back to the explicit pivot.
+    let pivot = null;
+    if (mode === 'Auto Torsion') {
+      pivot = fitCircle(centers.slice(0, N + 1));
+    }
+    if (!pivot) pivot = { x: params.pivot_x ?? 0, y: params.pivot_y ?? 0 };
+
+    // Angle of each frame's centre about the pivot, unwrapped for continuity.
+    const rawAng = centers.map((cp) =>
+      cp ? Math.atan2(cp.y - pivot.y, cp.x - pivot.x) : null
+    );
+    const ang = unwrapAngles(rawAng);
+
+    // Integrate the damped torsion spring on the angle from frame 0 -> N.
+    let theta = ang[0] ?? 0;
+    let omega = 0;
+    for (let f = 1; f <= N; f++) {
+      const target = ang[f];
+      for (let s = 0; s < substeps; s++) {
+        const r = stepSpring(theta, omega, target, k, c, m, dt);
+        theta = r.pos; omega = r.vel;
+      }
+    }
+
+    // Overshoot = how far the springy angle sits past the true angle now.
+    const thetaNow = ang[N] ?? theta;
+    const extraRad = (theta - thetaNow) * amount;
+    const extraDeg = (extraRad * 180) / Math.PI;
+    if (Math.abs(extraDeg) < 1e-4) return geo;
+    return rotateGeoAbout(geo, extraDeg, pivot.x, pivot.y);
+  }
+
+  // ---- LINEAR: spring the POSITION (original behaviour). ---------------------
+  const targets = centers;
   const t0 = targets[0] || curCenter;
   let px = t0.x, py = t0.y, vx = 0, vy = 0;
 
-  const dt = 1 / (fps * substeps);
-  const N = Math.min(frame, targets.length - 1);
-
-  // Integrate from frame 0 up to the current frame. Within each frame we hold
-  // the target at that frame's sampled position and take `substeps` sub-steps.
   for (let f = 1; f <= N; f++) {
     const tgt = targets[f] || t0;
     for (let s = 0; s < substeps; s++) {
@@ -145,7 +249,6 @@ export function springRuntime(params, inputs, context) {
   }
 
   const tgtNow = targets[N] || curCenter;
-  // Offset = how far the springy mass sits from where the input actually is.
   let dx = affectX ? (px - tgtNow.x) * amount : 0;
   let dy = affectY ? (py - tgtNow.y) * amount : 0;
 
