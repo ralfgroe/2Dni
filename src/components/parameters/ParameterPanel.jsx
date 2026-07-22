@@ -8,6 +8,27 @@ import { exportSVG, exportSVGmm, exportDXF, exportPNG, exportJPEG, exportOBJ, ex
 import { extractPoints } from '../../utils/geometryPoints';
 import WrangleChat from './WrangleChat';
 
+// Easing is a property of a keyframe (each keyframe's easing controls the
+// interpolation INTO it — see interpolateValue). To let the user edit easing
+// even when the playhead is between keyframes, resolve which keyframe the
+// easing selector should target:
+//   - if there's a keyframe exactly at the current frame, edit that one;
+//   - otherwise edit the NEXT keyframe after the current frame (the incoming
+//     one that governs the segment we're currently interpolating across);
+//   - if we're past the last keyframe, fall back to the last keyframe.
+// Returns { frame, easing } or null when the param isn't animated at all.
+function resolveEasingTarget(paramKfs, currentFrame) {
+  if (!paramKfs) return null;
+  const frames = Object.keys(paramKfs).map(Number).sort((a, b) => a - b);
+  if (frames.length === 0) return null;
+  if (paramKfs[currentFrame] != null) {
+    return { frame: currentFrame, easing: paramKfs[currentFrame].easing || 'easeInOut' };
+  }
+  const next = frames.find((f) => f > currentFrame);
+  const target = next != null ? next : frames[frames.length - 1];
+  return { frame: target, easing: paramKfs[target].easing || 'easeInOut', incoming: next != null };
+}
+
 export default function ParameterPanel() {
   const selectedNodeId = useGraphStore((s) => s.selectedNodeId);
   const nodes = useGraphStore((s) => s.nodes);
@@ -588,7 +609,8 @@ function ParameterRow({ paramDef, value, nodeId, onPresetChange }) {
   const paramKfs = allKeyframes[nodeId]?.[paramDef.id];
   const hasKf = isKeyframeable && paramKfs && Object.keys(paramKfs).length > 0;
   const hasKfAtFrame = hasKf && paramKfs[currentFrame] != null;
-  const currentEasing = hasKfAtFrame ? (paramKfs[currentFrame].easing || 'easeInOut') : null;
+  const easingTarget = hasKf ? resolveEasingTarget(paramKfs, currentFrame) : null;
+  const currentEasing = easingTarget ? easingTarget.easing : null;
 
   const displayValue = useMemo(() => {
     if (!hasKf || !paramKfs) return value;
@@ -648,12 +670,14 @@ function ParameterRow({ paramDef, value, nodeId, onPresetChange }) {
         )}
       </div>
       <ParameterInput paramDef={paramDef} value={isKeyframeable ? displayValue : value} onChange={handleChange} nodeId={nodeId} />
-      {animEnabled && hasKfAtFrame && (
+      {animEnabled && hasKf && easingTarget && (
         <div className="flex items-center gap-1 mt-0.5">
-          <span style={{ fontSize: 9, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Easing:</span>
+          <span style={{ fontSize: 9, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+            {hasKfAtFrame ? 'Easing:' : `Easing @${easingTarget.frame}:`}
+          </span>
           <select
             value={currentEasing}
-            onChange={(e) => setKeyframeEasing(nodeId, paramDef.id, currentFrame, e.target.value)}
+            onChange={(e) => setKeyframeEasing(nodeId, paramDef.id, easingTarget.frame, e.target.value)}
             style={{
               fontSize: 9,
               height: 18,
@@ -1159,7 +1183,8 @@ function PointOffsetSlider({ paramDef, value, nodeId, params }) {
   const paramKfs = allKeyframes[nodeId]?.[paramDef.id];
   const hasKf = isKeyframeable && paramKfs && Object.keys(paramKfs).length > 0;
   const hasKfAtFrame = hasKf && paramKfs[currentFrame] != null;
-  const currentEasing = hasKfAtFrame ? (paramKfs[currentFrame].easing || 'easeInOut') : null;
+  const easingTarget = hasKf ? resolveEasingTarget(paramKfs, currentFrame) : null;
+  const currentEasing = easingTarget ? easingTarget.easing : null;
 
   const displayValue = useMemo(() => {
     if (!hasKf || !paramKfs) return value;
@@ -1280,12 +1305,14 @@ function PointOffsetSlider({ paramDef, value, nodeId, params }) {
           className="w-16 rounded border border-border-primary bg-bg-primary px-2 py-1 text-xs text-text-primary outline-none focus:border-accent"
         />
       </div>
-      {animEnabled && hasKfAtFrame && (
+      {animEnabled && hasKf && easingTarget && (
         <div className="flex items-center gap-1 mt-0.5">
-          <span style={{ fontSize: 9, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Easing:</span>
+          <span style={{ fontSize: 9, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+            {hasKfAtFrame ? 'Easing:' : `Easing @${easingTarget.frame}:`}
+          </span>
           <select
             value={currentEasing}
-            onChange={(e) => setKeyframeEasing(nodeId, paramDef.id, currentFrame, e.target.value)}
+            onChange={(e) => setKeyframeEasing(nodeId, paramDef.id, easingTarget.frame, e.target.value)}
             style={{
               fontSize: 9, height: 18, padding: '0 3px', borderRadius: 3,
               border: '1px solid var(--border-primary)', background: 'var(--bg-primary)',
