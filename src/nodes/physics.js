@@ -235,6 +235,13 @@ function makeBody(geo, rand, spin, opts = {}) {
 
   const isCollider = !!opts.isCollider;
 
+  // Container collider: capture the cavity polygon (world space) the ball must
+  // stay inside. Computed before the path is removed below.
+  let containPoly = null;
+  if (isCollider && opts.contain) {
+    containPoly = containmentPolygon(path);
+  }
+
   // Treat a full ellipse whose bounds are ~square as a physics circle, so it
   // collides at its true surface instead of at its bounding-box corners.
   const isCircle = geo.type === 'ellipse' &&
@@ -296,6 +303,10 @@ function makeBody(geo, rand, spin, opts = {}) {
     shape,
     radius,
     verts,        // local-space hull vertices (null for circles)
+    // Container cavity polygon (world space, static — colliders don't rotate in
+    // this mode). When present the collision inverts: dynamic bodies are kept
+    // INSIDE this polygon instead of pushed out of the solid hull.
+    containPoly,
     w,
     h,
     hw: w / 2,
@@ -325,6 +336,44 @@ function makeBody(geo, rand, spin, opts = {}) {
     quietTime: 0,
     contacted: false,
   };
+}
+
+// Extract a containment polygon (world-space CCW-ish vertices) for a collider
+// used as a container. The ball is kept INSIDE this polygon. For a hollow frame
+// (compound path: an outer contour and an inner hole) we want the INNER contour
+// — that's the cavity the ball lives in. For a plain filled shape we use its
+// single outline. We deliberately do NOT convex-hull it here: the raw contour
+// (possibly concave, e.g. a lozenge) is what bounds the ball.
+function containmentPolygon(path) {
+  const contourPts = (child) => {
+    const pts = [];
+    const len = child.length;
+    if (!isFinite(len) || len <= 0) return pts;
+    const n = Math.max(12, Math.min(160, Math.ceil(len / 2)));
+    for (let i = 0; i < n; i++) {
+      const pt = child.getPointAt((i / n) * len);
+      if (pt) pts.push({ x: pt.x, y: pt.y });
+    }
+    return pts;
+  };
+  let contours = [];
+  if (path.children && path.children.length) {
+    contours = path.children.map(contourPts).filter((c) => c.length >= 3);
+  } else {
+    const c = contourPts(path);
+    if (c.length >= 3) contours = [c];
+  }
+  if (contours.length === 0) return null;
+  if (contours.length === 1) return contours[0];
+  // Multiple contours = a frame with a hole. The cavity is the SMALLER-area
+  // contour (the inner boundary); the larger is the outer edge of the frame.
+  let best = null, bestArea = Infinity;
+  for (const c of contours) {
+    const { area } = polygonAreaCentroid(c);
+    const a = Math.abs(area);
+    if (a > 1e-3 && a < bestArea) { bestArea = a; best = c; }
+  }
+  return best || contours[0];
 }
 
 // World-space vertices of a body's polygon. For a poly body we transform its
@@ -657,6 +706,81 @@ function collideCirclePoly(poly, circle) {
   return { nx, ny, pen, px: cp.x, py: cp.y };
 }
 
+// --- Containment (keep a body INSIDE a collider's cavity) -----------------
+// Ray-cast point-in-polygon (handles concave contours like a lozenge cavity).
+function pointInPolygon(poly, x, y) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i].x, yi = poly[i].y;
+    const xj = poly[j].x, yj = poly[j].y;
+    const intersect = ((yi > y) !== (yj > y)) &&
+      (x < ((xj - xi) * (y - yi)) / (yj - yi + 1e-12) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+// Closest point on a raw world-space polygon boundary to (wx, wy).
+function closestPointOnContour(poly, wx, wy) {
+  let bestX = poly[0].x, bestY = poly[0].y, bestDist = Infinity;
+  for (let i = 0; i < poly.length; i++) {
+    const p = poly[i];
+    const q = poly[(i + 1) % poly.length];
+    const ex = q.x - p.x, ey = q.y - p.y;
+    const len2 = ex * ex + ey * ey || 1e-6;
+    let t = ((wx - p.x) * ex + (wy - p.y) * ey) / len2;
+    t = Math.max(0, Math.min(1, t));
+    const qx = p.x + t * ex, qy = p.y + t * ey;
+    const d = (wx - qx) * (wx - qx) + (wy - qy) * (wy - qy);
+    if (d < bestDist) { bestDist = d; bestX = qx; bestY = qy; }
+  }
+  return { x: bestX, y: bestY, dist: Math.sqrt(bestDist) };
+}
+
+// Keep a dynamic body (treated as a disc of its bounding radius) INSIDE the
+// container's cavity polygon. Returns a manifold with the normal pointing
+// INWARD (toward the cavity) when the body reaches/exceeds the wall, else null.
+// `cont` is the container collider, `body` the dynamic body.
+function collideContainment(cont, body) {
+  const poly = cont.containPoly;
+  if (!poly || poly.length < 3) return null;
+  const r = body.radius;
+  const cx = body.cx, cy = body.cy;
+  const cp = closestPointOnContour(poly, cx, cy);
+  const inside = pointInPolygon(poly, cx, cy);
+
+  // Vector from the boundary point to the body center.
+  let dx = cx - cp.x, dy = cy - cp.y;
+  let d = Math.hypot(dx, dy);
+
+  if (inside) {
+    // Fully inside with clearance: no contact.
+    if (cp.dist >= r) return null;
+    // Near the wall from the inside: push inward (away from the wall point).
+    // Normal points from the wall toward the interior = from cp toward center.
+    let nx, ny;
+    if (d > 1e-6) { nx = dx / d; ny = dy / d; }
+    else {
+      // Center sits exactly on the wall; aim toward the cavity centroid.
+      const c = polygonAreaCentroid(poly);
+      const ox = c.cx - cx, oy = c.cy - cy, om = Math.hypot(ox, oy) || 1e-6;
+      nx = ox / om; ny = oy / om;
+    }
+    const pen = r - cp.dist;
+    // Manifold normal convention is A(cont) -> B(body). Inward push means the
+    // body should move along +n (toward interior), so normal = n.
+    return { nx, ny, pen, px: cp.x, py: cp.y };
+  }
+
+  // Body center has escaped OUTSIDE the cavity: pull it back in hard. The
+  // inward direction is from the center toward the nearest boundary point.
+  const pen = r + cp.dist;
+  let nx, ny;
+  if (d > 1e-6) { nx = -dx / d; ny = -dy / d; }
+  else { nx = 0; ny = 1; }
+  return { nx, ny, pen, px: cp.x, py: cp.y };
+}
+
 // Dispatch collision detection by the pair of shapes. Always returns the
 // contact with the normal oriented from A toward B (matching satCollide).
 function collide(a, b, hint) {
@@ -706,6 +830,35 @@ function buildManifolds(bodies, floorY, leftX, rightX, useWalls, friction, norma
     for (let j = i + 1; j < bodies.length; j++) {
       const a = bodies[i], b = bodies[j];
       if (a.isCollider && b.isCollider) continue;
+
+      // Container collider: keep the dynamic body INSIDE its cavity rather than
+      // colliding with it as a solid. Identify (container, dynamic) either way.
+      const aCont = a.isCollider && a.containPoly;
+      const bCont = b.isCollider && b.containPoly;
+      if (aCont || bCont) {
+        const cont = aCont ? a : b;
+        const dyn = aCont ? b : a;
+        if (dyn.isCollider) continue; // two colliders: nothing to contain
+        const chit = collideContainment(cont, dyn);
+        if (!chit) continue;
+        cont.contacted = true;
+        dyn.contacted = true;
+        if (dyn.sleeping) wake(dyn);
+        const imD = invMassOf(dyn);
+        if (imD === 0) continue;
+        // collideContainment returns the normal in the cont -> dyn sense (inward,
+        // toward the cavity). We always emit the manifold as (a: cont, b: dyn),
+        // so the normal is already correct and needs no flip.
+        const nx = chit.nx, ny = chit.ny;
+        const keyBase = cont.id * 100003 + dyn.id * 331;
+        out.push({
+          a: cont, b: dyn, nx, ny,
+          points: [{ px: chit.px, py: chit.py, sep: -(chit.pen || 0), fid: keyBase + 7 }],
+          pushScale: cont.pushScale || 1, friction,
+        });
+        continue;
+      }
+
       const pairKey = a.id * 100003 + b.id;
       const hint = normalCache ? normalCache.get(pairKey) : null;
       const hit = collide(a, b, hint);
@@ -1105,6 +1258,7 @@ export function physicsRuntime(params, inputs, context) {
   const gravity = Math.abs(gravityInput) > 55 ? gravityInput : gravityInput * PX_PER_METER;
   const massScale = Math.max(0.1, params.mass ?? 1);
   const colliderMass = Math.max(0.1, params.collider_mass ?? 1);
+  const containInside = params.contain_inside === true;
   const restitution = Math.max(0, Math.min(1, params.restitution ?? 0.2));
   const friction = Math.max(0, Math.min(1, params.friction ?? 0.2));
   const useWalls = params.walls !== false;
@@ -1165,7 +1319,7 @@ export function physicsRuntime(params, inputs, context) {
       ? colliderTrackGeo.map((g) => (g ? extractBodies(g) : null))
       : null;
     curParts.forEach((g, i) => {
-      const body = makeBody(g, rand, 0, { isCollider: true });
+      const body = makeBody(g, rand, 0, { isCollider: true, contain: containInside });
       if (!body) return;
       // Collider Mass scales how hard this collider shoves dynamic bodies.
       body.pushScale = colliderMass;
@@ -1209,7 +1363,7 @@ export function physicsRuntime(params, inputs, context) {
   // Bake the simulation from frame 0 up to the requested frame, split into
   // substeps for stability. Deterministic: same frame -> same result.
   const opts = { gravity, floorY, leftX, rightX, useWalls, restitution, friction,
-    linearDamping, angularDamping, lockRotation, cohesion, sleepSpeed, fps,
+    linearDamping, angularDamping, lockRotation, cohesion, sleepSpeed, fps, containInside,
     contactHertz: CONTACT_HERTZ, contactZeta: CONTACT_ZETA };
   // The iterative solver + sleep thresholds are tuned for a small time step. At
   // low substeps the per-step dt is so large that residual velocities never dip
