@@ -3,7 +3,7 @@ import { useGraphStore } from '../../store/graphStore';
 import { useNodeRegistryStore } from '../../store/nodeRegistryStore';
 import { useViewportStore } from '../../store/viewportStore';
 import { useAnimationStore, RESOLUTION_PRESETS } from '../../store/animationStore';
-import { evaluateGraph, buildColliderTracks } from '../../utils/evaluateGraph';
+import { evaluateGraph, buildColliderTracks, buildSpringTracks } from '../../utils/evaluateGraph';
 import { resolveAllNodesAtFrame } from '../../utils/interpolation';
 import { renderGeometry } from '../../utils/svgRenderer';
 import { extractPoints } from '../../utils/geometryPoints';
@@ -103,9 +103,16 @@ export default function Viewport() {
     return buildColliderTracks(nodes, edges, definitions, allKeyframes, currentFrame);
   }, [nodes, edges, definitions, allKeyframes, currentFrame, animEnabled, fontVersion]);
 
+  // Per-frame input track for any Spring node, so it can integrate its damped
+  // overshoot from frame 0. Only built while animating.
+  const springTrack = useMemo(() => {
+    if (!animEnabled) return null;
+    return buildSpringTracks(nodes, edges, definitions, allKeyframes, currentFrame);
+  }, [nodes, edges, definitions, allKeyframes, currentFrame, animEnabled, fontVersion]);
+
   const evalContext = useMemo(
-    () => ({ frame: animEnabled ? currentFrame : 0, fps, restResults, colliderTrack }),
-    [animEnabled, currentFrame, fps, restResults, colliderTrack]
+    () => ({ frame: animEnabled ? currentFrame : 0, fps, restResults, colliderTrack, springTrack }),
+    [animEnabled, currentFrame, fps, restResults, colliderTrack, springTrack]
   );
 
   const results = useMemo(

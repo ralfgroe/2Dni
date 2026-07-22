@@ -1,0 +1,23 @@
+{
+  "id": "spring",
+  "label": "Spring",
+  "category": "Transform",
+  "description": "Adds springy secondary motion (overshoot and oscillation) to an animated piece, like Houdini's Spring motion effect. A virtual mass on a spring chases the input's animated position: while the input moves the spring lags slightly behind, and when the input stops the mass overshoots and oscillates around the rest point before settling. Wire an animated shape into Geometry In and enable Animation, then scrub/play the timeline. Spring Constant sets the spring strength - higher values give faster, tighter oscillations; lower values give slow, wide swings. Mass is the weight on the end of the spring - heavier masses oscillate slower, swing wider, and resist damping (so they need more damping to settle). Damping is resistance - higher damping kills the wobble sooner, lower damping lets it ring for longer. The simulation is baked deterministically from frame 0 up to the current frame, so scrubbing and export are stable. This node only translates the piece (it never changes its shape), so it composes cleanly after any animation.",
+  "inputs": [
+    { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }
+  ],
+  "outputs": [
+    { "id": "geometry_out", "label": "Geometry Out", "type": "geometry" }
+  ],
+  "parameters": [
+    { "id": "spring_constant", "label": "Spring Constant", "type": "number", "default": 40, "min": 0.5, "max": 400, "step": 0.5 },
+    { "id": "mass", "label": "Mass", "type": "number", "unit": "\u00d7", "default": 1, "min": 0.05, "max": 20, "step": 0.05 },
+    { "id": "damping", "label": "Damping", "type": "number", "default": 4, "min": 0, "max": 60, "step": 0.5 },
+    { "id": "amount", "label": "Amount", "type": "number", "unit": "\u00d7", "default": 1, "min": 0, "max": 3, "step": 0.05 },
+    { "id": "affect_x", "label": "Affect X", "type": "boolean", "default": true },
+    { "id": "affect_y", "label": "Affect Y", "type": "boolean", "default": true },
+    { "id": "affect_rotation", "label": "Affect Rotation", "type": "boolean", "default": false },
+    { "id": "substeps", "label": "Substeps", "type": "number", "default": 8, "min": 1, "max": 32, "step": 1 }
+  ],
+  "runtime": "spring"
+}

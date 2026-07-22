@@ -49,6 +49,7 @@ import { nullRuntime } from '../nodes/null';
 import { floorplanRuntime } from '../nodes/floorplan';
 import { furnitureRuntime } from '../nodes/furniture';
 import { physicsRuntime } from '../nodes/physics';
+import { springRuntime } from '../nodes/spring';
 
 const runtimeMap = {
   line: lineRuntime,
@@ -103,6 +104,7 @@ const runtimeMap = {
   floorplan: floorplanRuntime,
   furniture: furnitureRuntime,
   physics: physicsRuntime,
+  spring: springRuntime,
 };
 
 export function getRuntime(runtimeId) {

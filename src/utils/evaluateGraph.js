@@ -110,6 +110,14 @@ export function evaluateGraph(nodes, edges, definitions, displayNodeId, context 
       nodeContext = { ...(nodeContext || context), colliderTrackInput: colliderTrack[nodeId] };
     }
 
+    // Per-frame input motion track (spring bake). Same idea as the collider
+    // track: a spring is a stateful frame-by-frame integration, so it needs its
+    // input's animated centre at every integer frame to compute overshoot.
+    const springTrack = context && context.springTrack;
+    if (springTrack && springTrack[nodeId]) {
+      nodeContext = { ...(nodeContext || context), springTrackInput: springTrack[nodeId] };
+    }
+
     try {
       const result = runtime(node.data.params, inputs, nodeContext);
       results.set(nodeId, result);
@@ -196,6 +204,63 @@ export function buildColliderTracks(nodes, edges, definitions, allKeyframes, upt
       for (const pnode of tracked) {
         const g0 = track[pnode.id][0];
         for (let k = 1; k <= N; k++) track[pnode.id][k] = g0;
+      }
+      break;
+    }
+  }
+
+  return track;
+}
+
+/* Build a per-frame motion track for every Spring node's `geometry_in` input.
+
+   A Spring is stateful: it integrates a damped mass-spring from frame 0 up to
+   the current frame, chasing the input's animated position, so it needs to know
+   where its input sits at EVERY integer frame (not just the current one). The
+   pure per-frame graph can't provide that, so — exactly like the collider track
+   — we pre-sample each spring's input source at every frame 0..uptoFrame and
+   hand the result to the spring runtime via context.springTrack[nodeId].
+
+   Sampling is pruned to the input's source node so only that (cheap) upstream
+   chain re-evaluates, never the spring node itself.
+
+   Returns { [springNodeId]: Array<geometryAtFrame> }, or null if none apply. */
+export function buildSpringTracks(nodes, edges, definitions, allKeyframes, uptoFrame) {
+  const springNodes = nodes.filter(
+    (n) => n.data && n.data.definitionId === 'spring' && !n.data.bypassed
+  );
+  if (springNodes.length === 0) return null;
+
+  // Source edge feeding each spring's geometry_in.
+  const inputEdgeByTarget = new Map();
+  for (const e of edges) {
+    if (e.targetHandle === 'geometry_in') inputEdgeByTarget.set(e.target, e);
+  }
+  const tracked = springNodes.filter((n) => inputEdgeByTarget.has(n.id));
+  if (tracked.length === 0) return null;
+
+  const hasAnyKeyframes = allKeyframes && Object.keys(allKeyframes).length > 0;
+
+  const track = {};
+  for (const snode of tracked) track[snode.id] = new Array(uptoFrame + 1);
+
+  const N = Math.max(0, Math.round(uptoFrame));
+  for (let f = 0; f <= N; f++) {
+    const frameNodes = hasAnyKeyframes
+      ? resolveAllNodesAtFrame(nodes, allKeyframes, f)
+      : nodes;
+    for (const snode of tracked) {
+      const edge = inputEdgeByTarget.get(snode.id);
+      const results = evaluateGraph(frameNodes, edges, definitions, edge.source, null);
+      let value = results.get(edge.source);
+      if (value && value.__multiOutput && edge.sourceHandle) value = value[edge.sourceHandle];
+      track[snode.id][f] = stripDimAnnotations(value);
+    }
+    // No keyframes anywhere -> input never moves; frame 0 is the whole track.
+    if (!hasAnyKeyframes) {
+      for (const snode of tracked) {
+        const g0 = track[snode.id][0];
+        for (let kf = 1; kf <= N; kf++) track[snode.id][kf] = g0;
       }
       break;
     }

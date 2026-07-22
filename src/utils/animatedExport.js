@@ -1,10 +1,11 @@
-import { evaluateGraph, buildColliderTracks } from './evaluateGraph';
+import { evaluateGraph, buildColliderTracks, buildSpringTracks } from './evaluateGraph';
 import { resolveAllNodesAtFrame } from './interpolation';
 
 function renderFrameToSVGString(nodes, edges, definitions, displayNodeId, allKeyframes, frame, width, height, viewBox, fps = 30, restResults = null) {
   const animated = resolveAllNodesAtFrame(nodes, allKeyframes, frame);
   const colliderTrack = buildColliderTracks(nodes, edges, definitions, allKeyframes, frame);
-  const results = evaluateGraph(animated, edges, definitions, displayNodeId, { frame, fps, restResults, colliderTrack });
+  const springTrack = buildSpringTracks(nodes, edges, definitions, allKeyframes, frame);
+  const results = evaluateGraph(animated, edges, definitions, displayNodeId, { frame, fps, restResults, colliderTrack, springTrack });
 
   const nodesWithDownstream = new Set();
   for (const edge of edges) nodesWithDownstream.add(edge.source);

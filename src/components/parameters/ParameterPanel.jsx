@@ -2,7 +2,7 @@ import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { useGraphStore } from '../../store/graphStore';
 import { useNodeRegistryStore } from '../../store/nodeRegistryStore';
 import { useAnimationStore } from '../../store/animationStore';
-import { evaluateGraph, buildColliderTracks } from '../../utils/evaluateGraph';
+import { evaluateGraph, buildColliderTracks, buildSpringTracks } from '../../utils/evaluateGraph';
 import { resolveAllNodesAtFrame, interpolateValue, EASING_OPTIONS } from '../../utils/interpolation';
 import { exportSVG, exportSVGmm, exportDXF, exportPNG, exportJPEG, exportOBJ, exportGEO } from '../../utils/exportUtils';
 import { extractPoints } from '../../utils/geometryPoints';
@@ -47,9 +47,14 @@ export default function ParameterPanel() {
     return buildColliderTracks(nodes, edges, definitions, allKeyframes, currentFrame);
   }, [nodes, edges, definitions, allKeyframes, currentFrame, animEnabled]);
 
+  const springTrack = useMemo(() => {
+    if (!animEnabled) return null;
+    return buildSpringTracks(nodes, edges, definitions, allKeyframes, currentFrame);
+  }, [nodes, edges, definitions, allKeyframes, currentFrame, animEnabled]);
+
   const evalContext = useMemo(
-    () => ({ frame: animEnabled ? currentFrame : 0, fps: animFps, restResults, colliderTrack }),
-    [animEnabled, currentFrame, animFps, restResults, colliderTrack]
+    () => ({ frame: animEnabled ? currentFrame : 0, fps: animFps, restResults, colliderTrack, springTrack }),
+    [animEnabled, currentFrame, animFps, restResults, colliderTrack, springTrack]
   );
 
   const results = useMemo(
