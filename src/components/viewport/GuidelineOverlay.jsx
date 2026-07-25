@@ -110,7 +110,7 @@ export default function GuidelineOverlay({
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, [draggingGuide]);
 
-  // Check which guide is being hovered
+  // Check which guide is being hovered (with hysteresis)
   useEffect(() => {
     if (draggingGuide) return;
     
@@ -126,8 +126,12 @@ export default function GuidelineOverlay({
       return;
     }
     
-    const hoverThreshold = 8;
-    const worldThreshold = (viewBox.h / svgRect.height) * hoverThreshold;
+    // Use different thresholds for entering vs exiting hover state (hysteresis)
+    const enterThreshold = 8;  // pixels to enter hover
+    const exitThreshold = 16;  // pixels to exit hover (larger = more cushion)
+    
+    const worldEnterThreshold = (viewBox.h / svgRect.height) * enterThreshold;
+    const worldExitThreshold = (viewBox.h / svgRect.height) * exitThreshold;
     
     let found = null;
     for (const guide of guides) {
@@ -135,14 +139,17 @@ export default function GuidelineOverlay({
         ? Math.abs(world.y - guide.position)
         : Math.abs(world.x - guide.position);
       
-      if (dist < worldThreshold) {
+      // Use larger threshold if already hovering this guide
+      const threshold = (hoveredGuide?.id === guide.id) ? worldExitThreshold : worldEnterThreshold;
+      
+      if (dist < threshold) {
         found = guide;
         break;
       }
     }
     
     setHoveredGuide(found);
-  }, [mousePos, guides, draggingGuide, screenToWorld, svgRef, viewBox]);
+  }, [mousePos, guides, draggingGuide, screenToWorld, svgRef, viewBox, hoveredGuide]);
 
   const startDrag = useCallback((guide, e) => {
     e.stopPropagation();
@@ -162,27 +169,38 @@ export default function GuidelineOverlay({
     if (!hoveredGuide || hoveredGuide.id !== guide.id) return null;
     if (draggingGuide) return null;
     
-    // Position controls at a fixed spot along the guide (near left/top edge of visible area)
+    // Position controls above the guide (not intersecting)
     const controlPos = guide.orientation === 'horizontal'
       ? worldToScreen(viewBox.x + viewBox.w * 0.05, guide.position)
       : worldToScreen(guide.position, viewBox.y + viewBox.h * 0.05);
     
     const isHorizontal = guide.orientation === 'horizontal';
     
+    // Offset to position controls above/left of the line
+    const offsetY = isHorizontal ? -(HANDLE_SIZE + 8) : 0;
+    const offsetX = isHorizontal ? 0 : -(HANDLE_SIZE + 8);
+    
     return createPortal(
       <div
         key={`controls-${guide.id}`}
         style={{
           position: 'fixed',
-          left: controlPos.x - (isHorizontal ? 0 : HANDLE_SIZE),
-          top: controlPos.y - (isHorizontal ? HANDLE_SIZE - 2 : 0),
+          left: controlPos.x + offsetX,
+          top: controlPos.y + offsetY,
           display: 'flex',
           flexDirection: isHorizontal ? 'row' : 'column',
           gap: 2,
           zIndex: 1000,
           pointerEvents: 'auto',
+          animation: 'guideControlsFadeIn 0.15s ease-out',
         }}
       >
+        <style>{`
+          @keyframes guideControlsFadeIn {
+            from { opacity: 0; transform: translateY(${isHorizontal ? '4px' : '0'}) translateX(${isHorizontal ? '0' : '4px'}); }
+            to { opacity: 1; transform: translateY(0) translateX(0); }
+          }
+        `}</style>
         {/* Move handle */}
         <button
           onMouseDown={(e) => startDrag(guide, e)}
@@ -197,6 +215,7 @@ export default function GuidelineOverlay({
             alignItems: 'center',
             justifyContent: 'center',
             padding: 0,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
           }}
           title="Drag to move guideline"
         >
@@ -231,6 +250,7 @@ export default function GuidelineOverlay({
             alignItems: 'center',
             justifyContent: 'center',
             padding: 0,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
           }}
           title="Delete guideline"
         >
