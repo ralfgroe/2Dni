@@ -22,7 +22,8 @@ import DeleteOverlay from './DeleteOverlay';
 import DimensionOverlay from './DimensionOverlay';
 import GeometryErrorBoundary from './GeometryErrorBoundary';
 import Timeline from '../timeline/Timeline';
-import Rulers, { RULER_SIZE, UNITS, GUIDE_COLOR } from './Rulers';
+import Rulers, { RULER_SIZE, UNITS } from './Rulers';
+import GuidelineOverlay from './GuidelineOverlay';
 
 export default function Viewport() {
   const svgRef = useRef(null);
@@ -230,6 +231,43 @@ export default function Viewport() {
     }
     return pts;
   }, [snapPoints, selectedNodeId, results, allResults]);
+
+  // Snap points for guidelines - always computed when rulers are shown
+  const guidelineSnapPoints = useMemo(() => {
+    if (!showRulers || guides.length === 0) return [];
+    const source = allResults || results;
+    const pts = [];
+    const seen = new Set();
+    const push = (geo) => {
+      if (!geo) return;
+      let g = geo;
+      if (g.__multiOutput) {
+        for (const [k, v] of Object.entries(g)) {
+          if (k !== '__multiOutput' && v) push(v);
+        }
+        return;
+      }
+      if (g.type === 'export') g = g.geometry;
+      if (!g) return;
+      let vs = [];
+      try {
+        vs = extractPoints(g);
+      } catch {
+        vs = [];
+      }
+      for (const p of vs) {
+        if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
+        const key = `${Math.round(p.x * 10)},${Math.round(p.y * 10)}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        pts.push({ x: p.x, y: p.y });
+      }
+    };
+    for (const [, geo] of source.entries()) {
+      push(geo);
+    }
+    return pts;
+  }, [showRulers, guides.length, results, allResults]);
 
   // Magical reveal: the grid stays hidden until a Polyline turns on Snap to Grid,
   // then it appears so you can see what you're snapping to. We only auto-enable
@@ -715,38 +753,18 @@ export default function Viewport() {
           />
         )}
 
-        {/* Guidelines from rulers */}
-        {showRulers && guides.map((guide) => (
-          guide.orientation === 'horizontal' ? (
-            <line
-              key={guide.id}
-              x1={viewBox.x - viewBox.w}
-              y1={guide.position}
-              x2={viewBox.x + viewBox.w * 2}
-              y2={guide.position}
-              stroke={GUIDE_COLOR}
-              strokeWidth="1"
-              vectorEffect="non-scaling-stroke"
-              strokeDasharray="4 2"
-              opacity="0.8"
-              style={{ pointerEvents: 'none' }}
-            />
-          ) : (
-            <line
-              key={guide.id}
-              x1={guide.position}
-              y1={viewBox.y - viewBox.h}
-              x2={guide.position}
-              y2={viewBox.y + viewBox.h * 2}
-              stroke={GUIDE_COLOR}
-              strokeWidth="1"
-              vectorEffect="non-scaling-stroke"
-              strokeDasharray="4 2"
-              opacity="0.8"
-              style={{ pointerEvents: 'none' }}
-            />
-          )
-        ))}
+        {/* Guidelines with interactive controls */}
+        {showRulers && (
+          <GuidelineOverlay
+            guides={guides}
+            viewBox={viewBox}
+            svgRef={svgRef}
+            onUpdateGuide={updateGuide}
+            onRemoveGuide={removeGuide}
+            snapPoints={guidelineSnapPoints}
+            snapThreshold={15}
+          />
+        )}
 
         <line x1="-20" y1="0" x2="20" y2="0" stroke="var(--text-muted)" strokeWidth="0.5" opacity="0.4" />
         <line x1="0" y1="-20" x2="0" y2="20" stroke="var(--text-muted)" strokeWidth="0.5" opacity="0.4" />
