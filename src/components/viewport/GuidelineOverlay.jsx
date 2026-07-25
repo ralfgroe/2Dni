@@ -287,7 +287,7 @@ export default function GuidelineOverlay({
           style={{
             width: HANDLE_SIZE,
             height: HANDLE_SIZE,
-            border: `1px solid ${isMagnetic ? '#ef4444' : '#9ca3af'}`,
+            border: `1px solid ${isMagnetic ? '#22c55e' : '#9ca3af'}`,
             borderRadius: 3,
             backgroundColor: 'white',
             cursor: 'pointer',
@@ -296,14 +296,27 @@ export default function GuidelineOverlay({
             justifyContent: 'center',
             padding: 0,
             boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+            opacity: isMagnetic ? 1 : 0.5,
           }}
           title={isMagnetic ? "Magnetic ON - click to disable" : "Magnetic OFF - click to enable"}
         >
-          {/* Horseshoe magnet icon */}
-          <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke={isMagnetic ? '#ef4444' : '#9ca3af'} strokeWidth="1.5">
-            <path d="M2 2L2 7C2 9.2 3.8 11 6 11C8.2 11 10 9.2 10 7L10 2" strokeLinecap="round" />
-            <line x1="2" y1="2" x2="2" y2="4" strokeWidth="2.5" />
-            <line x1="10" y1="2" x2="10" y2="4" strokeWidth="2.5" />
+          {/* Horseshoe magnet icon - red left, green right */}
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+            {/* Left side (red) */}
+            <path 
+              d="M4 2L4 12C4 14.2 5.3 16.2 7.2 17.4L7.2 17.4C8.1 18 9 18.4 10 18.7L10 18.7C10.6 18.9 11.3 19 12 19L12 12L12 2L4 2Z" 
+              fill={isMagnetic ? '#ef4444' : '#9ca3af'}
+            />
+            {/* Right side (green) */}
+            <path 
+              d="M20 2L20 12C20 14.2 18.7 16.2 16.8 17.4L16.8 17.4C15.9 18 15 18.4 14 18.7L14 18.7C13.4 18.9 12.7 19 12 19L12 12L12 2L20 2Z" 
+              fill={isMagnetic ? '#22c55e' : '#9ca3af'}
+            />
+            {/* Inner white curve to create horseshoe shape */}
+            <path 
+              d="M8 2L8 12C8 14.2 9.8 16 12 16C14.2 16 16 14.2 16 12L16 2" 
+              fill="white"
+            />
           </svg>
         </button>
       </div>,
