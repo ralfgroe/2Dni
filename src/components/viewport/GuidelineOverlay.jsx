@@ -10,6 +10,7 @@ export default function GuidelineOverlay({
   svgRef,
   onUpdateGuide,
   onRemoveGuide,
+  onToggleMagnetic,
   snapPoints = [],
   snapThreshold = 10,
 }) {
@@ -170,6 +171,12 @@ export default function GuidelineOverlay({
     setHoveredGuide(null);
   }, [onRemoveGuide]);
 
+  const toggleMagnetic = useCallback((guide, e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    onToggleMagnetic(guide.id);
+  }, [onToggleMagnetic]);
+
   // Render control buttons for a guide
   const renderControls = (guide) => {
     if (!hoveredGuide || hoveredGuide.id !== guide.id) return null;
@@ -181,10 +188,11 @@ export default function GuidelineOverlay({
       : worldToScreen(guide.position, viewBox.y + viewBox.h * 0.5);
     
     const isHorizontal = guide.orientation === 'horizontal';
+    const isMagnetic = guide.magnetic !== false; // Default to true if not set
     
-    // Calculate total width/height of controls to center them on the line
-    const totalControlsWidth = isHorizontal ? (HANDLE_SIZE * 2 + 2) : HANDLE_SIZE;
-    const totalControlsHeight = isHorizontal ? HANDLE_SIZE : (HANDLE_SIZE * 2 + 2);
+    // Calculate total width/height of controls to center them on the line (now 3 buttons)
+    const totalControlsWidth = isHorizontal ? (HANDLE_SIZE * 3 + 4) : HANDLE_SIZE;
+    const totalControlsHeight = isHorizontal ? HANDLE_SIZE : (HANDLE_SIZE * 3 + 4);
     
     // Center controls on the line
     const offsetX = -totalControlsWidth / 2;
@@ -270,6 +278,32 @@ export default function GuidelineOverlay({
         >
           <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="#ef4444" strokeWidth="1.5">
             <path d="M2 2L10 10M10 2L2 10" />
+          </svg>
+        </button>
+        
+        {/* Magnetic toggle */}
+        <button
+          onClick={(e) => toggleMagnetic(guide, e)}
+          style={{
+            width: HANDLE_SIZE,
+            height: HANDLE_SIZE,
+            border: `1px solid ${isMagnetic ? '#ef4444' : '#9ca3af'}`,
+            borderRadius: 3,
+            backgroundColor: 'white',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 0,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+          }}
+          title={isMagnetic ? "Magnetic ON - click to disable" : "Magnetic OFF - click to enable"}
+        >
+          {/* Horseshoe magnet icon */}
+          <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke={isMagnetic ? '#ef4444' : '#9ca3af'} strokeWidth="1.5">
+            <path d="M2 2L2 7C2 9.2 3.8 11 6 11C8.2 11 10 9.2 10 7L10 2" strokeLinecap="round" />
+            <line x1="2" y1="2" x2="2" y2="4" strokeWidth="2.5" />
+            <line x1="10" y1="2" x2="10" y2="4" strokeWidth="2.5" />
           </svg>
         </button>
       </div>,

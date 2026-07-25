@@ -86,6 +86,10 @@ export default function Viewport() {
     setGuides((prev) => prev.filter((g) => g.id !== id));
   }, []);
 
+  const toggleGuideMagnetic = useCallback((id) => {
+    setGuides((prev) => prev.map((g) => g.id === id ? { ...g, magnetic: !g.magnetic } : g));
+  }, []);
+
   const clearGuides = useCallback(() => {
     setGuides([]);
   }, []);
@@ -229,8 +233,36 @@ export default function Viewport() {
       if (nodeId === selectedNodeId) continue;
       push(geo);
     }
+    
+    // Add magnetic guidelines as snap targets
+    // For each magnetic guideline, add points along the visible viewport
+    if (showRulers && guides.length > 0) {
+      for (const guide of guides) {
+        if (guide.magnetic === false) continue; // Skip non-magnetic guides
+        
+        // Add multiple points along the guideline within the viewport
+        // This allows shapes to snap to the guideline at any position
+        const numPoints = 20;
+        for (let i = 0; i <= numPoints; i++) {
+          const t = i / numPoints;
+          let x, y;
+          if (guide.orientation === 'horizontal') {
+            x = viewBox.x + viewBox.w * t;
+            y = guide.position;
+          } else {
+            x = guide.position;
+            y = viewBox.y + viewBox.h * t;
+          }
+          const key = `${Math.round(x * 10)},${Math.round(y * 10)}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          pts.push({ x, y });
+        }
+      }
+    }
+    
     return pts;
-  }, [snapPoints, selectedNodeId, results, allResults]);
+  }, [snapPoints, selectedNodeId, results, allResults, showRulers, guides, viewBox]);
 
   // Snap points for guidelines - always computed when rulers are shown
   const guidelineSnapPoints = useMemo(() => {
@@ -761,6 +793,7 @@ export default function Viewport() {
             svgRef={svgRef}
             onUpdateGuide={updateGuide}
             onRemoveGuide={removeGuide}
+            onToggleMagnetic={toggleGuideMagnetic}
             snapPoints={guidelineSnapPoints}
             snapThreshold={15}
           />

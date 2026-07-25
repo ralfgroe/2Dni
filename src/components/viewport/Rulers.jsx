@@ -273,6 +273,7 @@ export default function Rulers({
       id: Date.now(),
       orientation,
       position: orientation === 'horizontal' ? worldY : worldX,
+      magnetic: true, // Guidelines are magnetic by default
     };
     
     onAddGuide?.(newGuide);
