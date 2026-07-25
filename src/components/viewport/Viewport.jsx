@@ -199,50 +199,54 @@ export default function Viewport() {
   // Snap-to-points: gather the vertices of every OTHER piece of geometry so a
   // dragged shape can latch onto them. Only computed while the snap toggle is on
   // and something is selected, so it stays cheap when unused.
+  // Also includes magnetic guidelines which work independently of the global snap toggle.
   const snapCandidates = useMemo(() => {
-    if (!snapPoints || !selectedNodeId) return [];
-    const source = allResults || results;
     const pts = [];
     const seen = new Set();
-    const push = (geo) => {
-      if (!geo) return;
-      let g = geo;
-      if (g.__multiOutput) {
-        for (const [k, v] of Object.entries(g)) {
-          if (k !== '__multiOutput' && v) push(v);
+    
+    // Add geometry snap points only if global snap is enabled
+    if (snapPoints && selectedNodeId) {
+      const source = allResults || results;
+      const push = (geo) => {
+        if (!geo) return;
+        let g = geo;
+        if (g.__multiOutput) {
+          for (const [k, v] of Object.entries(g)) {
+            if (k !== '__multiOutput' && v) push(v);
+          }
+          return;
         }
-        return;
+        if (g.type === 'export') g = g.geometry;
+        if (!g) return;
+        let vs = [];
+        try {
+          vs = extractPoints(g);
+        } catch {
+          vs = [];
+        }
+        for (const p of vs) {
+          if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
+          const key = `${Math.round(p.x * 10)},${Math.round(p.y * 10)}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          pts.push({ x: p.x, y: p.y });
+        }
+      };
+      for (const [nodeId, geo] of source.entries()) {
+        if (nodeId === selectedNodeId) continue;
+        push(geo);
       }
-      if (g.type === 'export') g = g.geometry;
-      if (!g) return;
-      let vs = [];
-      try {
-        vs = extractPoints(g);
-      } catch {
-        vs = [];
-      }
-      for (const p of vs) {
-        if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
-        const key = `${Math.round(p.x * 10)},${Math.round(p.y * 10)}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        pts.push({ x: p.x, y: p.y });
-      }
-    };
-    for (const [nodeId, geo] of source.entries()) {
-      if (nodeId === selectedNodeId) continue;
-      push(geo);
     }
     
-    // Add magnetic guidelines as snap targets
-    // For each magnetic guideline, add points along the visible viewport
-    if (showRulers && guides.length > 0) {
+    // Add magnetic guidelines as snap targets - works independently of global snap
+    // Only need a selected node to be dragging
+    if (showRulers && guides.length > 0 && selectedNodeId) {
       for (const guide of guides) {
         if (guide.magnetic === false) continue; // Skip non-magnetic guides
         
         // Add multiple points along the guideline within the viewport
         // This allows shapes to snap to the guideline at any position
-        const numPoints = 20;
+        const numPoints = 50; // More points for smoother snapping
         for (let i = 0; i <= numPoints; i++) {
           const t = i / numPoints;
           let x, y;
@@ -889,7 +893,7 @@ export default function Viewport() {
             definition={selectedDef}
             screenToSvg={screenToSvg}
             viewBox={viewBox}
-            snapEnabled={snapPoints}
+            snapEnabled={snapPoints || (showRulers && guides.some(g => g.magnetic !== false))}
             snapCandidates={snapCandidates}
             worldPerPixel={worldPerPixel}
           />
