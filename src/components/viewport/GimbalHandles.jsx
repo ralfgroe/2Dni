@@ -170,9 +170,15 @@ function withEdgeMidpoints(points) {
 // (own point → candidate) pair within `dist` that is closest, and return the
 // extra offset (ox, oy) that lands that own point exactly on the candidate,
 // plus the candidate location (tx, ty) for the on-screen marker.
+// Crosshair points (marked with isCrosshair) get priority - if one is within
+// range, it wins even if a regular point is slightly closer.
 function findSnap(ownPoints, dx, dy, candidates, dist) {
   let best = null;
+  let bestCrosshair = null;
   const d2Max = dist * dist;
+  // Use a slightly larger threshold for crosshairs to give them priority
+  const crosshairD2Max = (dist * 1.5) * (dist * 1.5);
+  
   for (const op of ownPoints) {
     const px = op.x + dx;
     const py = op.y + dy;
@@ -180,12 +186,23 @@ function findSnap(ownPoints, dx, dy, candidates, dist) {
       const ddx = c.x - px;
       const ddy = c.y - py;
       const d2 = ddx * ddx + ddy * ddy;
-      if (d2 <= d2Max && (!best || d2 < best.d2)) {
-        best = { d2, ox: ddx, oy: ddy, tx: c.x, ty: c.y };
+      
+      if (c.isCrosshair) {
+        // Track best crosshair separately with larger threshold
+        if (d2 <= crosshairD2Max && (!bestCrosshair || d2 < bestCrosshair.d2)) {
+          bestCrosshair = { d2, ox: ddx, oy: ddy, tx: c.x, ty: c.y };
+        }
+      } else {
+        // Regular snap point
+        if (d2 <= d2Max && (!best || d2 < best.d2)) {
+          best = { d2, ox: ddx, oy: ddy, tx: c.x, ty: c.y };
+        }
       }
     }
   }
-  return best;
+  
+  // Crosshair wins if it's within range, otherwise use best regular point
+  return bestCrosshair || best;
 }
 
 // The world-space center a shape rotates about (its x/y position params).

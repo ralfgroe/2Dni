@@ -61,12 +61,16 @@ export default function GuidelineOverlay({
     return { x: screenPoint.x, y: screenPoint.y };
   }, [svgRef]);
 
-  // Find nearest snap point
+  // Find nearest snap point (geometry control points)
   const findSnapPoint = useCallback((position, orientation) => {
     if (!snapPoints || snapPoints.length === 0) return null;
     
+    // Use a percentage of viewport for snap threshold (same as ruler tick snap)
+    const viewSize = orientation === 'horizontal' ? viewBox.h : viewBox.w;
+    const dynamicThreshold = viewSize * 0.05; // 5% of viewport
+    
     let nearest = null;
-    let minDist = snapThreshold;
+    let minDist = dynamicThreshold;
     
     for (const pt of snapPoints) {
       const coord = orientation === 'horizontal' ? pt.y : pt.x;
@@ -78,7 +82,7 @@ export default function GuidelineOverlay({
     }
     
     return nearest;
-  }, [snapPoints, snapThreshold]);
+  }, [snapPoints, viewBox]);
 
   // Handle mouse move for dragging
   useEffect(() => {

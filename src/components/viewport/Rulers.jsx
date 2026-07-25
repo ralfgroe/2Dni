@@ -237,6 +237,7 @@ export default function Rulers({
   onRemoveGuide,
   onClearGuides,
   svgRef,
+  geometrySnapPoints = [],
 }) {
   const [dragging, setDragging] = useState(null);
 
@@ -291,7 +292,7 @@ export default function Rulers({
       const unitScale = UNITS[unit]?.scale || 1;
       
       // Determine the major tick interval based on viewport size
-      // Use nice round numbers: 10, 20, 50, 100, 200, 500, etc.
+      // Use nice round numbers: 10, 2, 5, 10, 20, 50, 100, 200, 500, etc.
       const viewSize = dragging.orientation === 'horizontal' ? viewBox.h : viewBox.w;
       const targetTicks = 10; // Aim for about 10 major ticks
       const rawInterval = viewSize / targetTicks / unitScale;
@@ -311,10 +312,30 @@ export default function Rulers({
       const snappedUnits = Math.round(positionInUnits / tickInterval) * tickInterval;
       const snappedPosition = snappedUnits * unitScale;
       
-      // Snap if within 5% of viewport
-      const snapDistance = viewSize * 0.03;
-      if (Math.abs(position - snappedPosition) < snapDistance) {
+      // Snap if within 3% of viewport (ruler tick snap)
+      const rulerSnapDistance = viewSize * 0.03;
+      if (Math.abs(position - snappedPosition) < rulerSnapDistance) {
         position = snappedPosition;
+      }
+      
+      // Also try to snap to geometry control points (takes priority if closer)
+      if (geometrySnapPoints && geometrySnapPoints.length > 0) {
+        const geoSnapDistance = viewSize * 0.05; // 5% of viewport for geometry snap
+        let nearestGeo = null;
+        let minGeoDist = geoSnapDistance;
+        
+        for (const pt of geometrySnapPoints) {
+          const coord = dragging.orientation === 'horizontal' ? pt.y : pt.x;
+          const dist = Math.abs(coord - position);
+          if (dist < minGeoDist) {
+            minGeoDist = dist;
+            nearestGeo = coord;
+          }
+        }
+        
+        if (nearestGeo !== null) {
+          position = nearestGeo;
+        }
       }
       
       onUpdateGuide?.(dragging.id, position);

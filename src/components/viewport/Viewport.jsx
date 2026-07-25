@@ -241,7 +241,7 @@ export default function Viewport() {
     // Add magnetic guidelines as snap targets - works independently of global snap
     if (showRulers && guides.length > 0) {
       // First, add intersection points (crosshairs) where guidelines meet
-      // These are high-priority snap targets
+      // These are HIGH-PRIORITY snap targets - mark them with isCrosshair flag
       const horizontalGuides = guides.filter(g => g.orientation === 'horizontal' && g.magnetic !== false);
       const verticalGuides = guides.filter(g => g.orientation === 'vertical' && g.magnetic !== false);
       
@@ -252,12 +252,13 @@ export default function Viewport() {
           const key = `${Math.round(x * 10)},${Math.round(y * 10)}`;
           if (!seen.has(key)) {
             seen.add(key);
-            pts.push({ x, y });
+            // Mark crosshair points with priority flag
+            pts.push({ x, y, isCrosshair: true });
           }
         }
       }
       
-      // Then add points along each guideline
+      // Then add points along each guideline (lower priority)
       for (const guide of guides) {
         if (guide.magnetic === false) continue; // Skip non-magnetic guides
         
@@ -679,6 +680,7 @@ export default function Viewport() {
           onRemoveGuide={removeGuide}
           onClearGuides={clearGuides}
           svgRef={svgRef}
+          geometrySnapPoints={guidelineSnapPoints}
         />
       )}
       
