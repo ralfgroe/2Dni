@@ -287,20 +287,33 @@ export default function Rulers({
       const { worldX, worldY } = screenToWorld(e.clientX, e.clientY);
       let position = dragging.orientation === 'horizontal' ? worldY : worldX;
       
-      // Snap to ruler tick marks
+      // Snap to major ruler tick marks (multiples of 100 in px, or appropriate for other units)
       const unitScale = UNITS[unit]?.scale || 1;
+      
+      // Determine the major tick interval based on viewport size
+      // Use nice round numbers: 10, 20, 50, 100, 200, 500, etc.
+      const viewSize = dragging.orientation === 'horizontal' ? viewBox.h : viewBox.w;
+      const targetTicks = 10; // Aim for about 10 major ticks
+      const rawInterval = viewSize / targetTicks / unitScale;
+      
+      // Round to a nice number
+      const niceIntervals = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];
+      let tickInterval = niceIntervals[0];
+      for (const interval of niceIntervals) {
+        if (interval >= rawInterval) {
+          tickInterval = interval;
+          break;
+        }
+        tickInterval = interval;
+      }
+      
       const positionInUnits = position / unitScale;
-      const snappedUnits = Math.round(positionInUnits);
+      const snappedUnits = Math.round(positionInUnits / tickInterval) * tickInterval;
       const snappedPosition = snappedUnits * unitScale;
       
       // Snap if within 5% of viewport
-      const viewSize = dragging.orientation === 'horizontal' ? viewBox.h : viewBox.w;
-      const snapDistance = viewSize * 0.05;
-      
-      console.log('RULER DRAG:', { position, snappedPosition, diff: Math.abs(position - snappedPosition), snapDistance, unit, unitScale });
-      
+      const snapDistance = viewSize * 0.03;
       if (Math.abs(position - snappedPosition) < snapDistance) {
-        console.log('SNAPPING TO:', snappedPosition);
         position = snappedPosition;
       }
       
