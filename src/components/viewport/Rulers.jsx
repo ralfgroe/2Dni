@@ -298,7 +298,6 @@ export default function Rulers({
       
       // Use getTickSpacing to get the exact same step as the ruler display
       const unitsVisible = viewRange / unitScale;
-      const pixelsPerUnit = availablePixels / unitsVisible;
       const targetTickCount = availablePixels / 50;
       const idealStep = unitsVisible / targetTickCount;
       
@@ -318,12 +317,11 @@ export default function Rulers({
       const snappedUnits = Math.round(positionInUnits / step) * step;
       const snappedPosition = snappedUnits * unitScale;
       
-      // Snap if within a reasonable distance (half a minor tick in pixels, converted to world units)
-      const minorTickPixels = (step / 5) * pixelsPerUnit;
-      const snapPixelThreshold = Math.max(minorTickPixels * 0.5, 10); // At least 10 pixels
-      const snapWorldThreshold = snapPixelThreshold * (viewRange / availablePixels);
+      // Snap if within 20% of a tick interval (in world units)
+      const tickWorldSize = step * unitScale;
+      const snapThreshold = tickWorldSize * 0.2;
       
-      if (Math.abs(position - snappedPosition) < snapWorldThreshold) {
+      if (Math.abs(position - snappedPosition) < snapThreshold) {
         position = snappedPosition;
       }
       
