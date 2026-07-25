@@ -99,8 +99,8 @@ export default function GuidelineOverlay({
         const snappedUnits = Math.round(positionInUnits);
         const snappedPosition = snappedUnits * unitScale;
         
-        // Snap if within 2% of viewport
-        const snapDistance = Math.max(viewBox.w, viewBox.h) * 0.02;
+        // Snap if within 5% of viewport (generous snap distance)
+        const snapDistance = Math.max(viewBox.w, viewBox.h) * 0.05;
         if (Math.abs(newPosition - snappedPosition) < snapDistance) {
           newPosition = snappedPosition;
         }
