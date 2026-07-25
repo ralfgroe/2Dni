@@ -306,8 +306,8 @@ function applyDrag(type, dx, dy, startParams, nodeId, defId, updateNodeParams, m
   } else if (defId === 'text') {
     if (type === 'move') {
       applyParam({
-        x: Math.round((startParams.x || 0) + dx),
-        y: Math.round((startParams.y || 0) + dy),
+        x: (startParams.x || 0) + dx,
+        y: (startParams.y || 0) + dy,
       });
     }
   } else {
