@@ -17,6 +17,7 @@ export default function GuidelineOverlay({
   const [hoveredGuide, setHoveredGuide] = useState(null);
   const [draggingGuide, setDraggingGuide] = useState(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [isMouseDown, setIsMouseDown] = useState(false);
   const mouseOverControlsRef = useRef(false);
 
   // Convert screen coordinates to world coordinates
@@ -108,13 +109,34 @@ export default function GuidelineOverlay({
       setMousePos({ x: e.clientX, y: e.clientY });
     };
     
+    const handleMouseDown = () => {
+      setIsMouseDown(true);
+    };
+    
+    const handleMouseUp = () => {
+      setIsMouseDown(false);
+    };
+    
     window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
   }, [draggingGuide]);
 
   // Check which guide is being hovered (with hysteresis)
+  // Only show hover when mouse is NOT pressed (not dragging a shape)
   useEffect(() => {
     if (draggingGuide) return;
+    
+    // Don't show hover controls if mouse button is pressed (user is dragging a shape)
+    if (isMouseDown) {
+      setHoveredGuide(null);
+      return;
+    }
     
     // Don't change hover state if mouse is over the control buttons
     if (mouseOverControlsRef.current) return;
@@ -154,7 +176,7 @@ export default function GuidelineOverlay({
     }
     
     setHoveredGuide(found);
-  }, [mousePos, guides, draggingGuide, screenToWorld, svgRef, viewBox, hoveredGuide]);
+  }, [mousePos, guides, draggingGuide, isMouseDown, screenToWorld, svgRef, viewBox, hoveredGuide]);
 
   const startDrag = useCallback((guide, e) => {
     e.stopPropagation();

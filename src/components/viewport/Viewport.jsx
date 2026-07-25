@@ -244,18 +244,24 @@ export default function Viewport() {
       for (const guide of guides) {
         if (guide.magnetic === false) continue; // Skip non-magnetic guides
         
-        // Add multiple points along the guideline within the viewport
-        // This allows shapes to snap to the guideline at any position
-        const numPoints = 50; // More points for smoother snapping
-        for (let i = 0; i <= numPoints; i++) {
-          const t = i / numPoints;
+        // For guidelines, we need dense coverage so any shape vertex can find a nearby point
+        // Add points at very fine intervals along the guideline
+        const step = 1; // 1 world unit spacing for fine-grained snapping
+        const start = guide.orientation === 'horizontal' 
+          ? viewBox.x - viewBox.w 
+          : viewBox.y - viewBox.h;
+        const end = guide.orientation === 'horizontal'
+          ? viewBox.x + viewBox.w * 2
+          : viewBox.y + viewBox.h * 2;
+        
+        for (let pos = start; pos <= end; pos += step) {
           let x, y;
           if (guide.orientation === 'horizontal') {
-            x = viewBox.x + viewBox.w * t;
+            x = pos;
             y = guide.position;
           } else {
             x = guide.position;
-            y = viewBox.y + viewBox.h * t;
+            y = pos;
           }
           const key = `${Math.round(x * 10)},${Math.round(y * 10)}`;
           if (seen.has(key)) continue;
