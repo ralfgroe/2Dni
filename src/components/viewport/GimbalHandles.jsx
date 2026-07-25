@@ -293,14 +293,14 @@ function applyDrag(type, dx, dy, startParams, nodeId, defId, updateNodeParams, m
   } else if (defId === 'transform') {
     if (type === 'translate') {
       applyParam({
-        translate_x: Math.round(startParams.translate_x + dx),
-        translate_y: Math.round(startParams.translate_y + dy),
+        translate_x: startParams.translate_x + dx,
+        translate_y: startParams.translate_y + dy,
       });
     }
     if (type === 'pivot') {
       applyParam({
-        pivot_x: Math.round((startParams.pivot_x || 0) + dx),
-        pivot_y: Math.round((startParams.pivot_y || 0) + dy),
+        pivot_x: (startParams.pivot_x || 0) + dx,
+        pivot_y: (startParams.pivot_y || 0) + dy,
       });
     }
   } else if (defId === 'text') {
@@ -400,8 +400,8 @@ function applyRectResize(type, dx, dy, startParams, applyParam, mods, rotDeg = 0
   }
 
   applyParam({
-    width: Math.max(1, Math.round(newW / s)),
-    height: Math.max(1, Math.round(newH / s)),
+    width: Math.max(1, newW / s),
+    height: Math.max(1, newH / s),
     ...worldCenter(startX, startY, cx, cy, rotDeg),
   });
 }
@@ -412,7 +412,7 @@ function applyRectResize(type, dx, dy, startParams, applyParam, mods, rotDeg = 0
 // visually fixed.
 function worldCenter(startX, startY, localCx, localCy, rotDeg) {
   const [wx, wy] = rotateVec(localCx - startX, localCy - startY, rotDeg);
-  return { x: Math.round(startX + wx), y: Math.round(startY + wy) };
+  return { x: startX + wx, y: startY + wy };
 }
 
 // Illustrator-style resize for the circle/ellipse. The runtime stores x/y as the
@@ -483,14 +483,14 @@ function applyCircleResize(type, dx, dy, startParams, applyParam, mods, rotDeg =
   const out = { ...worldCenter(startX, startY, cx, cy, rotDeg) };
   if (keepUniform) {
     // Stays a circle: drive the single uniform diameter.
-    const d = Math.max(1, Math.round((newW + newH) / 2));
+    const d = Math.max(1, (newW + newH) / 2);
     if (sep) { out.diameter_x = d; out.diameter_y = d; out.diameter = d; }
     else out.diameter = d;
   } else {
     // Per-axis sizing implies separate X/Y — turn it on and carry current sizes.
     out.separate_xy = true;
-    out.diameter_x = Math.max(1, Math.round(ex !== 0 ? newW : startW));
-    out.diameter_y = Math.max(1, Math.round(ey !== 0 ? newH : startH));
+    out.diameter_x = Math.max(1, ex !== 0 ? newW : startW);
+    out.diameter_y = Math.max(1, ey !== 0 ? newH : startH);
   }
   applyParam(out);
 }
@@ -546,7 +546,7 @@ function applyPolygonResize(type, dx, dy, startParams, applyParam) {
   const newSpan = Math.hypot(newSpanX, newSpanY);
   const f = Math.max(0.02, newSpan / oldSpan);
 
-  const newSize = Math.max(2, Math.round(startSize * f));
+  const newSize = Math.max(2, startSize * f);
   // Keep the anchor point fixed: new center = anchor + (grab-anchor direction)
   // scaled to the new half-extent. Simplest correct form: center moves toward the
   // dragged side by the growth in half-extent.
@@ -555,8 +555,8 @@ function applyPolygonResize(type, dx, dy, startParams, applyParam) {
 
   applyParam({
     size: newSize,
-    x: Math.round(cx),
-    y: Math.round(cy),
+    x: cx,
+    y: cy,
   });
 }
 
