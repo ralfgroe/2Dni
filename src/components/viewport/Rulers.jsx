@@ -285,7 +285,21 @@ export default function Rulers({
 
     const handleMouseMove = (e) => {
       const { worldX, worldY } = screenToWorld(e.clientX, e.clientY);
-      const position = dragging.orientation === 'horizontal' ? worldY : worldX;
+      let position = dragging.orientation === 'horizontal' ? worldY : worldX;
+      
+      // Snap to ruler tick marks
+      const unitScale = UNITS[unit]?.scale || 1;
+      const positionInUnits = position / unitScale;
+      const snappedUnits = Math.round(positionInUnits);
+      const snappedPosition = snappedUnits * unitScale;
+      
+      // Snap if within 5% of viewport
+      const viewSize = dragging.orientation === 'horizontal' ? viewBox.h : viewBox.w;
+      const snapDistance = viewSize * 0.05;
+      if (Math.abs(position - snappedPosition) < snapDistance) {
+        position = snappedPosition;
+      }
+      
       onUpdateGuide?.(dragging.id, position);
     };
 
@@ -313,7 +327,7 @@ export default function Rulers({
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [dragging, screenToWorld, svgRef, onUpdateGuide, onRemoveGuide]);
+  }, [dragging, screenToWorld, svgRef, onUpdateGuide, onRemoveGuide, unit, viewBox]);
 
   return (
     <>

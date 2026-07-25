@@ -387,9 +387,9 @@ export default function GuidelineOverlay({
             <>
               {/* Invisible wider hit area for hover detection */}
               <line
-                x1={viewBox.x - viewBox.w}
+                x1={viewBox.x - viewBox.w * 2}
                 y1={guide.position}
-                x2={viewBox.x + viewBox.w * 2}
+                x2={viewBox.x + viewBox.w * 3}
                 y2={guide.position}
                 stroke="transparent"
                 strokeWidth="10"
@@ -397,9 +397,9 @@ export default function GuidelineOverlay({
               />
               {/* Visible guideline */}
               <line
-                x1={viewBox.x - viewBox.w}
+                x1={viewBox.x - viewBox.w * 2}
                 y1={guide.position}
-                x2={viewBox.x + viewBox.w * 2}
+                x2={viewBox.x + viewBox.w * 3}
                 y2={guide.position}
                 stroke={GUIDE_COLOR}
                 strokeWidth={hoveredGuide?.id === guide.id || draggingGuide?.id === guide.id ? "2" : "1"}
@@ -414,9 +414,9 @@ export default function GuidelineOverlay({
               {/* Invisible wider hit area for hover detection */}
               <line
                 x1={guide.position}
-                y1={viewBox.y - viewBox.h}
+                y1={viewBox.y - viewBox.h * 2}
                 x2={guide.position}
-                y2={viewBox.y + viewBox.h * 2}
+                y2={viewBox.y + viewBox.h * 3}
                 stroke="transparent"
                 strokeWidth="10"
                 style={{ cursor: 'pointer' }}
@@ -424,9 +424,9 @@ export default function GuidelineOverlay({
               {/* Visible guideline */}
               <line
                 x1={guide.position}
-                y1={viewBox.y - viewBox.h}
+                y1={viewBox.y - viewBox.h * 2}
                 x2={guide.position}
-                y2={viewBox.y + viewBox.h * 2}
+                y2={viewBox.y + viewBox.h * 3}
                 stroke={GUIDE_COLOR}
                 strokeWidth={hoveredGuide?.id === guide.id || draggingGuide?.id === guide.id ? "2" : "1"}
                 vectorEffect="non-scaling-stroke"
