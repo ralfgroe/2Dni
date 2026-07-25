@@ -28,6 +28,7 @@ export default function NodeGraph() {
   const [showReleaseNotes, setShowReleaseNotes] = useState(false);
   const mousePos = useRef({ x: 0, y: 0 });
   const pendingConnection = useRef(null);
+  const connectionMade = useRef(false);
 
   const nodes = useGraphStore((s) => s.nodes);
   const edges = useGraphStore((s) => s.edges);
@@ -83,6 +84,7 @@ export default function NodeGraph() {
           )
       );
       setEdges(rfAddEdge(connection, pruned));
+      connectionMade.current = true;
     },
     [edges, setEdges]
   );
@@ -93,6 +95,13 @@ export default function NodeGraph() {
 
   const onConnectEnd = useCallback(
     (event) => {
+      // If a connection was successfully made, don't open the palette
+      if (connectionMade.current) {
+        connectionMade.current = false;
+        pendingConnection.current = null;
+        return;
+      }
+
       if (!pendingConnection.current) return;
 
       const targetIsPane = event.target.classList.contains('react-flow__pane');
