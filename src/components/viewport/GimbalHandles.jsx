@@ -268,8 +268,8 @@ function applyDrag(type, dx, dy, startParams, nodeId, defId, updateNodeParams, m
   } else if (defId === 'rectangle') {
     if (type === 'move') {
       applyParam({
-        x: Math.round(startParams.x + dx),
-        y: Math.round(startParams.y + dy),
+        x: startParams.x + dx,
+        y: startParams.y + dy,
       });
     } else {
       // Rotate the world-space drag delta into the shape's local (unrotated)
@@ -279,14 +279,14 @@ function applyDrag(type, dx, dy, startParams, nodeId, defId, updateNodeParams, m
     }
   } else if (defId === 'circle') {
     if (type === 'move') {
-      applyParam({ x: Math.round(startParams.x + dx), y: Math.round(startParams.y + dy) });
+      applyParam({ x: startParams.x + dx, y: startParams.y + dy });
     } else {
       const [ldx, ldy] = unrotateDelta(dx, dy, startParams.rotation || 0);
       applyCircleResize(type, ldx, ldy, startParams, applyParam, mods, startParams.rotation || 0);
     }
   } else if (defId === 'polygon') {
     if (type === 'move') {
-      applyParam({ x: Math.round(startParams.x + dx), y: Math.round(startParams.y + dy) });
+      applyParam({ x: startParams.x + dx, y: startParams.y + dy });
     } else {
       applyPolygonResize(type, dx, dy, startParams, applyParam);
     }
@@ -305,20 +305,17 @@ function applyDrag(type, dx, dy, startParams, nodeId, defId, updateNodeParams, m
     }
   } else if (defId === 'text') {
     if (type === 'move') {
-      const newX = (startParams.x || 0) + dx;
-      const newY = (startParams.y || 0) + dy;
-      console.log('TEXT MOVE:', { dx, dy, startX: startParams.x, startY: startParams.y, newX, newY });
       applyParam({
-        x: newX,
-        y: newY,
+        x: (startParams.x || 0) + dx,
+        y: (startParams.y || 0) + dy,
       });
     }
   } else {
     if (type === 'move') {
       // Generic fallback for any node with x/y position parameters.
       applyParam({
-        x: Math.round((startParams.x || 0) + dx),
-        y: Math.round((startParams.y || 0) + dy),
+        x: (startParams.x || 0) + dx,
+        y: (startParams.y || 0) + dy,
       });
     }
   }
