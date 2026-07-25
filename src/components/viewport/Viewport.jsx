@@ -22,6 +22,7 @@ import DeleteOverlay from './DeleteOverlay';
 import DimensionOverlay from './DimensionOverlay';
 import GeometryErrorBoundary from './GeometryErrorBoundary';
 import Timeline from '../timeline/Timeline';
+import Rulers, { RULER_SIZE, UNITS } from './Rulers';
 
 export default function Viewport() {
   const svgRef = useRef(null);
@@ -29,11 +30,15 @@ export default function Viewport() {
   const [isPanning, setIsPanning] = useState(false);
   const panRef = useRef({ active: false, x: 0, y: 0 });
   const [showGrid, setShowGrid] = useState(false);
+  const [showRulers, setShowRulers] = useState(false);
+  const [rulerUnit, setRulerUnit] = useState('px');
   const [snapPoints, setSnapPoints] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
   const [fontVersion, setFontVersion] = useState(0);
   const exportPanRef = useRef({ active: false, x: 0, y: 0 });
   const exportFrameRef = useRef(null);
+  const viewportContainerRef = useRef(null);
+  const [viewportSize, setViewportSize] = useState({ width: 800, height: 600 });
 
   useEffect(() => {
     const handler = () => setFontVersion((v) => v + 1);
@@ -44,6 +49,27 @@ export default function Viewport() {
       window.removeEventListener('import-image-loaded', handler);
     };
   }, []);
+
+  // Track viewport container size for rulers
+  useEffect(() => {
+    const container = viewportContainerRef.current;
+    if (!container) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setViewportSize({ width: entry.contentRect.width, height: entry.contentRect.height });
+      }
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
+
+  // Cycle through ruler units
+  const cycleRulerUnit = useCallback(() => {
+    const unitKeys = Object.keys(UNITS);
+    const currentIndex = unitKeys.indexOf(rulerUnit);
+    const nextIndex = (currentIndex + 1) % unitKeys.length;
+    setRulerUnit(unitKeys[nextIndex]);
+  }, [rulerUnit]);
 
   const nodes = useGraphStore((s) => s.nodes);
   const edges = useGraphStore((s) => s.edges);
@@ -522,11 +548,23 @@ export default function Viewport() {
 
   return (
     <div className="flex h-full w-full flex-col">
-      <div className="relative flex-1 w-full bg-bg-primary" style={{ minHeight: 0 }} data-viewport-canvas>
+      <div ref={viewportContainerRef} className="relative flex-1 w-full bg-bg-primary" style={{ minHeight: 0 }} data-viewport-canvas>
+      
+      {/* Rulers (when enabled) */}
+      {showRulers && (
+        <Rulers
+          viewBox={viewBox}
+          width={viewportSize.width}
+          height={viewportSize.height}
+          unit={rulerUnit}
+          onUnitChange={cycleRulerUnit}
+        />
+      )}
+      
       <button
         onClick={() => setShowGrid((v) => !v)}
-        className="absolute top-2 left-2 z-10 flex items-center gap-1 rounded border border-border-primary bg-bg-secondary text-[10px] text-text-secondary hover:bg-bg-tertiary"
-        style={{ padding: '2px 8px', height: 22 }}
+        className="absolute top-2 z-20 flex items-center gap-1 rounded border border-border-primary bg-bg-secondary text-[10px] text-text-secondary hover:bg-bg-tertiary"
+        style={{ padding: '2px 8px', height: 22, left: showRulers ? 28 : 8 }}
         title="Toggle grid"
       >
         <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1" opacity={showGrid ? 1 : 0.4}>
@@ -535,9 +573,20 @@ export default function Viewport() {
       </button>
 
       <button
+        onClick={() => setShowRulers((v) => !v)}
+        className={`absolute top-2 z-20 flex items-center gap-1 rounded border border-border-primary text-[10px] hover:bg-bg-tertiary ${showRulers ? 'bg-accent text-white' : 'bg-bg-secondary text-text-secondary'}`}
+        style={{ padding: '2px 8px', height: 22, left: showRulers ? 66 : 46 }}
+        title="Toggle rulers"
+      >
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1" opacity={showRulers ? 1 : 0.5}>
+          <path d="M0 0v10M0 0h10M2 0v3M4 0v2M6 0v3M8 0v2"/>
+        </svg>
+      </button>
+
+      <button
         onClick={() => setSnapPoints((v) => !v)}
-        className={`absolute top-2 z-10 flex items-center gap-1 rounded border border-border-primary text-[10px] hover:bg-bg-tertiary ${snapPoints ? 'bg-accent text-white' : 'bg-bg-secondary text-text-secondary'}`}
-        style={{ padding: '2px 8px', height: 22, left: 40 }}
+        className={`absolute top-2 z-20 flex items-center gap-1 rounded border border-border-primary text-[10px] hover:bg-bg-tertiary ${snapPoints ? 'bg-accent text-white' : 'bg-bg-secondary text-text-secondary'}`}
+        style={{ padding: '2px 8px', height: 22, left: showRulers ? 104 : 84 }}
         title="Snap to points — dragged shapes latch onto vertices of other geometry"
       >
         <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2" opacity={snapPoints ? 1 : 0.5}>
@@ -545,8 +594,8 @@ export default function Viewport() {
         </svg>
       </button>
 
-      <div className="absolute left-3 z-10 flex flex-col overflow-hidden rounded-lg border border-border-primary bg-white shadow-sm"
-        style={{ borderRadius: 8, bottom: 12 }}
+      <div className="absolute z-20 flex flex-col overflow-hidden rounded-lg border border-border-primary bg-white shadow-sm"
+        style={{ borderRadius: 8, bottom: 12, left: showRulers ? 28 : 12 }}
       >
         <button
           onClick={zoomIn}
@@ -573,6 +622,16 @@ export default function Viewport() {
         </button>
       </div>
 
+      {/* SVG viewport container - offset when rulers are shown */}
+      <div
+        style={{
+          position: 'absolute',
+          top: showRulers ? RULER_SIZE : 0,
+          left: showRulers ? RULER_SIZE : 0,
+          right: 0,
+          bottom: 0,
+        }}
+      >
       <svg
         id="viewport-svg"
         ref={svgRef}
@@ -911,6 +970,7 @@ export default function Viewport() {
           );
         })()}
       </svg>
+      </div>
 
       {splashVisible && (
         <div
