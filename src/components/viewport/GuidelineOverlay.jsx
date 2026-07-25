@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 
 const GUIDE_COLOR = '#06b6d4';
-const HANDLE_SIZE = 20;
+const HANDLE_SIZE = 18; // Reduced by 10% from 20
 
 export default function GuidelineOverlay({
   guides,
@@ -164,6 +164,8 @@ export default function GuidelineOverlay({
   const deleteGuide = useCallback((guide, e) => {
     e.stopPropagation();
     e.preventDefault();
+    // Reset the controls hover state so other guidelines can show their controls
+    mouseOverControlsRef.current = false;
     onRemoveGuide(guide.id);
     setHoveredGuide(null);
   }, [onRemoveGuide]);
@@ -173,16 +175,20 @@ export default function GuidelineOverlay({
     if (!hoveredGuide || hoveredGuide.id !== guide.id) return null;
     if (draggingGuide) return null;
     
-    // Position controls above the guide (not intersecting)
+    // Position controls at the center of the visible line
     const controlPos = guide.orientation === 'horizontal'
-      ? worldToScreen(viewBox.x + viewBox.w * 0.05, guide.position)
-      : worldToScreen(guide.position, viewBox.y + viewBox.h * 0.05);
+      ? worldToScreen(viewBox.x + viewBox.w * 0.5, guide.position)
+      : worldToScreen(guide.position, viewBox.y + viewBox.h * 0.5);
     
     const isHorizontal = guide.orientation === 'horizontal';
     
-    // Offset to position controls above/left of the line
-    const offsetY = isHorizontal ? -(HANDLE_SIZE + 8) : 0;
-    const offsetX = isHorizontal ? 0 : -(HANDLE_SIZE + 8);
+    // Calculate total width/height of controls to center them on the line
+    const totalControlsWidth = isHorizontal ? (HANDLE_SIZE * 2 + 2) : HANDLE_SIZE;
+    const totalControlsHeight = isHorizontal ? HANDLE_SIZE : (HANDLE_SIZE * 2 + 2);
+    
+    // Center controls on the line
+    const offsetX = -totalControlsWidth / 2;
+    const offsetY = -totalControlsHeight / 2;
     
     return createPortal(
       <div
@@ -227,7 +233,7 @@ export default function GuidelineOverlay({
           }}
           title="Drag to move guideline"
         >
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#06b6d4" strokeWidth="1.5">
+          <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="#06b6d4" strokeWidth="1.5">
             {isHorizontal ? (
               <>
                 <path d="M6 2L6 10" />
@@ -262,7 +268,7 @@ export default function GuidelineOverlay({
           }}
           title="Delete guideline"
         >
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#ef4444" strokeWidth="1.5">
+          <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="#ef4444" strokeWidth="1.5">
             <path d="M2 2L10 10M10 2L2 10" />
           </svg>
         </button>
