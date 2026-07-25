@@ -4,6 +4,14 @@ import { createPortal } from 'react-dom';
 const GUIDE_COLOR = '#06b6d4';
 const HANDLE_SIZE = 18; // Reduced by 10% from 20
 
+// Unit scales for ruler snapping (same as Rulers.jsx)
+const UNITS = {
+  px: { scale: 1, label: 'px' },
+  mm: { scale: 3.7795275591, label: 'mm' },
+  cm: { scale: 37.795275591, label: 'cm' },
+  in: { scale: 96, label: 'in' },
+};
+
 export default function GuidelineOverlay({
   guides,
   viewBox,
@@ -13,6 +21,7 @@ export default function GuidelineOverlay({
   onToggleMagnetic,
   snapPoints = [],
   snapThreshold = 10,
+  rulerUnit = 'px',
 }) {
   const [hoveredGuide, setHoveredGuide] = useState(null);
   const [draggingGuide, setDraggingGuide] = useState(null);
@@ -71,18 +80,45 @@ export default function GuidelineOverlay({
     return nearest;
   }, [snapPoints, snapThreshold]);
 
+  // Snap position to ruler tick marks (for magnetic guidelines)
+  const snapToRulerTick = useCallback((position, isMagnetic) => {
+    if (!isMagnetic) return position;
+    
+    const unitScale = UNITS[rulerUnit]?.scale || 1;
+    const positionInUnits = position / unitScale;
+    
+    // Snap to nearest integer unit
+    const snappedUnits = Math.round(positionInUnits);
+    const snappedPosition = snappedUnits * unitScale;
+    
+    // Only snap if close enough (within 5 world units)
+    const snapDistance = 5;
+    if (Math.abs(position - snappedPosition) < snapDistance) {
+      return snappedPosition;
+    }
+    
+    return position;
+  }, [rulerUnit]);
+
   // Handle mouse move for dragging
   useEffect(() => {
     if (!draggingGuide) return;
+    
+    // Get the current magnetic state of the guide being dragged
+    const currentGuide = guides.find(g => g.id === draggingGuide.id);
+    const isMagnetic = currentGuide?.magnetic !== false;
 
     const handleMouseMove = (e) => {
       const world = screenToWorld(e.clientX, e.clientY);
       let newPosition = draggingGuide.orientation === 'horizontal' ? world.y : world.x;
       
-      // Try to snap to geometry points
+      // Try to snap to geometry points first
       const snapPos = findSnapPoint(newPosition, draggingGuide.orientation);
       if (snapPos !== null) {
         newPosition = snapPos;
+      } else if (isMagnetic) {
+        // If no geometry snap, try to snap to ruler ticks (only for magnetic guides)
+        newPosition = snapToRulerTick(newPosition, isMagnetic);
       }
       
       onUpdateGuide(draggingGuide.id, newPosition);
@@ -100,7 +136,7 @@ export default function GuidelineOverlay({
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [draggingGuide, screenToWorld, findSnapPoint, onUpdateGuide]);
+  }, [draggingGuide, guides, screenToWorld, findSnapPoint, snapToRulerTick, onUpdateGuide]);
 
   // Track mouse position for hover detection
   useEffect(() => {
