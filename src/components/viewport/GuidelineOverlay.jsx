@@ -17,7 +17,7 @@ export default function GuidelineOverlay({
   const [hoveredGuide, setHoveredGuide] = useState(null);
   const [draggingGuide, setDraggingGuide] = useState(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-  const [isMouseDown, setIsMouseDown] = useState(false);
+  const [isExternalMouseDown, setIsExternalMouseDown] = useState(false);
   const mouseOverControlsRef = useRef(false);
 
   // Convert screen coordinates to world coordinates
@@ -110,11 +110,15 @@ export default function GuidelineOverlay({
     };
     
     const handleMouseDown = () => {
-      setIsMouseDown(true);
+      // Only set external mouse down if NOT over our controls
+      // This way, clicking on guideline controls doesn't trigger the "hide hover" behavior
+      if (!mouseOverControlsRef.current) {
+        setIsExternalMouseDown(true);
+      }
     };
     
     const handleMouseUp = () => {
-      setIsMouseDown(false);
+      setIsExternalMouseDown(false);
     };
     
     window.addEventListener('mousemove', handleMouseMove);
@@ -132,8 +136,9 @@ export default function GuidelineOverlay({
   useEffect(() => {
     if (draggingGuide) return;
     
-    // Don't show hover controls if mouse button is pressed (user is dragging a shape)
-    if (isMouseDown) {
+    // Don't show hover controls if mouse button is pressed externally (user is dragging a shape)
+    // But allow hover if the mouse down was on our own controls
+    if (isExternalMouseDown) {
       setHoveredGuide(null);
       return;
     }
@@ -176,7 +181,7 @@ export default function GuidelineOverlay({
     }
     
     setHoveredGuide(found);
-  }, [mousePos, guides, draggingGuide, isMouseDown, screenToWorld, svgRef, viewBox, hoveredGuide]);
+  }, [mousePos, guides, draggingGuide, isExternalMouseDown, screenToWorld, svgRef, viewBox, hoveredGuide]);
 
   const startDrag = useCallback((guide, e) => {
     e.stopPropagation();
