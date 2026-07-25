@@ -239,27 +239,30 @@ export default function Rulers({
 }) {
   const [dragging, setDragging] = useState(null);
 
-  const screenToWorld = useCallback((screenX, screenY, containerWidth, containerHeight) => {
-    const rulerOffset = RULER_SIZE;
-    const svgWidth = containerWidth - rulerOffset;
-    const svgHeight = containerHeight - rulerOffset;
+  // Convert screen coordinates (relative to viewport container) to world coordinates
+  const screenToWorld = useCallback((clientX, clientY, containerRect) => {
+    // The SVG area starts after the ruler offset
+    const svgLeft = containerRect.left + RULER_SIZE;
+    const svgTop = containerRect.top + RULER_SIZE;
+    const svgWidth = width - RULER_SIZE;
+    const svgHeight = height - RULER_SIZE;
     
-    const worldX = viewBox.x + ((screenX - rulerOffset) / svgWidth) * viewBox.w;
-    const worldY = viewBox.y + ((screenY - rulerOffset) / svgHeight) * viewBox.h;
+    // Position relative to SVG area
+    const relX = clientX - svgLeft;
+    const relY = clientY - svgTop;
+    
+    // Convert to world coordinates
+    const worldX = viewBox.x + (relX / svgWidth) * viewBox.w;
+    const worldY = viewBox.y + (relY / svgHeight) * viewBox.h;
     
     return { worldX, worldY };
-  }, [viewBox]);
+  }, [viewBox, width, height]);
 
   const handleStartDrag = useCallback((orientation, screenX, screenY, e) => {
     e.preventDefault();
     
     const containerRect = e.currentTarget.parentElement.getBoundingClientRect();
-    const { worldX, worldY } = screenToWorld(
-      e.clientX - containerRect.left,
-      e.clientY - containerRect.top,
-      width,
-      height
-    );
+    const { worldX, worldY } = screenToWorld(e.clientX, e.clientY, containerRect);
     
     const newGuide = {
       id: Date.now(),
@@ -269,31 +272,19 @@ export default function Rulers({
     
     onAddGuide?.(newGuide);
     setDragging({ id: newGuide.id, orientation, containerRect });
-  }, [screenToWorld, width, height, onAddGuide]);
+  }, [screenToWorld, onAddGuide]);
 
   useEffect(() => {
     if (!dragging) return;
 
     const handleMouseMove = (e) => {
-      const { worldX, worldY } = screenToWorld(
-        e.clientX - dragging.containerRect.left,
-        e.clientY - dragging.containerRect.top,
-        width,
-        height
-      );
-      
+      const { worldX, worldY } = screenToWorld(e.clientX, e.clientY, dragging.containerRect);
       const position = dragging.orientation === 'horizontal' ? worldY : worldX;
       onUpdateGuide?.(dragging.id, position);
     };
 
     const handleMouseUp = (e) => {
-      const { worldX, worldY } = screenToWorld(
-        e.clientX - dragging.containerRect.left,
-        e.clientY - dragging.containerRect.top,
-        width,
-        height
-      );
-      
+      // Check if released over the ruler (to delete)
       const isOverRuler = dragging.orientation === 'horizontal'
         ? (e.clientY - dragging.containerRect.top) < RULER_SIZE
         : (e.clientX - dragging.containerRect.left) < RULER_SIZE;
