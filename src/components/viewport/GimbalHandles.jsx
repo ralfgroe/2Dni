@@ -128,6 +128,10 @@ export default function GimbalHandles({ geometry, node, definition, screenToSvg,
     // rotate handle still edits the `rotation` param.
     handles = renderBoxHandles(geometry.bounds, startDrag, viewBox, 0, rotCenter(node));
   } else if (defId === 'transform') handles = renderTransformHandles(geometry, node, startDrag, viewBox);
+  else if (defId === 'text') {
+    // Text uses box handles for move (no resize/rotate for now)
+    handles = renderBoxHandles(geometry.bounds, startDrag, viewBox, 0, { x: node.data.params.x || 0, y: node.data.params.y || 0 });
+  }
   else handles = renderBoundsHandles(geometry, startDrag);
 
   return (
@@ -299,14 +303,20 @@ function applyDrag(type, dx, dy, startParams, nodeId, defId, updateNodeParams, m
         pivot_y: Math.round((startParams.pivot_y || 0) + dy),
       });
     }
+  } else if (defId === 'text') {
+    if (type === 'move') {
+      applyParam({
+        x: Math.round((startParams.x || 0) + dx),
+        y: Math.round((startParams.y || 0) + dy),
+      });
+    }
   } else {
     if (type === 'move') {
-      if (startParams.x !== undefined) {
-        applyParam({
-          x: Math.round((startParams.x || 0) + dx),
-          y: Math.round((startParams.y || 0) + dy),
-        });
-      }
+      // Generic fallback for any node with x/y position parameters.
+      applyParam({
+        x: Math.round((startParams.x || 0) + dx),
+        y: Math.round((startParams.y || 0) + dy),
+      });
     }
   }
 }
