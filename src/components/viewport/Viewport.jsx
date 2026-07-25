@@ -245,14 +245,6 @@ export default function Viewport() {
       const horizontalGuides = guides.filter(g => g.orientation === 'horizontal' && g.magnetic !== false);
       const verticalGuides = guides.filter(g => g.orientation === 'vertical' && g.magnetic !== false);
       
-      console.log('Adding guideline snap points:', { 
-        showRulers, 
-        guidesCount: guides.length,
-        horizontalCount: horizontalGuides.length,
-        verticalCount: verticalGuides.length,
-        guides: guides.map(g => ({ id: g.id, orientation: g.orientation, magnetic: g.magnetic, position: g.position }))
-      });
-      
       for (const hGuide of horizontalGuides) {
         for (const vGuide of verticalGuides) {
           const x = vGuide.position;
@@ -261,7 +253,6 @@ export default function Viewport() {
           if (!seen.has(key)) {
             seen.add(key);
             pts.push({ x, y });
-            console.log('Added crosshair point:', { x, y });
           }
         }
       }
@@ -297,7 +288,6 @@ export default function Viewport() {
       }
     }
     
-    console.log('Total snap candidates:', pts.length);
     return pts;
   }, [snapPoints, selectedNodeId, results, allResults, showRulers, guides, viewBox]);
 

@@ -87,13 +87,10 @@ export default function GuidelineOverlay({
     // Get the current magnetic state of the guide being dragged
     const currentGuide = guides.find(g => g.id === draggingGuide.id);
     const isMagnetic = currentGuide?.magnetic !== false;
-    
-    console.log('Drag started:', { draggingGuide, isMagnetic, rulerUnit, viewBox });
 
     const handleMouseMove = (e) => {
       const world = screenToWorld(e.clientX, e.clientY);
       let newPosition = draggingGuide.orientation === 'horizontal' ? world.y : world.x;
-      const originalPosition = newPosition;
       
       // For magnetic guidelines, always try to snap to ruler ticks first
       if (isMagnetic) {
@@ -104,17 +101,8 @@ export default function GuidelineOverlay({
         
         // Snap if within 2% of viewport
         const snapDistance = Math.max(viewBox.w, viewBox.h) * 0.02;
-        console.log('Ruler snap check:', { 
-          newPosition, 
-          snappedPosition, 
-          diff: Math.abs(newPosition - snappedPosition),
-          snapDistance,
-          unitScale,
-          rulerUnit
-        });
         if (Math.abs(newPosition - snappedPosition) < snapDistance) {
           newPosition = snappedPosition;
-          console.log('Snapped to ruler tick:', snappedPosition);
         }
       }
       
@@ -122,7 +110,6 @@ export default function GuidelineOverlay({
       const snapPos = findSnapPoint(newPosition, draggingGuide.orientation);
       if (snapPos !== null) {
         newPosition = snapPos;
-        console.log('Snapped to geometry:', snapPos);
       }
       
       onUpdateGuide(draggingGuide.id, newPosition);
