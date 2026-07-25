@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 
 const GUIDE_COLOR = '#06b6d4';
@@ -16,6 +16,7 @@ export default function GuidelineOverlay({
   const [hoveredGuide, setHoveredGuide] = useState(null);
   const [draggingGuide, setDraggingGuide] = useState(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const mouseOverControlsRef = useRef(false);
 
   // Convert screen coordinates to world coordinates
   const screenToWorld = useCallback((clientX, clientY) => {
@@ -114,6 +115,9 @@ export default function GuidelineOverlay({
   useEffect(() => {
     if (draggingGuide) return;
     
+    // Don't change hover state if mouse is over the control buttons
+    if (mouseOverControlsRef.current) return;
+    
     const world = screenToWorld(mousePos.x, mousePos.y);
     const svg = svgRef?.current;
     if (!svg) return;
@@ -183,6 +187,8 @@ export default function GuidelineOverlay({
     return createPortal(
       <div
         key={`controls-${guide.id}`}
+        onMouseEnter={() => { mouseOverControlsRef.current = true; }}
+        onMouseLeave={() => { mouseOverControlsRef.current = false; }}
         style={{
           position: 'fixed',
           left: controlPos.x + offsetX,
@@ -193,6 +199,8 @@ export default function GuidelineOverlay({
           zIndex: 1000,
           pointerEvents: 'auto',
           animation: 'guideControlsFadeIn 0.15s ease-out',
+          padding: 4,
+          margin: -4,
         }}
       >
         <style>{`
