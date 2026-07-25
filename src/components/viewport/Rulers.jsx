@@ -296,7 +296,11 @@ export default function Rulers({
       // Snap if within 5% of viewport
       const viewSize = dragging.orientation === 'horizontal' ? viewBox.h : viewBox.w;
       const snapDistance = viewSize * 0.05;
+      
+      console.log('RULER DRAG:', { position, snappedPosition, diff: Math.abs(position - snappedPosition), snapDistance, unit, unitScale });
+      
       if (Math.abs(position - snappedPosition) < snapDistance) {
+        console.log('SNAPPING TO:', snappedPosition);
         position = snappedPosition;
       }
       
