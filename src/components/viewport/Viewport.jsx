@@ -581,6 +581,7 @@ export default function Viewport() {
           onUpdateGuide={updateGuide}
           onRemoveGuide={removeGuide}
           onClearGuides={clearGuides}
+          svgRef={svgRef}
         />
       )}
       

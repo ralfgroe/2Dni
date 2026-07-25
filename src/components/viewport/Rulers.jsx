@@ -236,33 +236,35 @@ export default function Rulers({
   onUpdateGuide,
   onRemoveGuide,
   onClearGuides,
+  svgRef,
 }) {
   const [dragging, setDragging] = useState(null);
 
-  // Convert screen coordinates (relative to viewport container) to world coordinates
-  const screenToWorld = useCallback((clientX, clientY, containerRect) => {
-    // The SVG area starts after the ruler offset
-    const svgLeft = containerRect.left + RULER_SIZE;
-    const svgTop = containerRect.top + RULER_SIZE;
-    const svgWidth = width - RULER_SIZE;
-    const svgHeight = height - RULER_SIZE;
+  // Convert screen coordinates to world coordinates using the actual SVG element
+  const screenToWorld = useCallback((clientX, clientY) => {
+    const svg = svgRef?.current;
+    if (!svg) {
+      // Fallback calculation
+      return { worldX: viewBox.x, worldY: viewBox.y };
+    }
     
-    // Position relative to SVG area
-    const relX = clientX - svgLeft;
-    const relY = clientY - svgTop;
+    const svgRect = svg.getBoundingClientRect();
+    
+    // Position relative to SVG element
+    const relX = clientX - svgRect.left;
+    const relY = clientY - svgRect.top;
     
     // Convert to world coordinates
-    const worldX = viewBox.x + (relX / svgWidth) * viewBox.w;
-    const worldY = viewBox.y + (relY / svgHeight) * viewBox.h;
+    const worldX = viewBox.x + (relX / svgRect.width) * viewBox.w;
+    const worldY = viewBox.y + (relY / svgRect.height) * viewBox.h;
     
     return { worldX, worldY };
-  }, [viewBox, width, height]);
+  }, [viewBox, svgRef]);
 
   const handleStartDrag = useCallback((orientation, screenX, screenY, e) => {
     e.preventDefault();
     
-    const containerRect = e.currentTarget.parentElement.getBoundingClientRect();
-    const { worldX, worldY } = screenToWorld(e.clientX, e.clientY, containerRect);
+    const { worldX, worldY } = screenToWorld(e.clientX, e.clientY);
     
     const newGuide = {
       id: Date.now(),
@@ -271,26 +273,30 @@ export default function Rulers({
     };
     
     onAddGuide?.(newGuide);
-    setDragging({ id: newGuide.id, orientation, containerRect });
+    setDragging({ id: newGuide.id, orientation });
   }, [screenToWorld, onAddGuide]);
 
   useEffect(() => {
     if (!dragging) return;
 
     const handleMouseMove = (e) => {
-      const { worldX, worldY } = screenToWorld(e.clientX, e.clientY, dragging.containerRect);
+      const { worldX, worldY } = screenToWorld(e.clientX, e.clientY);
       const position = dragging.orientation === 'horizontal' ? worldY : worldX;
       onUpdateGuide?.(dragging.id, position);
     };
 
     const handleMouseUp = (e) => {
-      // Check if released over the ruler (to delete)
-      const isOverRuler = dragging.orientation === 'horizontal'
-        ? (e.clientY - dragging.containerRect.top) < RULER_SIZE
-        : (e.clientX - dragging.containerRect.left) < RULER_SIZE;
-      
-      if (isOverRuler) {
-        onRemoveGuide?.(dragging.id);
+      const svg = svgRef?.current;
+      if (svg) {
+        const svgRect = svg.getBoundingClientRect();
+        // Check if released over the ruler area (outside SVG bounds toward the rulers)
+        const isOverRuler = dragging.orientation === 'horizontal'
+          ? e.clientY < svgRect.top
+          : e.clientX < svgRect.left;
+        
+        if (isOverRuler) {
+          onRemoveGuide?.(dragging.id);
+        }
       }
       
       setDragging(null);
@@ -303,7 +309,7 @@ export default function Rulers({
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [dragging, screenToWorld, width, height, onUpdateGuide, onRemoveGuide]);
+  }, [dragging, screenToWorld, svgRef, onUpdateGuide, onRemoveGuide]);
 
   return (
     <>
