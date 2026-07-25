@@ -99,12 +99,31 @@ export default function GuidelineOverlay({
       // For magnetic guidelines, always try to snap to ruler ticks first
       if (isMagnetic) {
         const unitScale = UNITS[rulerUnit]?.scale || 1;
+        
+        // Determine the major tick interval based on viewport size
+        // Horizontal guidelines move vertically (Y), so use viewBox.h
+        // Vertical guidelines move horizontally (X), so use viewBox.w
+        const viewSize = draggingGuide.orientation === 'horizontal' ? viewBox.h : viewBox.w;
+        const targetTicks = 10;
+        const rawInterval = viewSize / targetTicks / unitScale;
+        
+        // Round to a nice number
+        const niceIntervals = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];
+        let tickInterval = niceIntervals[0];
+        for (const interval of niceIntervals) {
+          if (interval >= rawInterval) {
+            tickInterval = interval;
+            break;
+          }
+          tickInterval = interval;
+        }
+        
         const positionInUnits = newPosition / unitScale;
-        const snappedUnits = Math.round(positionInUnits);
+        const snappedUnits = Math.round(positionInUnits / tickInterval) * tickInterval;
         const snappedPosition = snappedUnits * unitScale;
         
-        // Snap if within 5% of viewport (generous snap distance)
-        const snapDistance = Math.max(viewBox.w, viewBox.h) * 0.05;
+        // Snap if within 3% of viewport
+        const snapDistance = viewSize * 0.03;
         if (Math.abs(newPosition - snappedPosition) < snapDistance) {
           newPosition = snappedPosition;
         }
