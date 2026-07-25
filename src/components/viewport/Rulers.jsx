@@ -240,26 +240,29 @@ export default function Rulers({
 }) {
   const [dragging, setDragging] = useState(null);
 
-  // Convert screen coordinates to world coordinates using the actual SVG element
+  // Convert screen coordinates to world coordinates using SVG's coordinate system
   const screenToWorld = useCallback((clientX, clientY) => {
     const svg = svgRef?.current;
     if (!svg) {
-      // Fallback calculation
       return { worldX: viewBox.x, worldY: viewBox.y };
     }
     
-    const svgRect = svg.getBoundingClientRect();
+    // Use SVG's built-in coordinate transformation
+    // This correctly handles preserveAspectRatio and any transforms
+    const point = svg.createSVGPoint();
+    point.x = clientX;
+    point.y = clientY;
     
-    // Position relative to SVG element
-    const relX = clientX - svgRect.left;
-    const relY = clientY - svgRect.top;
+    // Get the inverse of the screen-to-SVG transformation matrix
+    const ctm = svg.getScreenCTM();
+    if (!ctm) {
+      return { worldX: viewBox.x, worldY: viewBox.y };
+    }
     
-    // Convert to world coordinates
-    const worldX = viewBox.x + (relX / svgRect.width) * viewBox.w;
-    const worldY = viewBox.y + (relY / svgRect.height) * viewBox.h;
+    const svgPoint = point.matrixTransform(ctm.inverse());
     
-    return { worldX, worldY };
-  }, [viewBox, svgRef]);
+    return { worldX: svgPoint.x, worldY: svgPoint.y };
+  }, [svgRef, viewBox]);
 
   const handleStartDrag = useCallback((orientation, screenX, screenY, e) => {
     e.preventDefault();
