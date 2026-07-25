@@ -7,6 +7,7 @@ export function rectangleRuntime(params) {
     x = 0,
     y = 0,
     fill_color = '#ffffff',
+    stroke_enabled = true,
     stroke_color = '#000000',
     stroke_width = 1,
   } = params;
@@ -23,8 +24,8 @@ export function rectangleRuntime(params) {
     width: w,
     height: h,
     fill: fill_color,
-    stroke: stroke_color,
-    strokeWidth: stroke_width,
+    stroke: stroke_enabled ? stroke_color : 'none',
+    strokeWidth: stroke_enabled ? stroke_width : 0,
     bounds: { x: drawX, y: drawY, width: w, height: h },
   };
 

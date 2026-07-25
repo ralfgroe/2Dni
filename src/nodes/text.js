@@ -18,6 +18,8 @@ export function textRuntime(params) {
     font_style = 'normal',
     letter_spacing = 0,
     text_align = 'left',
+    x = 0,
+    y = 0,
     fill_color = '#000000',
     stroke_color = '#000000',
     stroke_width = 0,
@@ -35,10 +37,12 @@ export function textRuntime(params) {
     fontStyle: font_style,
     letterSpacing: letter_spacing,
     textAlign: text_align,
+    x,
+    y,
     fill: fill_color,
     stroke: stroke_width > 0 ? stroke_color : 'none',
     strokeWidth: stroke_width,
-    bounds: { x: 0, y: 0, width: estWidth, height: font_size },
+    bounds: { x, y, width: estWidth, height: font_size },
   };
 
   if (!to_outlines) return baseGeo;
@@ -63,9 +67,16 @@ export function textRuntime(params) {
   return {
     type: 'booleanResult',
     pathData: outlined.pathData,
+    x,
+    y,
     fill: fill_color,
     stroke: stroke_width > 0 ? stroke_color : 'none',
     strokeWidth: stroke_width,
-    bounds: outlined.bounds,
+    bounds: {
+      x: outlined.bounds.x + x,
+      y: outlined.bounds.y + y,
+      width: outlined.bounds.width,
+      height: outlined.bounds.height,
+    },
   };
 }

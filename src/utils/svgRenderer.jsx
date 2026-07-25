@@ -123,8 +123,8 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
       return (
         <text
           key={nodeId}
-          x={0}
-          y={geo.fontSize}
+          x={geo.x || 0}
+          y={(geo.y || 0) + geo.fontSize}
           fontFamily={geo.fontFamily}
           fontSize={geo.fontSize}
           fontWeight={geo.fontWeight}
