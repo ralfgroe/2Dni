@@ -91,14 +91,14 @@ export default function GuidelineOverlay({
     const snappedUnits = Math.round(positionInUnits);
     const snappedPosition = snappedUnits * unitScale;
     
-    // Only snap if close enough (within 5 world units)
-    const snapDistance = 5;
+    // Snap distance relative to viewport size (about 1% of viewport)
+    const snapDistance = Math.max(viewBox.w, viewBox.h) * 0.02;
     if (Math.abs(position - snappedPosition) < snapDistance) {
       return snappedPosition;
     }
     
     return position;
-  }, [rulerUnit]);
+  }, [rulerUnit, viewBox]);
 
   // Handle mouse move for dragging
   useEffect(() => {

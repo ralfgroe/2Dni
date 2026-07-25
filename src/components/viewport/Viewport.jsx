@@ -239,8 +239,7 @@ export default function Viewport() {
     }
     
     // Add magnetic guidelines as snap targets - works independently of global snap
-    // Only need a selected node to be dragging
-    if (showRulers && guides.length > 0 && selectedNodeId) {
+    if (showRulers && guides.length > 0) {
       // First, add intersection points (crosshairs) where guidelines meet
       // These are high-priority snap targets
       const horizontalGuides = guides.filter(g => g.orientation === 'horizontal' && g.magnetic !== false);
@@ -263,8 +262,8 @@ export default function Viewport() {
         if (guide.magnetic === false) continue; // Skip non-magnetic guides
         
         // For guidelines, we need dense coverage so any shape vertex can find a nearby point
-        // Add points at very fine intervals along the guideline
-        const step = 1; // 1 world unit spacing for fine-grained snapping
+        // Use a reasonable step size based on viewport
+        const step = Math.max(1, Math.min(viewBox.w, viewBox.h) / 500);
         const start = guide.orientation === 'horizontal' 
           ? viewBox.x - viewBox.w 
           : viewBox.y - viewBox.h;
