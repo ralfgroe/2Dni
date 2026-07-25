@@ -188,7 +188,10 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
       );
     }
 
-    case 'booleanResult':
+    case 'booleanResult': {
+      const tx = geo.x || 0;
+      const ty = geo.y || 0;
+      const transform = (tx !== 0 || ty !== 0) ? `translate(${tx}, ${ty})` : undefined;
       return (
         <path
           key={nodeId}
@@ -198,12 +201,14 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
           stroke={geo.stroke}
           strokeWidth={geo.strokeWidth}
           opacity={geoOpacity}
+          transform={transform}
           onClick={handleClick}
           className="cursor-pointer"
           filter={isSelected ? 'url(#selection-glow)' : undefined}
           {...dash}
         />
       );
+    }
 
     case 'export':
       if (geo.geometry) {
