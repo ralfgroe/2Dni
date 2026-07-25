@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 import { useNodeRegistryStore } from './store/nodeRegistryStore';
 import { useGraphStore } from './store/graphStore';
@@ -8,7 +8,17 @@ import NodeGraph from './components/nodegraph/NodeGraph';
 import ParameterPanel from './components/parameters/ParameterPanel';
 import './App.css';
 
-function ResizeHandle({ direction = 'horizontal' }) {
+// Content that can live in any pane. The layout order is stored as a list of
+// these keys, so panes can be swapped without touching each panel's own size.
+const PANE_CONTENT = {
+  viewport: { render: () => <Viewport />, defaultSize: 40, min: 20 },
+  nodegraph: { render: () => <NodeGraph />, defaultSize: 35, min: 15 },
+  params: { render: () => <ParameterPanel />, defaultSize: 25, min: 12 },
+};
+
+const DEFAULT_ORDER = ['viewport', 'nodegraph', 'params'];
+
+function ResizeHandle({ direction = 'horizontal', onSwap }) {
   const isVertical = direction === 'vertical';
   return (
     <Separator
@@ -18,12 +28,42 @@ function ResizeHandle({ direction = 'horizontal' }) {
         bg-border-primary transition-colors hover:bg-accent
       `}
     >
-      <div
-        className={`
-          rounded-full bg-text-muted transition-colors group-hover:bg-white
-          ${isVertical ? 'h-0.5 w-8' : 'h-8 w-0.5'}
-        `}
-      />
+      {onSwap && (
+        <button
+          type="button"
+          title="Swap the two panes"
+          aria-label="Swap the two panes"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSwap();
+          }}
+          className={`
+            absolute z-10 flex items-center justify-center rounded-full
+            border border-border-primary bg-bg-secondary text-text-secondary
+            opacity-0 shadow transition-all
+            group-hover:opacity-100 hover:bg-accent hover:text-white
+            ${isVertical ? 'h-4 w-6 cursor-pointer' : 'h-6 w-4 cursor-pointer'}
+          `}
+        >
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={isVertical ? { transform: 'rotate(90deg)' } : undefined}
+          >
+            <polyline points="17 1 21 5 17 9" />
+            <path d="M3 5h18" />
+            <polyline points="7 23 3 19 7 15" />
+            <path d="M21 19H3" />
+          </svg>
+        </button>
+      )}
     </Separator>
   );
 }
@@ -32,6 +72,16 @@ export default function App() {
   const loadDefinitions = useNodeRegistryStore((s) => s.loadDefinitions);
   const loaded = useNodeRegistryStore((s) => s.loaded);
   const undo = useGraphStore((s) => s.undo);
+
+  const [order, setOrder] = useState(DEFAULT_ORDER);
+
+  const swapPanes = (leftIndex) => {
+    setOrder((prev) => {
+      const next = [...prev];
+      [next[leftIndex], next[leftIndex + 1]] = [next[leftIndex + 1], next[leftIndex]];
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!loaded) loadDefinitions();
@@ -52,22 +102,28 @@ export default function App() {
     <div className="flex h-full flex-col">
       <Toolbar />
 
-      <Group direction="horizontal" autoSaveId="2dni-layout-h2">
-        <Panel defaultSize={40} min={20}>
-          <Viewport />
-        </Panel>
-
-        <ResizeHandle direction="horizontal" />
-
-        <Panel defaultSize={35} min={15}>
-          <NodeGraph />
-        </Panel>
-
-        <ResizeHandle direction="horizontal" />
-
-        <Panel defaultSize={25} min={12}>
-          <ParameterPanel />
-        </Panel>
+      {/* key tied to the order so panels remount cleanly when swapped */}
+      <Group
+        key={order.join('-')}
+        direction="horizontal"
+        autoSaveId="2dni-layout-h2"
+      >
+        {order.map((paneKey, index) => {
+          const pane = PANE_CONTENT[paneKey];
+          return (
+            <Fragment key={paneKey}>
+              <Panel defaultSize={pane.defaultSize} min={pane.min}>
+                {pane.render()}
+              </Panel>
+              {index < order.length - 1 && (
+                <ResizeHandle
+                  direction="horizontal"
+                  onSwap={() => swapPanes(index)}
+                />
+              )}
+            </Fragment>
+          );
+        })}
       </Group>
     </div>
   );
