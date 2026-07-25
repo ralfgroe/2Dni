@@ -22,6 +22,8 @@ export default function GuidelineOverlay({
   snapPoints = [],
   snapThreshold = 10,
   rulerUnit = 'px',
+  viewportWidth = 800,
+  viewportHeight = 600,
 }) {
   const [hoveredGuide, setHoveredGuide] = useState(null);
   const [draggingGuide, setDraggingGuide] = useState(null);
@@ -100,40 +102,39 @@ export default function GuidelineOverlay({
       if (isMagnetic) {
         const unitScale = UNITS[rulerUnit]?.scale || 1;
         
-        // Get screen dimensions from SVG to match ruler tick calculation
-        const svg = svgRef?.current;
-        const svgRect = svg?.getBoundingClientRect();
-        
-        // Horizontal guidelines move vertically (Y), so use height and viewBox.h
-        // Vertical guidelines move horizontally (X), so use width and viewBox.w
+        // Horizontal guidelines move vertically (Y), so use viewportHeight and viewBox.h (matches VerticalRuler)
+        // Vertical guidelines move horizontally (X), so use viewportWidth and viewBox.w (matches HorizontalRuler)
         const viewRange = draggingGuide.orientation === 'horizontal' ? viewBox.h : viewBox.w;
-        const availablePixels = draggingGuide.orientation === 'horizontal' 
-          ? (svgRect?.height || 500) 
-          : (svgRect?.width || 500);
+        const availablePixels = draggingGuide.orientation === 'horizontal' ? viewportHeight : viewportWidth;
         
-        // Match the ruler's tick spacing calculation exactly
+        // Use the exact same calculation as getTickSpacing in Rulers.jsx
         const unitsVisible = viewRange / unitScale;
-        const targetTickCount = availablePixels / 50; // Same as ruler: availablePixels / 50
+        const pixelsPerUnit = availablePixels / unitsVisible;
+        const targetTickCount = availablePixels / 50;
         const idealStep = unitsVisible / targetTickCount;
         
-        // Round to a nice number (same list as ruler)
+        // Round to a nice number (same list as getTickSpacing)
         const niceSteps = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
-        let tickInterval = niceSteps[0];
+        let step = niceSteps[0];
         for (const s of niceSteps) {
           if (s >= idealStep) {
-            tickInterval = s;
+            step = s;
             break;
           }
-          tickInterval = s;
+          step = s;
         }
         
+        // Snap to the nearest major tick (in units, then convert back to world)
         const positionInUnits = newPosition / unitScale;
-        const snappedUnits = Math.round(positionInUnits / tickInterval) * tickInterval;
+        const snappedUnits = Math.round(positionInUnits / step) * step;
         const snappedPosition = snappedUnits * unitScale;
         
-        // Snap if within 3% of view range
-        const snapDistance = viewRange * 0.03;
-        if (Math.abs(newPosition - snappedPosition) < snapDistance) {
+        // Snap if within a reasonable distance (half a minor tick in pixels, converted to world units)
+        const minorTickPixels = (step / 5) * pixelsPerUnit;
+        const snapPixelThreshold = Math.max(minorTickPixels * 0.5, 10);
+        const snapWorldThreshold = snapPixelThreshold * (viewRange / availablePixels);
+        
+        if (Math.abs(newPosition - snappedPosition) < snapWorldThreshold) {
           newPosition = snappedPosition;
         }
       }
@@ -159,7 +160,7 @@ export default function GuidelineOverlay({
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [draggingGuide, guides, screenToWorld, findSnapPoint, rulerUnit, viewBox, onUpdateGuide]);
+  }, [draggingGuide, guides, screenToWorld, findSnapPoint, rulerUnit, viewBox, onUpdateGuide, viewportWidth, viewportHeight]);
 
   // Track mouse position for hover detection
   useEffect(() => {

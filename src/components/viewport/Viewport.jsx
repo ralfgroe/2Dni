@@ -826,6 +826,8 @@ export default function Viewport() {
             snapPoints={guidelineSnapPoints}
             snapThreshold={15}
             rulerUnit={rulerUnit}
+            viewportWidth={viewportSize.width}
+            viewportHeight={viewportSize.height}
           />
         )}
 

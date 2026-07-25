@@ -288,49 +288,48 @@ export default function Rulers({
       const { worldX, worldY } = screenToWorld(e.clientX, e.clientY);
       let position = dragging.orientation === 'horizontal' ? worldY : worldX;
       
-      // Snap to major ruler tick marks - use same calculation as ruler display
+      // Snap to major ruler tick marks - use EXACTLY the same calculation as ruler display
       const unitScale = UNITS[unit]?.scale || 1;
       
-      // Get screen dimensions from SVG to match ruler tick calculation
-      const svg = svgRef?.current;
-      const svgRect = svg?.getBoundingClientRect();
-      
-      // Horizontal guidelines move vertically (Y), so use height and viewBox.h
-      // Vertical guidelines move horizontally (X), so use width and viewBox.w
+      // Horizontal guidelines move vertically (Y), so use height and viewBox.h (matches VerticalRuler)
+      // Vertical guidelines move horizontally (X), so use width and viewBox.w (matches HorizontalRuler)
       const viewRange = dragging.orientation === 'horizontal' ? viewBox.h : viewBox.w;
-      const availablePixels = dragging.orientation === 'horizontal' 
-        ? (svgRect?.height || height) 
-        : (svgRect?.width || width);
+      const availablePixels = dragging.orientation === 'horizontal' ? height : width;
       
-      // Match the ruler's tick spacing calculation exactly
+      // Use getTickSpacing to get the exact same step as the ruler display
       const unitsVisible = viewRange / unitScale;
-      const targetTickCount = availablePixels / 50; // Same as ruler: availablePixels / 50
+      const pixelsPerUnit = availablePixels / unitsVisible;
+      const targetTickCount = availablePixels / 50;
       const idealStep = unitsVisible / targetTickCount;
       
-      // Round to a nice number (same list as ruler)
+      // Round to a nice number (same list as getTickSpacing)
       const niceSteps = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
-      let tickInterval = niceSteps[0];
+      let step = niceSteps[0];
       for (const s of niceSteps) {
         if (s >= idealStep) {
-          tickInterval = s;
+          step = s;
           break;
         }
-        tickInterval = s;
+        step = s;
       }
       
+      // Snap to the nearest major tick (in units, then convert back to world)
       const positionInUnits = position / unitScale;
-      const snappedUnits = Math.round(positionInUnits / tickInterval) * tickInterval;
+      const snappedUnits = Math.round(positionInUnits / step) * step;
       const snappedPosition = snappedUnits * unitScale;
       
-      // Snap if within 3% of view range (ruler tick snap)
-      const rulerSnapDistance = viewRange * 0.03;
-      if (Math.abs(position - snappedPosition) < rulerSnapDistance) {
+      // Snap if within a reasonable distance (half a minor tick in pixels, converted to world units)
+      const minorTickPixels = (step / 5) * pixelsPerUnit;
+      const snapPixelThreshold = Math.max(minorTickPixels * 0.5, 10); // At least 10 pixels
+      const snapWorldThreshold = snapPixelThreshold * (viewRange / availablePixels);
+      
+      if (Math.abs(position - snappedPosition) < snapWorldThreshold) {
         position = snappedPosition;
       }
       
       // Also try to snap to geometry control points (takes priority if closer)
       if (geometrySnapPoints && geometrySnapPoints.length > 0) {
-        const geoSnapDistance = viewRange * 0.05; // 5% of view range for geometry snap
+        const geoSnapDistance = viewRange * 0.05;
         let nearestGeo = null;
         let minGeoDist = geoSnapDistance;
         
