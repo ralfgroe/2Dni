@@ -288,39 +288,49 @@ export default function Rulers({
       const { worldX, worldY } = screenToWorld(e.clientX, e.clientY);
       let position = dragging.orientation === 'horizontal' ? worldY : worldX;
       
-      // Snap to major ruler tick marks (multiples of 100 in px, or appropriate for other units)
+      // Snap to major ruler tick marks - use same calculation as ruler display
       const unitScale = UNITS[unit]?.scale || 1;
       
-      // Determine the major tick interval based on viewport size
-      // Use nice round numbers: 10, 2, 5, 10, 20, 50, 100, 200, 500, etc.
-      const viewSize = dragging.orientation === 'horizontal' ? viewBox.h : viewBox.w;
-      const targetTicks = 10; // Aim for about 10 major ticks
-      const rawInterval = viewSize / targetTicks / unitScale;
+      // Get screen dimensions from SVG to match ruler tick calculation
+      const svg = svgRef?.current;
+      const svgRect = svg?.getBoundingClientRect();
       
-      // Round to a nice number
-      const niceIntervals = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];
-      let tickInterval = niceIntervals[0];
-      for (const interval of niceIntervals) {
-        if (interval >= rawInterval) {
-          tickInterval = interval;
+      // Horizontal guidelines move vertically (Y), so use height and viewBox.h
+      // Vertical guidelines move horizontally (X), so use width and viewBox.w
+      const viewRange = dragging.orientation === 'horizontal' ? viewBox.h : viewBox.w;
+      const availablePixels = dragging.orientation === 'horizontal' 
+        ? (svgRect?.height || height) 
+        : (svgRect?.width || width);
+      
+      // Match the ruler's tick spacing calculation exactly
+      const unitsVisible = viewRange / unitScale;
+      const targetTickCount = availablePixels / 50; // Same as ruler: availablePixels / 50
+      const idealStep = unitsVisible / targetTickCount;
+      
+      // Round to a nice number (same list as ruler)
+      const niceSteps = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
+      let tickInterval = niceSteps[0];
+      for (const s of niceSteps) {
+        if (s >= idealStep) {
+          tickInterval = s;
           break;
         }
-        tickInterval = interval;
+        tickInterval = s;
       }
       
       const positionInUnits = position / unitScale;
       const snappedUnits = Math.round(positionInUnits / tickInterval) * tickInterval;
       const snappedPosition = snappedUnits * unitScale;
       
-      // Snap if within 3% of viewport (ruler tick snap)
-      const rulerSnapDistance = viewSize * 0.03;
+      // Snap if within 3% of view range (ruler tick snap)
+      const rulerSnapDistance = viewRange * 0.03;
       if (Math.abs(position - snappedPosition) < rulerSnapDistance) {
         position = snappedPosition;
       }
       
       // Also try to snap to geometry control points (takes priority if closer)
       if (geometrySnapPoints && geometrySnapPoints.length > 0) {
-        const geoSnapDistance = viewSize * 0.05; // 5% of viewport for geometry snap
+        const geoSnapDistance = viewRange * 0.05; // 5% of view range for geometry snap
         let nearestGeo = null;
         let minGeoDist = geoSnapDistance;
         

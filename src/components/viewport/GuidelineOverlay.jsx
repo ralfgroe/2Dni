@@ -100,30 +100,39 @@ export default function GuidelineOverlay({
       if (isMagnetic) {
         const unitScale = UNITS[rulerUnit]?.scale || 1;
         
-        // Determine the major tick interval based on viewport size
-        // Horizontal guidelines move vertically (Y), so use viewBox.h
-        // Vertical guidelines move horizontally (X), so use viewBox.w
-        const viewSize = draggingGuide.orientation === 'horizontal' ? viewBox.h : viewBox.w;
-        const targetTicks = 10;
-        const rawInterval = viewSize / targetTicks / unitScale;
+        // Get screen dimensions from SVG to match ruler tick calculation
+        const svg = svgRef?.current;
+        const svgRect = svg?.getBoundingClientRect();
         
-        // Round to a nice number
-        const niceIntervals = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];
-        let tickInterval = niceIntervals[0];
-        for (const interval of niceIntervals) {
-          if (interval >= rawInterval) {
-            tickInterval = interval;
+        // Horizontal guidelines move vertically (Y), so use height and viewBox.h
+        // Vertical guidelines move horizontally (X), so use width and viewBox.w
+        const viewRange = draggingGuide.orientation === 'horizontal' ? viewBox.h : viewBox.w;
+        const availablePixels = draggingGuide.orientation === 'horizontal' 
+          ? (svgRect?.height || 500) 
+          : (svgRect?.width || 500);
+        
+        // Match the ruler's tick spacing calculation exactly
+        const unitsVisible = viewRange / unitScale;
+        const targetTickCount = availablePixels / 50; // Same as ruler: availablePixels / 50
+        const idealStep = unitsVisible / targetTickCount;
+        
+        // Round to a nice number (same list as ruler)
+        const niceSteps = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
+        let tickInterval = niceSteps[0];
+        for (const s of niceSteps) {
+          if (s >= idealStep) {
+            tickInterval = s;
             break;
           }
-          tickInterval = interval;
+          tickInterval = s;
         }
         
         const positionInUnits = newPosition / unitScale;
         const snappedUnits = Math.round(positionInUnits / tickInterval) * tickInterval;
         const snappedPosition = snappedUnits * unitScale;
         
-        // Snap if within 3% of viewport
-        const snapDistance = viewSize * 0.03;
+        // Snap if within 3% of view range
+        const snapDistance = viewRange * 0.03;
         if (Math.abs(newPosition - snappedPosition) < snapDistance) {
           newPosition = snappedPosition;
         }
