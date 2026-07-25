@@ -61,22 +61,15 @@ export function textRuntime(params) {
     return baseGeo;
   }
 
-  const outlined = textToPathData(cachedFont, content, font_size, letter_spacing);
+  const outlined = textToPathData(cachedFont, content, font_size, letter_spacing, x, y);
   if (!outlined) return baseGeo;
 
   return {
     type: 'booleanResult',
     pathData: outlined.pathData,
-    x,
-    y,
     fill: fill_color,
     stroke: stroke_width > 0 ? stroke_color : 'none',
     strokeWidth: stroke_width,
-    bounds: {
-      x: outlined.bounds.x + x,
-      y: outlined.bounds.y + y,
-      width: outlined.bounds.width,
-      height: outlined.bounds.height,
-    },
+    bounds: outlined.bounds,
   };
 }

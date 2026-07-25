@@ -66,10 +66,11 @@ export async function loadFont(fontFamily) {
   }
 }
 
-export function textToPathData(font, text, fontSize, letterSpacing = 0) {
+export function textToPathData(font, text, fontSize, letterSpacing = 0, x = 0, y = 0) {
   if (!font || !text) return null;
 
-  const path = font.getPath(text, 0, 0, fontSize, {
+  // font.getPath uses y as the baseline, so we add fontSize to match SVG text positioning
+  const path = font.getPath(text, x, y + fontSize, fontSize, {
     letterSpacing: letterSpacing / fontSize,
   });
 
