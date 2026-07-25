@@ -305,9 +305,12 @@ function applyDrag(type, dx, dy, startParams, nodeId, defId, updateNodeParams, m
     }
   } else if (defId === 'text') {
     if (type === 'move') {
+      const newX = (startParams.x || 0) + dx;
+      const newY = (startParams.y || 0) + dy;
+      console.log('TEXT MOVE:', { dx, dy, startX: startParams.x, startY: startParams.y, newX, newY });
       applyParam({
-        x: (startParams.x || 0) + dx,
-        y: (startParams.y || 0) + dy,
+        x: newX,
+        y: newY,
       });
     }
   } else {
