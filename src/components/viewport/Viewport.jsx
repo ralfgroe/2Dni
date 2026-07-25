@@ -22,7 +22,7 @@ import DeleteOverlay from './DeleteOverlay';
 import DimensionOverlay from './DimensionOverlay';
 import GeometryErrorBoundary from './GeometryErrorBoundary';
 import Timeline from '../timeline/Timeline';
-import Rulers, { RULER_SIZE, UNITS } from './Rulers';
+import Rulers, { RULER_SIZE, UNITS, GUIDE_COLOR } from './Rulers';
 
 export default function Viewport() {
   const svgRef = useRef(null);
@@ -32,6 +32,7 @@ export default function Viewport() {
   const [showGrid, setShowGrid] = useState(false);
   const [showRulers, setShowRulers] = useState(false);
   const [rulerUnit, setRulerUnit] = useState('px');
+  const [guides, setGuides] = useState([]);
   const [snapPoints, setSnapPoints] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
   const [fontVersion, setFontVersion] = useState(0);
@@ -70,6 +71,23 @@ export default function Viewport() {
     const nextIndex = (currentIndex + 1) % unitKeys.length;
     setRulerUnit(unitKeys[nextIndex]);
   }, [rulerUnit]);
+
+  // Guide management
+  const addGuide = useCallback((guide) => {
+    setGuides((prev) => [...prev, guide]);
+  }, []);
+
+  const updateGuide = useCallback((id, position) => {
+    setGuides((prev) => prev.map((g) => g.id === id ? { ...g, position } : g));
+  }, []);
+
+  const removeGuide = useCallback((id) => {
+    setGuides((prev) => prev.filter((g) => g.id !== id));
+  }, []);
+
+  const clearGuides = useCallback(() => {
+    setGuides([]);
+  }, []);
 
   const nodes = useGraphStore((s) => s.nodes);
   const edges = useGraphStore((s) => s.edges);
@@ -558,13 +576,18 @@ export default function Viewport() {
           height={viewportSize.height}
           unit={rulerUnit}
           onUnitChange={cycleRulerUnit}
+          guides={guides}
+          onAddGuide={addGuide}
+          onUpdateGuide={updateGuide}
+          onRemoveGuide={removeGuide}
+          onClearGuides={clearGuides}
         />
       )}
       
       <button
         onClick={() => setShowGrid((v) => !v)}
-        className="absolute top-2 z-20 flex items-center gap-1 rounded border border-border-primary bg-bg-secondary text-[10px] text-text-secondary hover:bg-bg-tertiary"
-        style={{ padding: '2px 8px', height: 22, left: showRulers ? 28 : 8 }}
+        className="absolute z-20 flex items-center gap-1 rounded border border-border-primary bg-bg-secondary text-[10px] text-text-secondary hover:bg-bg-tertiary"
+        style={{ padding: '2px 8px', height: 22, top: showRulers ? 28 : 8, left: showRulers ? 28 : 8 }}
         title="Toggle grid"
       >
         <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1" opacity={showGrid ? 1 : 0.4}>
@@ -574,8 +597,8 @@ export default function Viewport() {
 
       <button
         onClick={() => setShowRulers((v) => !v)}
-        className={`absolute top-2 z-20 flex items-center gap-1 rounded border border-border-primary text-[10px] hover:bg-bg-tertiary ${showRulers ? 'bg-accent text-white' : 'bg-bg-secondary text-text-secondary'}`}
-        style={{ padding: '2px 8px', height: 22, left: showRulers ? 66 : 46 }}
+        className={`absolute z-20 flex items-center gap-1 rounded border border-border-primary text-[10px] hover:bg-bg-tertiary ${showRulers ? 'bg-accent text-white' : 'bg-bg-secondary text-text-secondary'}`}
+        style={{ padding: '2px 8px', height: 22, top: showRulers ? 28 : 8, left: showRulers ? 66 : 46 }}
         title="Toggle rulers"
       >
         <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1" opacity={showRulers ? 1 : 0.5}>
@@ -585,8 +608,8 @@ export default function Viewport() {
 
       <button
         onClick={() => setSnapPoints((v) => !v)}
-        className={`absolute top-2 z-20 flex items-center gap-1 rounded border border-border-primary text-[10px] hover:bg-bg-tertiary ${snapPoints ? 'bg-accent text-white' : 'bg-bg-secondary text-text-secondary'}`}
-        style={{ padding: '2px 8px', height: 22, left: showRulers ? 104 : 84 }}
+        className={`absolute z-20 flex items-center gap-1 rounded border border-border-primary text-[10px] hover:bg-bg-tertiary ${snapPoints ? 'bg-accent text-white' : 'bg-bg-secondary text-text-secondary'}`}
+        style={{ padding: '2px 8px', height: 22, top: showRulers ? 28 : 8, left: showRulers ? 104 : 84 }}
         title="Snap to points — dragged shapes latch onto vertices of other geometry"
       >
         <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2" opacity={snapPoints ? 1 : 0.5}>
@@ -690,6 +713,39 @@ export default function Viewport() {
             fill="url(#gridMajor)"
           />
         )}
+
+        {/* Guidelines from rulers */}
+        {showRulers && guides.map((guide) => (
+          guide.orientation === 'horizontal' ? (
+            <line
+              key={guide.id}
+              x1={viewBox.x - viewBox.w}
+              y1={guide.position}
+              x2={viewBox.x + viewBox.w * 2}
+              y2={guide.position}
+              stroke={GUIDE_COLOR}
+              strokeWidth="1"
+              vectorEffect="non-scaling-stroke"
+              strokeDasharray="4 2"
+              opacity="0.8"
+              style={{ pointerEvents: 'none' }}
+            />
+          ) : (
+            <line
+              key={guide.id}
+              x1={guide.position}
+              y1={viewBox.y - viewBox.h}
+              x2={guide.position}
+              y2={viewBox.y + viewBox.h * 2}
+              stroke={GUIDE_COLOR}
+              strokeWidth="1"
+              vectorEffect="non-scaling-stroke"
+              strokeDasharray="4 2"
+              opacity="0.8"
+              style={{ pointerEvents: 'none' }}
+            />
+          )
+        ))}
 
         <line x1="-20" y1="0" x2="20" y2="0" stroke="var(--text-muted)" strokeWidth="0.5" opacity="0.4" />
         <line x1="0" y1="-20" x2="0" y2="20" stroke="var(--text-muted)" strokeWidth="0.5" opacity="0.4" />

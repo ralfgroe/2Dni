@@ -1,14 +1,15 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 
 const RULER_SIZE = 20;
 const TICK_COLOR = '#94a3b8';
 const TEXT_COLOR = '#64748b';
 const BG_COLOR = '#f8fafc';
 const BORDER_COLOR = '#e2e8f0';
+const GUIDE_COLOR = '#06b6d4';
 
 const UNITS = {
   px: { label: 'px', scale: 1 },
-  mm: { label: 'mm', scale: 3.7795275591 }, // 1mm = ~3.78px at 96dpi
+  mm: { label: 'mm', scale: 3.7795275591 },
   cm: { label: 'cm', scale: 37.795275591 },
   in: { label: 'in', scale: 96 },
 };
@@ -18,9 +19,8 @@ function getTickSpacing(viewRange, availablePixels, unit) {
   const unitsVisible = viewRange / unitScale;
   const pixelsPerUnit = availablePixels / unitsVisible;
   
-  // Find a nice tick spacing (1, 2, 5, 10, 20, 50, 100, etc.)
   const niceSteps = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
-  const targetTickCount = availablePixels / 50; // aim for ~50px between major ticks
+  const targetTickCount = availablePixels / 50;
   const idealStep = unitsVisible / targetTickCount;
   
   let step = niceSteps[0];
@@ -35,7 +35,7 @@ function getTickSpacing(viewRange, availablePixels, unit) {
   return { step, pixelsPerUnit, unitScale };
 }
 
-function HorizontalRuler({ viewBox, width, unit = 'px' }) {
+function HorizontalRuler({ viewBox, width, unit = 'px', onStartDrag }) {
   const ticks = useMemo(() => {
     const { step, pixelsPerUnit, unitScale } = getTickSpacing(viewBox.w, width, unit);
     const startUnit = Math.floor(viewBox.x / unitScale / step) * step;
@@ -49,7 +49,6 @@ function HorizontalRuler({ viewBox, width, unit = 'px' }) {
         result.push({ x: screenX, label: u, major: true });
       }
       
-      // Add minor ticks
       const minorStep = step / 5;
       for (let m = 1; m < 5; m++) {
         const minorU = u + m * minorStep;
@@ -63,8 +62,16 @@ function HorizontalRuler({ viewBox, width, unit = 'px' }) {
     return result;
   }, [viewBox, width, unit]);
 
+  const handleMouseDown = useCallback((e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const screenX = e.clientX - rect.left;
+    const worldY = viewBox.y + viewBox.h / 2;
+    onStartDrag?.('horizontal', screenX, worldY, e);
+  }, [viewBox, onStartDrag]);
+
   return (
     <div
+      onMouseDown={handleMouseDown}
       style={{
         position: 'absolute',
         top: 0,
@@ -76,9 +83,11 @@ function HorizontalRuler({ viewBox, width, unit = 'px' }) {
         overflow: 'hidden',
         userSelect: 'none',
         zIndex: 10,
+        cursor: 'ns-resize',
       }}
+      title="Drag to create horizontal guideline"
     >
-      <svg width="100%" height={RULER_SIZE}>
+      <svg width="100%" height={RULER_SIZE} style={{ pointerEvents: 'none' }}>
         {ticks.map((tick, i) => (
           <g key={i}>
             <line
@@ -106,7 +115,7 @@ function HorizontalRuler({ viewBox, width, unit = 'px' }) {
   );
 }
 
-function VerticalRuler({ viewBox, height, unit = 'px' }) {
+function VerticalRuler({ viewBox, height, unit = 'px', onStartDrag }) {
   const ticks = useMemo(() => {
     const { step, pixelsPerUnit, unitScale } = getTickSpacing(viewBox.h, height, unit);
     const startUnit = Math.floor(viewBox.y / unitScale / step) * step;
@@ -120,7 +129,6 @@ function VerticalRuler({ viewBox, height, unit = 'px' }) {
         result.push({ y: screenY, label: u, major: true });
       }
       
-      // Add minor ticks
       const minorStep = step / 5;
       for (let m = 1; m < 5; m++) {
         const minorU = u + m * minorStep;
@@ -134,8 +142,16 @@ function VerticalRuler({ viewBox, height, unit = 'px' }) {
     return result;
   }, [viewBox, height, unit]);
 
+  const handleMouseDown = useCallback((e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const screenY = e.clientY - rect.top;
+    const worldX = viewBox.x + viewBox.w / 2;
+    onStartDrag?.('vertical', worldX, screenY, e);
+  }, [viewBox, onStartDrag]);
+
   return (
     <div
+      onMouseDown={handleMouseDown}
       style={{
         position: 'absolute',
         top: RULER_SIZE,
@@ -147,9 +163,11 @@ function VerticalRuler({ viewBox, height, unit = 'px' }) {
         overflow: 'hidden',
         userSelect: 'none',
         zIndex: 10,
+        cursor: 'ew-resize',
       }}
+      title="Drag to create vertical guideline"
     >
-      <svg width={RULER_SIZE} height="100%">
+      <svg width={RULER_SIZE} height="100%" style={{ pointerEvents: 'none' }}>
         {ticks.map((tick, i) => (
           <g key={i}>
             <line
@@ -178,7 +196,7 @@ function VerticalRuler({ viewBox, height, unit = 'px' }) {
   );
 }
 
-function CornerBox({ unit, onUnitChange }) {
+function CornerBox({ unit, onUnitChange, onClearGuides, hasGuides }) {
   return (
     <div
       style={{
@@ -197,7 +215,8 @@ function CornerBox({ unit, onUnitChange }) {
         zIndex: 12,
       }}
       onClick={onUnitChange}
-      title={`Units: ${UNITS[unit]?.label || 'px'} (click to change)`}
+      onDoubleClick={hasGuides ? onClearGuides : undefined}
+      title={`Units: ${UNITS[unit]?.label || 'px'} (click to change${hasGuides ? ', double-click to clear guides' : ''})`}
     >
       <span style={{ fontSize: 8, color: TEXT_COLOR, fontWeight: 500 }}>
         {UNITS[unit]?.label || 'px'}
@@ -206,14 +225,117 @@ function CornerBox({ unit, onUnitChange }) {
   );
 }
 
-export default function Rulers({ viewBox, width, height, unit = 'px', onUnitChange }) {
+export default function Rulers({ 
+  viewBox, 
+  width, 
+  height, 
+  unit = 'px', 
+  onUnitChange,
+  guides = [],
+  onAddGuide,
+  onUpdateGuide,
+  onRemoveGuide,
+  onClearGuides,
+}) {
+  const [dragging, setDragging] = useState(null);
+
+  const screenToWorld = useCallback((screenX, screenY, containerWidth, containerHeight) => {
+    const rulerOffset = RULER_SIZE;
+    const svgWidth = containerWidth - rulerOffset;
+    const svgHeight = containerHeight - rulerOffset;
+    
+    const worldX = viewBox.x + ((screenX - rulerOffset) / svgWidth) * viewBox.w;
+    const worldY = viewBox.y + ((screenY - rulerOffset) / svgHeight) * viewBox.h;
+    
+    return { worldX, worldY };
+  }, [viewBox]);
+
+  const handleStartDrag = useCallback((orientation, screenX, screenY, e) => {
+    e.preventDefault();
+    
+    const containerRect = e.currentTarget.parentElement.getBoundingClientRect();
+    const { worldX, worldY } = screenToWorld(
+      e.clientX - containerRect.left,
+      e.clientY - containerRect.top,
+      width,
+      height
+    );
+    
+    const newGuide = {
+      id: Date.now(),
+      orientation,
+      position: orientation === 'horizontal' ? worldY : worldX,
+    };
+    
+    onAddGuide?.(newGuide);
+    setDragging({ id: newGuide.id, orientation, containerRect });
+  }, [screenToWorld, width, height, onAddGuide]);
+
+  useEffect(() => {
+    if (!dragging) return;
+
+    const handleMouseMove = (e) => {
+      const { worldX, worldY } = screenToWorld(
+        e.clientX - dragging.containerRect.left,
+        e.clientY - dragging.containerRect.top,
+        width,
+        height
+      );
+      
+      const position = dragging.orientation === 'horizontal' ? worldY : worldX;
+      onUpdateGuide?.(dragging.id, position);
+    };
+
+    const handleMouseUp = (e) => {
+      const { worldX, worldY } = screenToWorld(
+        e.clientX - dragging.containerRect.left,
+        e.clientY - dragging.containerRect.top,
+        width,
+        height
+      );
+      
+      const isOverRuler = dragging.orientation === 'horizontal'
+        ? (e.clientY - dragging.containerRect.top) < RULER_SIZE
+        : (e.clientX - dragging.containerRect.left) < RULER_SIZE;
+      
+      if (isOverRuler) {
+        onRemoveGuide?.(dragging.id);
+      }
+      
+      setDragging(null);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [dragging, screenToWorld, width, height, onUpdateGuide, onRemoveGuide]);
+
   return (
     <>
-      <CornerBox unit={unit} onUnitChange={onUnitChange} />
-      <HorizontalRuler viewBox={viewBox} width={width - RULER_SIZE} unit={unit} />
-      <VerticalRuler viewBox={viewBox} height={height - RULER_SIZE} unit={unit} />
+      <CornerBox 
+        unit={unit} 
+        onUnitChange={onUnitChange} 
+        onClearGuides={onClearGuides}
+        hasGuides={guides.length > 0}
+      />
+      <HorizontalRuler 
+        viewBox={viewBox} 
+        width={width - RULER_SIZE} 
+        unit={unit} 
+        onStartDrag={handleStartDrag}
+      />
+      <VerticalRuler 
+        viewBox={viewBox} 
+        height={height - RULER_SIZE} 
+        unit={unit}
+        onStartDrag={handleStartDrag}
+      />
     </>
   );
 }
 
-export { RULER_SIZE, UNITS };
+export { RULER_SIZE, UNITS, GUIDE_COLOR };
