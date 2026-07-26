@@ -36,31 +36,30 @@ function getTickSpacing(viewRange, availablePixels, unit) {
 }
 
 function HorizontalRuler({ viewBox, width, unit = 'px', onStartDrag }) {
-  const ticks = useMemo(() => {
-    const { step, pixelsPerUnit, unitScale } = getTickSpacing(viewBox.w, width, unit);
-    const startUnit = Math.floor(viewBox.x / unitScale / step) * step;
-    const endUnit = Math.ceil((viewBox.x + viewBox.w) / unitScale / step) * step;
+  // Calculate ticks directly without useMemo to ensure fresh values
+  const { step, pixelsPerUnit, unitScale } = getTickSpacing(viewBox.w, width, unit);
+  console.log('HRuler calc:', { viewBoxW: viewBox.w, width, step });
+  const startUnit = Math.floor(viewBox.x / unitScale / step) * step;
+  const endUnit = Math.ceil((viewBox.x + viewBox.w) / unitScale / step) * step;
+  
+  const ticks = [];
+  for (let u = startUnit; u <= endUnit; u += step) {
+    const worldX = u * unitScale;
+    const screenX = ((worldX - viewBox.x) / viewBox.w) * width;
+    if (screenX >= 0 && screenX <= width) {
+      ticks.push({ x: screenX, label: u, major: true });
+    }
     
-    const result = [];
-    for (let u = startUnit; u <= endUnit; u += step) {
-      const worldX = u * unitScale;
-      const screenX = ((worldX - viewBox.x) / viewBox.w) * width;
-      if (screenX >= 0 && screenX <= width) {
-        result.push({ x: screenX, label: u, major: true });
-      }
-      
-      const minorStep = step / 5;
-      for (let m = 1; m < 5; m++) {
-        const minorU = u + m * minorStep;
-        const minorWorldX = minorU * unitScale;
-        const minorScreenX = ((minorWorldX - viewBox.x) / viewBox.w) * width;
-        if (minorScreenX >= 0 && minorScreenX <= width && minorScreenX < screenX + (step * pixelsPerUnit) - 5) {
-          result.push({ x: minorScreenX, label: null, major: false });
-        }
+    const minorStep = step / 5;
+    for (let m = 1; m < 5; m++) {
+      const minorU = u + m * minorStep;
+      const minorWorldX = minorU * unitScale;
+      const minorScreenX = ((minorWorldX - viewBox.x) / viewBox.w) * width;
+      if (minorScreenX >= 0 && minorScreenX <= width && minorScreenX < screenX + (step * pixelsPerUnit) - 5) {
+        ticks.push({ x: minorScreenX, label: null, major: false });
       }
     }
-    return result;
-  }, [viewBox.x, viewBox.y, viewBox.w, viewBox.h, width, unit]);
+  }
 
   const handleMouseDown = useCallback((e) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -311,7 +310,8 @@ export default function Rulers({
       // Get tick spacing using EXACTLY the same inputs as the ruler
       const { step, unitScale } = getTickSpacing(viewRange, rulerPixelSize, unit);
       
-      console.log('SNAP:', { viewRange, rulerPixelSize, step, heightMinusRuler: height - RULER_SIZE });
+      const rulerType = dragging.orientation === 'horizontal' ? 'VRuler' : 'HRuler';
+      console.log(`SNAP (should match ${rulerType}):`, { viewRange, rulerPixelSize, step });
       
       // The ruler displays ticks at: ..., -2*step, -step, 0, step, 2*step, ... (in units)
       // World position of each tick is: tickUnit * unitScale
