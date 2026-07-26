@@ -760,6 +760,7 @@ export default function Viewport() {
         ref={svgRef}
         className="h-full w-full"
         viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
+        preserveAspectRatio="none"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
