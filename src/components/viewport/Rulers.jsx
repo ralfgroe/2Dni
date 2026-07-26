@@ -116,10 +116,6 @@ function HorizontalRuler({ viewBox, width, unit = 'px', onStartDrag }) {
 }
 
 function VerticalRuler({ viewBox, height, unit = 'px', onStartDrag }) {
-  // Log every render to see what values the ruler is using
-  const { step: currentStep, unitScale: currentUnitScale } = getTickSpacing(viewBox.h, height, unit);
-  console.log('VerticalRuler RENDER:', { viewBoxH: viewBox.h, height, unit, step: currentStep });
-  
   const ticks = useMemo(() => {
     const { step, pixelsPerUnit, unitScale } = getTickSpacing(viewBox.h, height, unit);
     const startUnit = Math.floor(viewBox.y / unitScale / step) * step;
@@ -314,20 +310,6 @@ export default function Rulers({
       // Get tick spacing using EXACTLY the same inputs as the ruler
       const { step, unitScale } = getTickSpacing(viewRange, rulerPixelSize, unit);
       
-      console.log('SNAP DEBUG:', {
-        orientation: dragging.orientation,
-        viewRange,
-        rulerPixelSize,
-        height,
-        width,
-        RULER_SIZE,
-        step,
-        unitScale,
-        position,
-        unit,
-        viewBox: { x: viewBox.x, y: viewBox.y, w: viewBox.w, h: viewBox.h }
-      });
-      
       // The ruler displays ticks at: ..., -2*step, -step, 0, step, 2*step, ... (in units)
       // World position of each tick is: tickUnit * unitScale
       // So we need to snap `position` to the nearest (N * step * unitScale)
@@ -336,14 +318,10 @@ export default function Rulers({
       const nearestTickUnit = Math.round(positionInUnits / step) * step;
       const snapTargetWorld = nearestTickUnit * unitScale;
       
-      // Snap if close enough (within 40% of one tick interval in world units)
-      const tickIntervalWorld = step * unitScale;
-      const snapThreshold = tickIntervalWorld * 0.4;
-      const distance = Math.abs(position - snapTargetWorld);
+      // ALWAYS snap to the nearest tick - no threshold, just snap!
+      position = snapTargetWorld;
       
-      if (distance < snapThreshold) {
-        position = snapTargetWorld;
-      }
+      console.log('SNAP:', { position, snapTargetWorld, step, viewRange, rulerPixelSize });
       
       // Also try to snap to geometry control points (takes priority if closer)
       if (geometrySnapPoints && geometrySnapPoints.length > 0) {
