@@ -53,17 +53,54 @@ export default function Viewport() {
   }, []);
 
   // Track viewport container size for rulers
+  // When the container resizes, adjust the viewBox to maintain the same center
+  // and scale but match the new aspect ratio. This ensures the SVG fills the
+  // container completely (no letterboxing) so rulers align correctly.
   useEffect(() => {
     const container = viewportContainerRef.current;
     if (!container) return;
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        setViewportSize({ width: entry.contentRect.width, height: entry.contentRect.height });
+        const newWidth = entry.contentRect.width;
+        const newHeight = entry.contentRect.height;
+        setViewportSize({ width: newWidth, height: newHeight });
+        
+        // Adjust viewBox to match new aspect ratio
+        // Account for ruler offset when rulers are shown
+        const svgWidth = showRulers ? newWidth - RULER_SIZE : newWidth;
+        const svgHeight = showRulers ? newHeight - RULER_SIZE : newHeight;
+        
+        if (svgWidth > 0 && svgHeight > 0) {
+          setViewBox((v) => {
+            const cx = v.x + v.w / 2;
+            const cy = v.y + v.h / 2;
+            const currentAspect = v.w / v.h;
+            const newAspect = svgWidth / svgHeight;
+            
+            let newW, newH;
+            if (newAspect > currentAspect) {
+              // Container is wider - expand width
+              newH = v.h;
+              newW = v.h * newAspect;
+            } else {
+              // Container is taller - expand height
+              newW = v.w;
+              newH = v.w / newAspect;
+            }
+            
+            return {
+              x: cx - newW / 2,
+              y: cy - newH / 2,
+              w: newW,
+              h: newH,
+            };
+          });
+        }
       }
     });
     observer.observe(container);
     return () => observer.disconnect();
-  }, []);
+  }, [showRulers]);
 
   // Cycle through ruler units
   const cycleRulerUnit = useCallback(() => {
@@ -760,7 +797,7 @@ export default function Viewport() {
         ref={svgRef}
         className="h-full w-full"
         viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
-        preserveAspectRatio="none"
+        preserveAspectRatio="xMidYMid meet"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
