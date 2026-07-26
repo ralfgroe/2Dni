@@ -18,14 +18,15 @@ export default function GuidelineOverlay({
   viewportWidth = 800,
   viewportHeight = 600,
 }) {
-  const [hoveredGuideId, setHoveredGuideId] = useState(null);
+  const [hoveredGuideId, setHoveredGuideIdState] = useState(null);
   const [draggingGuide, setDraggingGuide] = useState(null);
   const hoveredGuideIdRef = useRef(null);
   
-  // Keep ref in sync with state
-  useEffect(() => {
-    hoveredGuideIdRef.current = hoveredGuideId;
-  }, [hoveredGuideId]);
+  // Wrapper to keep ref in sync with state
+  const setHoveredGuideId = useCallback((id) => {
+    hoveredGuideIdRef.current = id;
+    setHoveredGuideIdState(id);
+  }, []);
 
   // Convert screen coordinates to world coordinates
   const screenToWorld = useCallback((clientX, clientY) => {
