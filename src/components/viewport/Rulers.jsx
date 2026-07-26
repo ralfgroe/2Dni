@@ -118,6 +118,7 @@ function HorizontalRuler({ viewBox, width, unit = 'px', onStartDrag }) {
 function VerticalRuler({ viewBox, height, unit = 'px', onStartDrag }) {
   const ticks = useMemo(() => {
     const { step, pixelsPerUnit, unitScale } = getTickSpacing(viewBox.h, height, unit);
+    console.log('VerticalRuler:', { viewBoxH: viewBox.h, height, step });
     const startUnit = Math.floor(viewBox.y / unitScale / step) * step;
     const endUnit = Math.ceil((viewBox.y + viewBox.h) / unitScale / step) * step;
     
@@ -293,22 +294,26 @@ export default function Rulers({
       // For a HORIZONTAL guideline (line goes left-right, dragged from TOP ruler):
       //   - The guideline's position is a Y coordinate (world units)
       //   - It should snap to the VERTICAL ruler's tick marks
-      //   - VerticalRuler uses: getTickSpacing(viewBox.h, height - RULER_SIZE, unit)
-      //   - where `height` is the prop passed to Rulers component
+      //   - VerticalRuler receives (height - RULER_SIZE) as its height prop
+      //   - VerticalRuler uses: getTickSpacing(viewBox.h, height, unit) where height = parent's (height - RULER_SIZE)
       //
       // For a VERTICAL guideline (line goes up-down, dragged from LEFT ruler):
       //   - The guideline's position is an X coordinate (world units)  
       //   - It should snap to the HORIZONTAL ruler's tick marks
-      //   - HorizontalRuler uses: getTickSpacing(viewBox.w, width - RULER_SIZE, unit)
-      //   - where `width` is the prop passed to Rulers component
+      //   - HorizontalRuler receives (width - RULER_SIZE) as its width prop
+      //   - HorizontalRuler uses: getTickSpacing(viewBox.w, width, unit) where width = parent's (width - RULER_SIZE)
+      //
+      // So we need to use (height - RULER_SIZE) and (width - RULER_SIZE) to match what the rulers receive
       
       const viewRange = dragging.orientation === 'horizontal' ? viewBox.h : viewBox.w;
       const rulerPixelSize = dragging.orientation === 'horizontal' 
-        ? (height - RULER_SIZE)   // VerticalRuler's height prop
-        : (width - RULER_SIZE);   // HorizontalRuler's width prop
+        ? (height - RULER_SIZE)   // What VerticalRuler receives as its height prop
+        : (width - RULER_SIZE);   // What HorizontalRuler receives as its width prop
       
       // Get tick spacing using EXACTLY the same inputs as the ruler
       const { step, unitScale } = getTickSpacing(viewRange, rulerPixelSize, unit);
+      
+      console.log('SNAP:', { viewRange, rulerPixelSize, step, position });
       
       // The ruler displays ticks at: ..., -2*step, -step, 0, step, 2*step, ... (in units)
       // World position of each tick is: tickUnit * unitScale
