@@ -130,9 +130,6 @@ function VerticalRuler({ viewBox, height, unit = 'px', onStartDrag }) {
     window.__vrulerViewBoxH = viewBox.h;
   }
   
-  // DEBUG: Log to help diagnose the issue
-  console.log('VRULER:', { viewBoxH: viewBox.h, height, step });
-  
   const startUnit = Math.floor(viewBox.y / unitScale / step) * step;
   const endUnit = Math.ceil((viewBox.y + viewBox.h) / unitScale / step) * step;
   
@@ -333,9 +330,6 @@ export default function Rulers({
         window.__snapViewRange = viewRange;
         window.__snapOrientation = dragging.orientation;
       }
-      
-      // DEBUG: Log to help diagnose the issue
-      console.log('SNAP:', { orientation: dragging.orientation, viewRange, rulerPixelSize, step });
       
       // The ruler displays ticks at: ..., -2*step, -step, 0, step, 2*step, ... (in units)
       // World position of each tick is: tickUnit * unitScale

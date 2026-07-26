@@ -260,17 +260,22 @@ export default function GuidelineOverlay({
     return createPortal(
       <div
         key={`controls-${guide.id}`}
+        onMouseEnter={() => {
+          // Keep this guide hovered while mouse is over controls
+          if (hoveredGuideIdRef.current !== guide.id) {
+            setHoveredGuideId(guide.id);
+          }
+        }}
         style={{
           position: 'fixed',
-          left: controlPos.x + offsetX,
-          top: controlPos.y + offsetY,
+          left: controlPos.x + offsetX - 20,
+          top: controlPos.y + offsetY - 20,
           display: 'flex',
           flexDirection: isHorizontal ? 'row' : 'column',
           gap: 2,
           zIndex: 1000,
           pointerEvents: 'auto',
-          padding: 4,
-          margin: -4,
+          padding: 24,
         }}
       >
         {/* Move handle */}
