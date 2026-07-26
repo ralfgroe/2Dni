@@ -364,7 +364,6 @@ export default function GuidelineOverlay({
             justifyContent: 'center',
             padding: 0,
             boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-            opacity: isMagnetic ? 1 : 0.5,
           }}
           title={isMagnetic ? "Magnetic ON - click to disable" : "Magnetic OFF - click to enable"}
         >
