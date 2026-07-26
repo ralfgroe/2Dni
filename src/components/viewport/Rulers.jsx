@@ -35,27 +35,7 @@ function getTickSpacing(viewRange, availablePixels, unit) {
   return { step, pixelsPerUnit, unitScale };
 }
 
-function HorizontalRuler({ viewBox, width, height, unit = 'px', onStartDrag }) {
-  // Calculate the actual SVG scaling due to preserveAspectRatio="xMidYMid meet"
-  // The SVG scales uniformly to fit the container while maintaining aspect ratio
-  const containerAspect = width / height;
-  const viewBoxAspect = viewBox.w / viewBox.h;
-  
-  let scale, offsetX;
-  if (containerAspect > viewBoxAspect) {
-    // Container is wider than viewBox - height is the limiting factor
-    // SVG fills the height, with horizontal letterboxing
-    scale = height / viewBox.h;
-    // The SVG is centered horizontally, so there's an offset
-    const scaledWidth = viewBox.w * scale;
-    offsetX = (width - scaledWidth) / 2;
-  } else {
-    // Container is taller than viewBox - width is the limiting factor
-    // SVG fills the width, with vertical letterboxing
-    scale = width / viewBox.w;
-    offsetX = 0;
-  }
-  
+function HorizontalRuler({ viewBox, width, unit = 'px', onStartDrag }) {
   const { step, pixelsPerUnit, unitScale } = getTickSpacing(viewBox.w, width, unit);
   
   // Store for debugging
@@ -63,12 +43,7 @@ function HorizontalRuler({ viewBox, width, height, unit = 'px', onStartDrag }) {
     window.__hrulerStep = step;
     window.__hrulerWidth = width;
     window.__hrulerViewBoxW = viewBox.w;
-    window.__hrulerScale = scale;
-    window.__hrulerOffsetX = offsetX;
   }
-  
-  // DEBUG
-  console.log('HRULER:', { viewBoxW: viewBox.w, width, height, step, scale, offsetX });
   
   const startUnit = Math.floor(viewBox.x / unitScale / step) * step;
   const endUnit = Math.ceil((viewBox.x + viewBox.w) / unitScale / step) * step;
@@ -76,8 +51,7 @@ function HorizontalRuler({ viewBox, width, height, unit = 'px', onStartDrag }) {
   const ticks = [];
   for (let u = startUnit; u <= endUnit; u += step) {
     const worldX = u * unitScale;
-    // Convert world X to screen X, accounting for SVG scaling and centering
-    const screenX = offsetX + (worldX - viewBox.x) * scale;
+    const screenX = ((worldX - viewBox.x) / viewBox.w) * width;
     if (screenX >= 0 && screenX <= width) {
       ticks.push({ x: screenX, label: u, major: true });
     }
@@ -86,8 +60,8 @@ function HorizontalRuler({ viewBox, width, height, unit = 'px', onStartDrag }) {
     for (let m = 1; m < 5; m++) {
       const minorU = u + m * minorStep;
       const minorWorldX = minorU * unitScale;
-      const minorScreenX = offsetX + (minorWorldX - viewBox.x) * scale;
-      if (minorScreenX >= 0 && minorScreenX <= width) {
+      const minorScreenX = ((minorWorldX - viewBox.x) / viewBox.w) * width;
+      if (minorScreenX >= 0 && minorScreenX <= width && minorScreenX < screenX + (step * pixelsPerUnit) - 5) {
         ticks.push({ x: minorScreenX, label: null, major: false });
       }
     }
@@ -146,27 +120,7 @@ function HorizontalRuler({ viewBox, width, height, unit = 'px', onStartDrag }) {
   );
 }
 
-function VerticalRuler({ viewBox, height, width, unit = 'px', onStartDrag }) {
-  // Calculate the actual SVG scaling due to preserveAspectRatio="xMidYMid meet"
-  // The SVG scales uniformly to fit the container while maintaining aspect ratio
-  const containerAspect = width / height;
-  const viewBoxAspect = viewBox.w / viewBox.h;
-  
-  let scale, offsetY;
-  if (containerAspect > viewBoxAspect) {
-    // Container is wider than viewBox - height is the limiting factor
-    // SVG fills the height, with horizontal letterboxing
-    scale = height / viewBox.h;
-    offsetY = 0;
-  } else {
-    // Container is taller than viewBox - width is the limiting factor
-    // SVG fills the width, with vertical letterboxing
-    scale = width / viewBox.w;
-    // The SVG is centered vertically, so there's an offset
-    const scaledHeight = viewBox.h * scale;
-    offsetY = (height - scaledHeight) / 2;
-  }
-  
+function VerticalRuler({ viewBox, height, unit = 'px', onStartDrag }) {
   const { step, pixelsPerUnit, unitScale } = getTickSpacing(viewBox.h, height, unit);
   
   // Store for debugging
@@ -174,12 +128,10 @@ function VerticalRuler({ viewBox, height, width, unit = 'px', onStartDrag }) {
     window.__vrulerStep = step;
     window.__vrulerHeight = height;
     window.__vrulerViewBoxH = viewBox.h;
-    window.__vrulerScale = scale;
-    window.__vrulerOffsetY = offsetY;
   }
   
   // DEBUG: Log to help diagnose the issue
-  console.log('VRULER:', { viewBoxH: viewBox.h, height, width, step, scale, offsetY });
+  console.log('VRULER:', { viewBoxH: viewBox.h, height, step });
   
   const startUnit = Math.floor(viewBox.y / unitScale / step) * step;
   const endUnit = Math.ceil((viewBox.y + viewBox.h) / unitScale / step) * step;
@@ -187,8 +139,7 @@ function VerticalRuler({ viewBox, height, width, unit = 'px', onStartDrag }) {
   const ticks = [];
   for (let u = startUnit; u <= endUnit; u += step) {
     const worldY = u * unitScale;
-    // Convert world Y to screen Y, accounting for SVG scaling and centering
-    const screenY = offsetY + (worldY - viewBox.y) * scale;
+    const screenY = ((worldY - viewBox.y) / viewBox.h) * height;
     if (screenY >= 0 && screenY <= height) {
       ticks.push({ y: screenY, label: u, major: true });
     }
@@ -197,8 +148,8 @@ function VerticalRuler({ viewBox, height, width, unit = 'px', onStartDrag }) {
     for (let m = 1; m < 5; m++) {
       const minorU = u + m * minorStep;
       const minorWorldY = minorU * unitScale;
-      const minorScreenY = offsetY + (minorWorldY - viewBox.y) * scale;
-      if (minorScreenY >= 0 && minorScreenY <= height) {
+      const minorScreenY = ((minorWorldY - viewBox.y) / viewBox.h) * height;
+      if (minorScreenY >= 0 && minorScreenY <= height && minorScreenY < screenY + (step * pixelsPerUnit) - 5) {
         ticks.push({ y: minorScreenY, label: null, major: false });
       }
     }
@@ -438,15 +389,13 @@ export default function Rulers({
       />
       <HorizontalRuler 
         viewBox={viewBox} 
-        width={width - RULER_SIZE}
-        height={height - RULER_SIZE}
+        width={width - RULER_SIZE} 
         unit={unit} 
         onStartDrag={handleStartDrag}
       />
       <VerticalRuler 
         viewBox={viewBox} 
-        height={height - RULER_SIZE}
-        width={width - RULER_SIZE}
+        height={height - RULER_SIZE} 
         unit={unit}
         onStartDrag={handleStartDrag}
       />
