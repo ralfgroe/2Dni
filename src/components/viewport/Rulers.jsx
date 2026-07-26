@@ -118,6 +118,7 @@ function HorizontalRuler({ viewBox, width, unit = 'px', onStartDrag }) {
 function VerticalRuler({ viewBox, height, unit = 'px', onStartDrag }) {
   const ticks = useMemo(() => {
     const { step, pixelsPerUnit, unitScale } = getTickSpacing(viewBox.h, height, unit);
+    console.log('VerticalRuler tick calc:', { viewBoxH: viewBox.h, height, unit, step, unitScale });
     const startUnit = Math.floor(viewBox.y / unitScale / step) * step;
     const endUnit = Math.ceil((viewBox.y + viewBox.h) / unitScale / step) * step;
     
@@ -320,7 +321,8 @@ export default function Rulers({
         step,
         unitScale,
         position,
-        unit
+        unit,
+        viewBox: { x: viewBox.x, y: viewBox.y, w: viewBox.w, h: viewBox.h }
       });
       
       // The ruler displays ticks at: ..., -2*step, -step, 0, step, 2*step, ... (in units)
