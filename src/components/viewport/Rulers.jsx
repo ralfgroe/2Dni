@@ -35,8 +35,13 @@ function getTickSpacing(viewRange, availablePixels, unit) {
   return { step, pixelsPerUnit, unitScale };
 }
 
-function HorizontalRuler({ viewBox, width, unit = 'px', onStartDrag }) {
+function HorizontalRuler({ viewBox, width, unit = 'px', onStartDrag, svgRef }) {
   const { step, pixelsPerUnit, unitScale } = getTickSpacing(viewBox.w, width, unit);
+  
+  // Get the actual SVG transformation to correctly position ticks
+  const svg = svgRef?.current;
+  const ctm = svg?.getScreenCTM();
+  const svgRect = svg?.getBoundingClientRect();
   
   // Store for debugging
   if (typeof window !== 'undefined') {
@@ -51,7 +56,22 @@ function HorizontalRuler({ viewBox, width, unit = 'px', onStartDrag }) {
   const ticks = [];
   for (let u = startUnit; u <= endUnit; u += step) {
     const worldX = u * unitScale;
-    const screenX = ((worldX - viewBox.x) / viewBox.w) * width;
+    
+    let screenX;
+    if (ctm && svgRect) {
+      // Use the actual SVG transformation
+      const point = svg.createSVGPoint();
+      point.x = worldX;
+      point.y = viewBox.y;
+      const screenPoint = point.matrixTransform(ctm);
+      // Convert from page coordinates to ruler-relative coordinates
+      // The ruler starts at RULER_SIZE from the left of the container
+      screenX = screenPoint.x - svgRect.left;
+    } else {
+      // Fallback: assume SVG fills container
+      screenX = ((worldX - viewBox.x) / viewBox.w) * width;
+    }
+    
     if (screenX >= 0 && screenX <= width) {
       ticks.push({ x: screenX, label: u, major: true });
     }
@@ -60,8 +80,19 @@ function HorizontalRuler({ viewBox, width, unit = 'px', onStartDrag }) {
     for (let m = 1; m < 5; m++) {
       const minorU = u + m * minorStep;
       const minorWorldX = minorU * unitScale;
-      const minorScreenX = ((minorWorldX - viewBox.x) / viewBox.w) * width;
-      if (minorScreenX >= 0 && minorScreenX <= width && minorScreenX < screenX + (step * pixelsPerUnit) - 5) {
+      
+      let minorScreenX;
+      if (ctm && svgRect) {
+        const point = svg.createSVGPoint();
+        point.x = minorWorldX;
+        point.y = viewBox.y;
+        const screenPoint = point.matrixTransform(ctm);
+        minorScreenX = screenPoint.x - svgRect.left;
+      } else {
+        minorScreenX = ((minorWorldX - viewBox.x) / viewBox.w) * width;
+      }
+      
+      if (minorScreenX >= 0 && minorScreenX <= width) {
         ticks.push({ x: minorScreenX, label: null, major: false });
       }
     }
@@ -120,8 +151,14 @@ function HorizontalRuler({ viewBox, width, unit = 'px', onStartDrag }) {
   );
 }
 
-function VerticalRuler({ viewBox, height, unit = 'px', onStartDrag }) {
+function VerticalRuler({ viewBox, height, unit = 'px', onStartDrag, svgRef }) {
   const { step, pixelsPerUnit, unitScale } = getTickSpacing(viewBox.h, height, unit);
+  
+  // Get the actual SVG transformation to correctly position ticks
+  // This accounts for preserveAspectRatio scaling
+  const svg = svgRef?.current;
+  const ctm = svg?.getScreenCTM();
+  const svgRect = svg?.getBoundingClientRect();
   
   // Store for debugging
   if (typeof window !== 'undefined') {
@@ -131,7 +168,7 @@ function VerticalRuler({ viewBox, height, unit = 'px', onStartDrag }) {
   }
   
   // DEBUG: Log to help diagnose the issue
-  console.log('VRULER:', { viewBoxH: viewBox.h, height, step });
+  console.log('VRULER:', { viewBoxH: viewBox.h, height, step, hasCTM: !!ctm });
   
   const startUnit = Math.floor(viewBox.y / unitScale / step) * step;
   const endUnit = Math.ceil((viewBox.y + viewBox.h) / unitScale / step) * step;
@@ -139,7 +176,22 @@ function VerticalRuler({ viewBox, height, unit = 'px', onStartDrag }) {
   const ticks = [];
   for (let u = startUnit; u <= endUnit; u += step) {
     const worldY = u * unitScale;
-    const screenY = ((worldY - viewBox.y) / viewBox.h) * height;
+    
+    let screenY;
+    if (ctm && svgRect) {
+      // Use the actual SVG transformation
+      const point = svg.createSVGPoint();
+      point.x = viewBox.x;
+      point.y = worldY;
+      const screenPoint = point.matrixTransform(ctm);
+      // Convert from page coordinates to ruler-relative coordinates
+      // The ruler starts at RULER_SIZE from the top of the container
+      screenY = screenPoint.y - svgRect.top;
+    } else {
+      // Fallback: assume SVG fills container
+      screenY = ((worldY - viewBox.y) / viewBox.h) * height;
+    }
+    
     if (screenY >= 0 && screenY <= height) {
       ticks.push({ y: screenY, label: u, major: true });
     }
@@ -148,8 +200,19 @@ function VerticalRuler({ viewBox, height, unit = 'px', onStartDrag }) {
     for (let m = 1; m < 5; m++) {
       const minorU = u + m * minorStep;
       const minorWorldY = minorU * unitScale;
-      const minorScreenY = ((minorWorldY - viewBox.y) / viewBox.h) * height;
-      if (minorScreenY >= 0 && minorScreenY <= height && minorScreenY < screenY + (step * pixelsPerUnit) - 5) {
+      
+      let minorScreenY;
+      if (ctm && svgRect) {
+        const point = svg.createSVGPoint();
+        point.x = viewBox.x;
+        point.y = minorWorldY;
+        const screenPoint = point.matrixTransform(ctm);
+        minorScreenY = screenPoint.y - svgRect.top;
+      } else {
+        minorScreenY = ((minorWorldY - viewBox.y) / viewBox.h) * height;
+      }
+      
+      if (minorScreenY >= 0 && minorScreenY <= height) {
         ticks.push({ y: minorScreenY, label: null, major: false });
       }
     }
@@ -392,12 +455,14 @@ export default function Rulers({
         width={width - RULER_SIZE} 
         unit={unit} 
         onStartDrag={handleStartDrag}
+        svgRef={svgRef}
       />
       <VerticalRuler 
         viewBox={viewBox} 
         height={height - RULER_SIZE} 
         unit={unit}
         onStartDrag={handleStartDrag}
+        svgRef={svgRef}
       />
     </>
   );
