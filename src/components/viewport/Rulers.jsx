@@ -118,6 +118,7 @@ function HorizontalRuler({ viewBox, width, unit = 'px', onStartDrag }) {
 function VerticalRuler({ viewBox, height, unit = 'px', onStartDrag }) {
   const ticks = useMemo(() => {
     const { step, pixelsPerUnit, unitScale } = getTickSpacing(viewBox.h, height, unit);
+    console.log('VerticalRuler useMemo:', { viewBoxH: viewBox.h, height, step });
     const startUnit = Math.floor(viewBox.y / unitScale / step) * step;
     const endUnit = Math.ceil((viewBox.y + viewBox.h) / unitScale / step) * step;
     
@@ -310,6 +311,8 @@ export default function Rulers({
       // Get tick spacing using EXACTLY the same inputs as the ruler
       const { step, unitScale } = getTickSpacing(viewRange, rulerPixelSize, unit);
       
+      console.log('SNAP calc:', { viewRange, rulerPixelSize, step, 'height-RULER_SIZE': height - RULER_SIZE });
+      
       // The ruler displays ticks at: ..., -2*step, -step, 0, step, 2*step, ... (in units)
       // World position of each tick is: tickUnit * unitScale
       // So we need to snap `position` to the nearest (N * step * unitScale)
@@ -318,10 +321,12 @@ export default function Rulers({
       const nearestTickUnit = Math.round(positionInUnits / step) * step;
       const snapTargetWorld = nearestTickUnit * unitScale;
       
-      // ALWAYS snap to the nearest tick - no threshold, just snap!
-      position = snapTargetWorld;
-      
-      console.log('SNAP:', { position, snapTargetWorld, step, viewRange, rulerPixelSize });
+      // Snap if within 40% of tick interval
+      const tickIntervalWorld = step * unitScale;
+      const snapThreshold = tickIntervalWorld * 0.4;
+      if (Math.abs(position - snapTargetWorld) < snapThreshold) {
+        position = snapTargetWorld;
+      }
       
       // Also try to snap to geometry control points (takes priority if closer)
       if (geometrySnapPoints && geometrySnapPoints.length > 0) {
