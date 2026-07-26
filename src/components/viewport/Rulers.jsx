@@ -60,7 +60,7 @@ function HorizontalRuler({ viewBox, width, unit = 'px', onStartDrag }) {
       }
     }
     return result;
-  }, [viewBox, width, unit]);
+  }, [viewBox.x, viewBox.y, viewBox.w, viewBox.h, width, unit]);
 
   const handleMouseDown = useCallback((e) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -118,7 +118,6 @@ function HorizontalRuler({ viewBox, width, unit = 'px', onStartDrag }) {
 function VerticalRuler({ viewBox, height, unit = 'px', onStartDrag }) {
   const ticks = useMemo(() => {
     const { step, pixelsPerUnit, unitScale } = getTickSpacing(viewBox.h, height, unit);
-    console.log('VerticalRuler useMemo:', { viewBoxH: viewBox.h, height, step });
     const startUnit = Math.floor(viewBox.y / unitScale / step) * step;
     const endUnit = Math.ceil((viewBox.y + viewBox.h) / unitScale / step) * step;
     
@@ -141,7 +140,7 @@ function VerticalRuler({ viewBox, height, unit = 'px', onStartDrag }) {
       }
     }
     return result;
-  }, [viewBox, height, unit]);
+  }, [viewBox.x, viewBox.y, viewBox.w, viewBox.h, height, unit]);
 
   const handleMouseDown = useCallback((e) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -310,8 +309,6 @@ export default function Rulers({
       
       // Get tick spacing using EXACTLY the same inputs as the ruler
       const { step, unitScale } = getTickSpacing(viewRange, rulerPixelSize, unit);
-      
-      console.log('SNAP calc:', { viewRange, rulerPixelSize, step, 'height-RULER_SIZE': height - RULER_SIZE });
       
       // The ruler displays ticks at: ..., -2*step, -step, 0, step, 2*step, ... (in units)
       // World position of each tick is: tickUnit * unitScale
