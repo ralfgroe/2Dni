@@ -390,6 +390,7 @@ export default function Rulers({
         unit={unit} 
         onStartDrag={handleStartDrag}
       />
+      {console.log('Rulers passing to VRuler:', { heightMinusRuler: height - RULER_SIZE })}
       <VerticalRuler 
         viewBox={viewBox} 
         height={height - RULER_SIZE} 
