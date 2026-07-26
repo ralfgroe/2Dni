@@ -288,41 +288,43 @@ export default function Rulers({
       const { worldX, worldY } = screenToWorld(e.clientX, e.clientY);
       let position = dragging.orientation === 'horizontal' ? worldY : worldX;
       
-      // Snap to major ruler tick marks - use EXACTLY the same calculation as ruler display
-      const unitScale = UNITS[unit]?.scale || 1;
+      // FIRST PRINCIPLES REDESIGN:
+      // 
+      // For a HORIZONTAL guideline (line goes left-right, dragged from TOP ruler):
+      //   - The guideline's position is a Y coordinate (world units)
+      //   - It should snap to the VERTICAL ruler's tick marks
+      //   - VerticalRuler uses: getTickSpacing(viewBox.h, height - RULER_SIZE, unit)
+      //   - where `height` is the prop passed to Rulers component
+      //
+      // For a VERTICAL guideline (line goes up-down, dragged from LEFT ruler):
+      //   - The guideline's position is an X coordinate (world units)  
+      //   - It should snap to the HORIZONTAL ruler's tick marks
+      //   - HorizontalRuler uses: getTickSpacing(viewBox.w, width - RULER_SIZE, unit)
+      //   - where `width` is the prop passed to Rulers component
       
-      // Horizontal guidelines move vertically (Y), so use height and viewBox.h (matches VerticalRuler)
-      // Vertical guidelines move horizontally (X), so use width and viewBox.w (matches HorizontalRuler)
       const viewRange = dragging.orientation === 'horizontal' ? viewBox.h : viewBox.w;
-      const availablePixels = dragging.orientation === 'horizontal' ? height : width;
+      const rulerPixelSize = dragging.orientation === 'horizontal' 
+        ? (height - RULER_SIZE)   // VerticalRuler's height prop
+        : (width - RULER_SIZE);   // HorizontalRuler's width prop
       
-      // Use getTickSpacing to get the exact same step as the ruler display
-      const unitsVisible = viewRange / unitScale;
-      const targetTickCount = availablePixels / 50;
-      const idealStep = unitsVisible / targetTickCount;
+      // Get tick spacing using EXACTLY the same inputs as the ruler
+      const { step, unitScale } = getTickSpacing(viewRange, rulerPixelSize, unit);
       
-      // Round to a nice number (same list as getTickSpacing)
-      const niceSteps = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
-      let step = niceSteps[0];
-      for (const s of niceSteps) {
-        if (s >= idealStep) {
-          step = s;
-          break;
-        }
-        step = s;
-      }
+      // The ruler displays ticks at: ..., -2*step, -step, 0, step, 2*step, ... (in units)
+      // World position of each tick is: tickUnit * unitScale
+      // So we need to snap `position` to the nearest (N * step * unitScale)
       
-      // Snap to the nearest major tick (in units, then convert back to world)
       const positionInUnits = position / unitScale;
-      const snappedUnits = Math.round(positionInUnits / step) * step;
-      const snappedPosition = snappedUnits * unitScale;
+      const nearestTickUnit = Math.round(positionInUnits / step) * step;
+      const snapTargetWorld = nearestTickUnit * unitScale;
       
-      // Snap if within 20% of a tick interval (in world units)
-      const tickWorldSize = step * unitScale;
-      const snapThreshold = tickWorldSize * 0.2;
+      // Snap if close enough (within 40% of one tick interval in world units)
+      const tickIntervalWorld = step * unitScale;
+      const snapThreshold = tickIntervalWorld * 0.4;
+      const distance = Math.abs(position - snapTargetWorld);
       
-      if (Math.abs(position - snappedPosition) < snapThreshold) {
-        position = snappedPosition;
+      if (distance < snapThreshold) {
+        position = snapTargetWorld;
       }
       
       // Also try to snap to geometry control points (takes priority if closer)
@@ -372,7 +374,7 @@ export default function Rulers({
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [dragging, screenToWorld, svgRef, onUpdateGuide, onRemoveGuide, unit, viewBox]);
+  }, [dragging, screenToWorld, svgRef, onUpdateGuide, onRemoveGuide, unit, viewBox, width, height, geometrySnapPoints]);
 
   return (
     <>
@@ -398,4 +400,4 @@ export default function Rulers({
   );
 }
 
-export { RULER_SIZE, UNITS, GUIDE_COLOR };
+export { RULER_SIZE, UNITS, GUIDE_COLOR, getTickSpacing };

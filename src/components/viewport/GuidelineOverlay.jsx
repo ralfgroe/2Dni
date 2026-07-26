@@ -1,16 +1,9 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { RULER_SIZE, UNITS, getTickSpacing } from './Rulers';
 
 const GUIDE_COLOR = '#06b6d4';
 const HANDLE_SIZE = 18; // Reduced by 10% from 20
-
-// Unit scales for ruler snapping (same as Rulers.jsx)
-const UNITS = {
-  px: { scale: 1, label: 'px' },
-  mm: { scale: 3.7795275591, label: 'mm' },
-  cm: { scale: 37.795275591, label: 'cm' },
-  in: { scale: 96, label: 'in' },
-};
 
 export default function GuidelineOverlay({
   guides,
@@ -98,42 +91,32 @@ export default function GuidelineOverlay({
       const world = screenToWorld(e.clientX, e.clientY);
       let newPosition = draggingGuide.orientation === 'horizontal' ? world.y : world.x;
       
-      // For magnetic guidelines, always try to snap to ruler ticks first
+      // For magnetic guidelines, snap to ruler ticks
       if (isMagnetic) {
-        const unitScale = UNITS[rulerUnit]?.scale || 1;
+        // FIRST PRINCIPLES:
+        // For HORIZONTAL guideline: position is Y, snap to VerticalRuler ticks
+        //   VerticalRuler uses: getTickSpacing(viewBox.h, viewportHeight - RULER_SIZE, unit)
+        // For VERTICAL guideline: position is X, snap to HorizontalRuler ticks
+        //   HorizontalRuler uses: getTickSpacing(viewBox.w, viewportWidth - RULER_SIZE, unit)
         
-        // Horizontal guidelines move vertically (Y), so use viewportHeight and viewBox.h (matches VerticalRuler)
-        // Vertical guidelines move horizontally (X), so use viewportWidth and viewBox.w (matches HorizontalRuler)
         const viewRange = draggingGuide.orientation === 'horizontal' ? viewBox.h : viewBox.w;
-        const availablePixels = draggingGuide.orientation === 'horizontal' ? viewportHeight : viewportWidth;
+        const rulerPixelSize = draggingGuide.orientation === 'horizontal' 
+          ? (viewportHeight - RULER_SIZE)
+          : (viewportWidth - RULER_SIZE);
         
-        // Use the exact same calculation as getTickSpacing in Rulers.jsx
-        const unitsVisible = viewRange / unitScale;
-        const targetTickCount = availablePixels / 50;
-        const idealStep = unitsVisible / targetTickCount;
+        const { step, unitScale } = getTickSpacing(viewRange, rulerPixelSize, rulerUnit);
         
-        // Round to a nice number (same list as getTickSpacing)
-        const niceSteps = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
-        let step = niceSteps[0];
-        for (const s of niceSteps) {
-          if (s >= idealStep) {
-            step = s;
-            break;
-          }
-          step = s;
-        }
-        
-        // Snap to the nearest major tick (in units, then convert back to world)
+        // Snap to nearest tick: position -> units -> round to step -> back to world
         const positionInUnits = newPosition / unitScale;
-        const snappedUnits = Math.round(positionInUnits / step) * step;
-        const snappedPosition = snappedUnits * unitScale;
+        const nearestTickUnit = Math.round(positionInUnits / step) * step;
+        const snapTargetWorld = nearestTickUnit * unitScale;
         
-        // Snap if within 20% of a tick interval (in world units)
-        const tickWorldSize = step * unitScale;
-        const snapThreshold = tickWorldSize * 0.2;
+        // Snap if within 40% of tick interval
+        const tickIntervalWorld = step * unitScale;
+        const snapThreshold = tickIntervalWorld * 0.4;
         
-        if (Math.abs(newPosition - snappedPosition) < snapThreshold) {
-          newPosition = snappedPosition;
+        if (Math.abs(newPosition - snapTargetWorld) < snapThreshold) {
+          newPosition = snapTargetWorld;
         }
       }
       
