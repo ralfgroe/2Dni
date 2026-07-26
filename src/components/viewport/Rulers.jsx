@@ -173,14 +173,14 @@ function VerticalRuler({ viewBox, height, unit = 'px', onStartDrag }) {
         bottom: 0,
         backgroundColor: BG_COLOR,
         borderRight: `1px solid ${BORDER_COLOR}`,
-        overflow: 'hidden',
+        overflow: 'visible',
         userSelect: 'none',
         zIndex: 10,
         cursor: 'ew-resize',
       }}
       title="Drag to create vertical guideline"
     >
-      <svg width={RULER_SIZE} height="100%" style={{ pointerEvents: 'none' }}>
+      <svg width={RULER_SIZE} height="100%" style={{ pointerEvents: 'none', overflow: 'visible' }}>
         {ticks.map((tick, i) => (
           <g key={i}>
             <line
@@ -193,11 +193,13 @@ function VerticalRuler({ viewBox, height, unit = 'px', onStartDrag }) {
             />
             {tick.major && tick.label !== null && (
               <text
-                x={2}
+                x={RULER_SIZE - 12}
                 y={tick.y + 3}
                 fontSize={9}
                 fill={TEXT_COLOR}
-                transform={`rotate(-90, 2, ${tick.y + 3})`}
+                textAnchor="end"
+                dominantBaseline="middle"
+                transform={`rotate(-90, ${RULER_SIZE - 12}, ${tick.y + 3})`}
               >
                 {tick.label}
               </text>
