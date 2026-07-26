@@ -153,10 +153,12 @@ export default function GuidelineOverlay({
       setMousePos({ x: e.clientX, y: e.clientY });
     };
     
-    const handleMouseDown = () => {
+    const handleMouseDown = (e) => {
       // Only set external mouse down if NOT over our controls
-      // This way, clicking on guideline controls doesn't trigger the "hide hover" behavior
-      if (!mouseOverControlsRef.current) {
+      // Check both the ref AND if the click target is within a guideline control button
+      const isOnControl = mouseOverControlsRef.current || 
+        e.target.closest('[data-guideline-control]');
+      if (!isOnControl) {
         setIsExternalMouseDown(true);
       }
     };
@@ -230,6 +232,8 @@ export default function GuidelineOverlay({
   const startDrag = useCallback((guide, e) => {
     e.stopPropagation();
     e.preventDefault();
+    // Ensure we don't trigger external mouse down detection
+    mouseOverControlsRef.current = true;
     setDraggingGuide(guide);
   }, []);
 
@@ -272,6 +276,7 @@ export default function GuidelineOverlay({
     return createPortal(
       <div
         key={`controls-${guide.id}`}
+        data-guideline-control="true"
         onMouseEnter={() => { mouseOverControlsRef.current = true; }}
         onMouseLeave={() => { 
           mouseOverControlsRef.current = false;
