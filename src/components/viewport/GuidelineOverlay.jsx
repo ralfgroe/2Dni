@@ -134,6 +134,12 @@ export default function GuidelineOverlay({
     };
   }, [draggingGuide, guides, screenToWorld, findSnapPoint, rulerUnit, viewBox, onUpdateGuide, viewportWidth, viewportHeight]);
 
+  // Store guides in a ref so the event handler always has access to current guides
+  const guidesRef = useRef(guides);
+  useEffect(() => {
+    guidesRef.current = guides;
+  }, [guides]);
+
   // Simple hover detection on mouse move - works in SCREEN coordinates
   useEffect(() => {
     const handleMouseMove = (e) => {
@@ -143,18 +149,24 @@ export default function GuidelineOverlay({
       const svg = svgRef?.current;
       if (!svg) return;
       
-      const svgRect = svg.getBoundingClientRect();
-      
       // Mouse position in screen coordinates
       const mouseX = e.clientX;
       const mouseY = e.clientY;
       
-      // Use ref to get current hovered guide ID (avoids stale closure)
+      // Use refs to get current values (avoids stale closure)
       const currentHoveredId = hoveredGuideIdRef.current;
+      const currentGuides = guidesRef.current;
+      
+      if (!currentGuides || currentGuides.length === 0) {
+        if (currentHoveredId !== null) {
+          setHoveredGuideId(null);
+        }
+        return;
+      }
       
       let foundId = null;
       
-      for (const guide of guides) {
+      for (const guide of currentGuides) {
         // Calculate where the guideline is in screen coordinates
         const guideScreenPos = guide.orientation === 'horizontal'
           ? worldToScreen(viewBox.x, guide.position)
@@ -176,7 +188,7 @@ export default function GuidelineOverlay({
           : Math.abs(mouseX - guideScreenPos.x);
         
         // Check if mouse is within the controls bounding box (with padding)
-        const controlsPadding = 15;
+        const controlsPadding = 20;
         const inControlsX = mouseX >= controlsCenter.x - controlsWidth/2 - controlsPadding && 
                            mouseX <= controlsCenter.x + controlsWidth/2 + controlsPadding;
         const inControlsY = mouseY >= controlsCenter.y - controlsHeight/2 - controlsPadding && 
@@ -184,8 +196,8 @@ export default function GuidelineOverlay({
         const inControlsArea = inControlsX && inControlsY;
         
         // Thresholds in screen pixels
-        const enterThreshold = 12;  // pixels to initially detect hover
-        const stayThreshold = 20;   // pixels to stay hovered (slightly larger)
+        const enterThreshold = 15;  // pixels to initially detect hover
+        const stayThreshold = 25;   // pixels to stay hovered (slightly larger)
         
         const threshold = (currentHoveredId === guide.id) ? stayThreshold : enterThreshold;
         
@@ -199,12 +211,14 @@ export default function GuidelineOverlay({
         }
       }
       
-      setHoveredGuideId(foundId);
+      if (foundId !== currentHoveredId) {
+        setHoveredGuideId(foundId);
+      }
     };
     
     window.addEventListener('mousemove', handleMouseMove);
     return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, [guides, draggingGuide, worldToScreen, svgRef, viewBox]);
+  }, [draggingGuide, worldToScreen, svgRef, viewBox, setHoveredGuideId]);
 
   const startDrag = useCallback((guide, e) => {
     e.stopPropagation();
