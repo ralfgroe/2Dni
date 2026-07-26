@@ -306,14 +306,13 @@ export default function Rulers({
       
       const { step, unitScale } = getTickSpacing(viewRange, rulerPixelSize, unit);
       
-      console.log('SNAP calc:', { 
+      // Log the exact values being used
+      console.log('SNAP:', { 
         orientation: dragging.orientation,
         viewRange, 
-        rulerPixelSize, 
-        step,
-        position,
-        positionInUnits: position / unitScale,
-        nearestTickUnit: Math.round((position / unitScale) / step) * step
+        rulerPixelSize,
+        parentHeight: height,
+        step
       });
       
       // The ruler displays ticks at: ..., -2*step, -step, 0, step, 2*step, ... (in units)
