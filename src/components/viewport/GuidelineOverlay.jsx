@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { RULER_SIZE, UNITS, getTickSpacing } from './Rulers';
 
@@ -20,7 +20,6 @@ export default function GuidelineOverlay({
 }) {
   const [hoveredGuideId, setHoveredGuideId] = useState(null);
   const [draggingGuide, setDraggingGuide] = useState(null);
-  const controlsRef = useRef(null);
 
   // Convert screen coordinates to world coordinates
   const screenToWorld = useCallback((clientX, clientY) => {
@@ -134,36 +133,19 @@ export default function GuidelineOverlay({
       // Don't update hover while dragging
       if (draggingGuide) return;
       
-      // Check if mouse is over the controls - if so, don't change hover state
-      // This must be checked FIRST, before the SVG bounds check
-      if (controlsRef.current && controlsRef.current.contains(e.target)) {
-        return;
-      }
-      
-      // Also check by coordinates if the mouse is within the controls bounding box
-      // (in case e.target doesn't match due to event bubbling)
-      if (controlsRef.current) {
-        const controlsRect = controlsRef.current.getBoundingClientRect();
-        if (e.clientX >= controlsRect.left && e.clientX <= controlsRect.right &&
-            e.clientY >= controlsRect.top && e.clientY <= controlsRect.bottom) {
-          return;
-        }
-      }
-      
       const svg = svgRef?.current;
       if (!svg) return;
       
       const svgRect = svg.getBoundingClientRect();
-      
-      // If mouse is outside SVG (and not over controls), clear hover
-      if (e.clientX < svgRect.left || e.clientX > svgRect.right ||
-          e.clientY < svgRect.top || e.clientY > svgRect.bottom) {
-        setHoveredGuideId(null);
-        return;
-      }
-      
       const world = screenToWorld(e.clientX, e.clientY);
-      const hoverThreshold = (viewBox.h / svgRect.height) * 12; // 12 pixels
+      
+      // Calculate hover threshold in world units (about 12 pixels)
+      const hoverThreshold = (viewBox.h / svgRect.height) * 12;
+      
+      // If we currently have a hovered guide, use a MUCH larger threshold
+      // to include the area where the controls are displayed
+      // This prevents the controls from disappearing when moving toward them
+      const controlsThreshold = (viewBox.h / svgRect.height) * 60; // ~60 pixels to cover controls
       
       let foundId = null;
       for (const guide of guides) {
@@ -171,7 +153,10 @@ export default function GuidelineOverlay({
           ? Math.abs(world.y - guide.position)
           : Math.abs(world.x - guide.position);
         
-        if (dist < hoverThreshold) {
+        // Use larger threshold if this guide is currently hovered
+        const threshold = (hoveredGuideId === guide.id) ? controlsThreshold : hoverThreshold;
+        
+        if (dist < threshold) {
           foundId = guide.id;
           break;
         }
@@ -182,7 +167,7 @@ export default function GuidelineOverlay({
     
     window.addEventListener('mousemove', handleMouseMove);
     return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, [guides, draggingGuide, screenToWorld, svgRef, viewBox]);
+  }, [guides, draggingGuide, hoveredGuideId, screenToWorld, svgRef, viewBox]);
 
   const startDrag = useCallback((guide, e) => {
     e.stopPropagation();
@@ -224,7 +209,6 @@ export default function GuidelineOverlay({
     return createPortal(
       <div
         key={`controls-${guide.id}`}
-        ref={controlsRef}
         style={{
           position: 'fixed',
           left: controlPos.x + offsetX,
