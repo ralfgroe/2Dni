@@ -114,6 +114,13 @@ function HorizontalRuler({ viewBox, width, unit = 'px', onStartDrag }) {
 
 function VerticalRuler({ viewBox, height, unit = 'px', onStartDrag }) {
   const { step, pixelsPerUnit, unitScale } = getTickSpacing(viewBox.h, height, unit);
+  
+  // Store the current step in a global for debugging
+  if (typeof window !== 'undefined') {
+    window.__vrulerStep = step;
+    window.__vrulerHeight = height;
+  }
+  
   const startUnit = Math.floor(viewBox.y / unitScale / step) * step;
   const endUnit = Math.ceil((viewBox.y + viewBox.h) / unitScale / step) * step;
   
@@ -304,6 +311,12 @@ export default function Rulers({
         : (width - RULER_SIZE);
       
       const { step, unitScale } = getTickSpacing(viewRange, rulerPixelSize, unit);
+      
+      // Store snap step for debugging
+      if (typeof window !== 'undefined') {
+        window.__snapStep = step;
+        window.__snapRulerPixelSize = rulerPixelSize;
+      }
       
       // The ruler displays ticks at: ..., -2*step, -step, 0, step, 2*step, ... (in units)
       // World position of each tick is: tickUnit * unitScale
