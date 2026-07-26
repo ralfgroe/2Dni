@@ -135,8 +135,19 @@ export default function GuidelineOverlay({
       if (draggingGuide) return;
       
       // Check if mouse is over the controls - if so, don't change hover state
+      // This must be checked FIRST, before the SVG bounds check
       if (controlsRef.current && controlsRef.current.contains(e.target)) {
         return;
+      }
+      
+      // Also check by coordinates if the mouse is within the controls bounding box
+      // (in case e.target doesn't match due to event bubbling)
+      if (controlsRef.current) {
+        const controlsRect = controlsRef.current.getBoundingClientRect();
+        if (e.clientX >= controlsRect.left && e.clientX <= controlsRect.right &&
+            e.clientY >= controlsRect.top && e.clientY <= controlsRect.bottom) {
+          return;
+        }
       }
       
       const svg = svgRef?.current;
@@ -144,7 +155,7 @@ export default function GuidelineOverlay({
       
       const svgRect = svg.getBoundingClientRect();
       
-      // If mouse is outside SVG, clear hover
+      // If mouse is outside SVG (and not over controls), clear hover
       if (e.clientX < svgRect.left || e.clientX > svgRect.right ||
           e.clientY < svgRect.top || e.clientY > svgRect.bottom) {
         setHoveredGuideId(null);
