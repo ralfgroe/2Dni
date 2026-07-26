@@ -133,6 +133,8 @@ export default function GuidelineOverlay({
 
     const handleMouseUp = () => {
       setDraggingGuide(null);
+      // Clear hover state after drag ends so controls don't stick around
+      setHoveredGuide(null);
     };
 
     window.addEventListener('mousemove', handleMouseMove);
@@ -271,7 +273,12 @@ export default function GuidelineOverlay({
       <div
         key={`controls-${guide.id}`}
         onMouseEnter={() => { mouseOverControlsRef.current = true; }}
-        onMouseLeave={() => { mouseOverControlsRef.current = false; }}
+        onMouseLeave={() => { 
+          mouseOverControlsRef.current = false;
+          // Force a small mouse position update to trigger hover re-evaluation
+          // This ensures the hover state is rechecked when leaving controls
+          setMousePos(prev => ({ x: prev.x + 0.001, y: prev.y + 0.001 }));
+        }}
         style={{
           position: 'fixed',
           left: controlPos.x + offsetX,
