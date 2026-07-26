@@ -133,7 +133,7 @@ export default function GuidelineOverlay({
     };
   }, [draggingGuide, guides, screenToWorld, findSnapPoint, rulerUnit, viewBox, onUpdateGuide, viewportWidth, viewportHeight]);
 
-  // Simple hover detection on mouse move
+  // Simple hover detection on mouse move - works in SCREEN coordinates
   useEffect(() => {
     const handleMouseMove = (e) => {
       // Don't update hover while dragging
@@ -143,29 +143,56 @@ export default function GuidelineOverlay({
       if (!svg) return;
       
       const svgRect = svg.getBoundingClientRect();
-      const world = screenToWorld(e.clientX, e.clientY);
       
-      // Calculate hover threshold in world units (about 12 pixels)
-      const hoverThreshold = (viewBox.h / svgRect.height) * 12;
-      
-      // If we currently have a hovered guide, use a MUCH larger threshold
-      // to include the area where the controls are displayed
-      // This prevents the controls from disappearing when moving toward them
-      const controlsThreshold = (viewBox.h / svgRect.height) * 80; // ~80 pixels to cover controls
+      // Mouse position in screen coordinates
+      const mouseX = e.clientX;
+      const mouseY = e.clientY;
       
       // Use ref to get current hovered guide ID (avoids stale closure)
       const currentHoveredId = hoveredGuideIdRef.current;
       
       let foundId = null;
+      
       for (const guide of guides) {
-        const dist = guide.orientation === 'horizontal'
-          ? Math.abs(world.y - guide.position)
-          : Math.abs(world.x - guide.position);
+        // Calculate where the guideline is in screen coordinates
+        const guideScreenPos = guide.orientation === 'horizontal'
+          ? worldToScreen(viewBox.x, guide.position)
+          : worldToScreen(guide.position, viewBox.y);
         
-        // Use larger threshold if this guide is currently hovered
-        const threshold = (currentHoveredId === guide.id) ? controlsThreshold : hoverThreshold;
+        // Calculate where the controls would be positioned (center of viewport along the guide)
+        const controlsCenter = guide.orientation === 'horizontal'
+          ? worldToScreen(viewBox.x + viewBox.w * 0.5, guide.position)
+          : worldToScreen(guide.position, viewBox.y + viewBox.h * 0.5);
         
-        if (dist < threshold) {
+        // Controls dimensions
+        const isHorizontal = guide.orientation === 'horizontal';
+        const controlsWidth = isHorizontal ? (HANDLE_SIZE * 3 + 8) : HANDLE_SIZE;
+        const controlsHeight = isHorizontal ? HANDLE_SIZE : (HANDLE_SIZE * 3 + 8);
+        
+        // Distance from mouse to the guideline (perpendicular distance)
+        const distToLine = guide.orientation === 'horizontal'
+          ? Math.abs(mouseY - guideScreenPos.y)
+          : Math.abs(mouseX - guideScreenPos.x);
+        
+        // Check if mouse is within the controls bounding box (with padding)
+        const controlsPadding = 15;
+        const inControlsX = mouseX >= controlsCenter.x - controlsWidth/2 - controlsPadding && 
+                           mouseX <= controlsCenter.x + controlsWidth/2 + controlsPadding;
+        const inControlsY = mouseY >= controlsCenter.y - controlsHeight/2 - controlsPadding && 
+                           mouseY <= controlsCenter.y + controlsHeight/2 + controlsPadding;
+        const inControlsArea = inControlsX && inControlsY;
+        
+        // Thresholds in screen pixels
+        const enterThreshold = 12;  // pixels to initially detect hover
+        const stayThreshold = 20;   // pixels to stay hovered (slightly larger)
+        
+        const threshold = (currentHoveredId === guide.id) ? stayThreshold : enterThreshold;
+        
+        // Hover if: close to the line OR within the controls area (when already hovered)
+        const isNearLine = distToLine < threshold;
+        const shouldHover = isNearLine || (currentHoveredId === guide.id && inControlsArea);
+        
+        if (shouldHover) {
           foundId = guide.id;
           break;
         }
@@ -176,7 +203,7 @@ export default function GuidelineOverlay({
     
     window.addEventListener('mousemove', handleMouseMove);
     return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, [guides, draggingGuide, screenToWorld, svgRef, viewBox]);
+  }, [guides, draggingGuide, worldToScreen, svgRef, viewBox]);
 
   const startDrag = useCallback((guide, e) => {
     e.stopPropagation();
