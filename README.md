@@ -10,6 +10,8 @@ A browser-based 2D design tool with a node-based workflow for creating and manip
 - **Parametric geometry** — Lines, rectangles, ellipses, arcs, and more with adjustable parameters
 - **AI assistant** — Describe what you want in natural language and let AI generate geometry code
 - **Live canvas preview** — See your designs rendered in real time on an interactive canvas
+- **Rulers and guidelines** — Pull out guidelines from rulers (like Adobe Illustrator) with magnetic snapping to geometry and ruler tick marks
+- **Pane swapping** — Houdini-style pane swap buttons on resize handles to quickly reorganize your workspace
 - **Export** — Save your work as SVG, PNG, GIF, or MP4
 - **Dark mode** — Toggle between light and dark themes
 - **Resizable panels** — Customize your workspace layout
