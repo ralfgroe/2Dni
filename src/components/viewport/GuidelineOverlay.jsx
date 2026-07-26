@@ -241,8 +241,11 @@ export default function GuidelineOverlay({
 
   // Render control buttons for a guide
   const renderControls = (guide) => {
-    if (hoveredGuideId !== guide.id) return null;
-    if (draggingGuide) return null;
+    // Show controls if this guide is hovered OR being dragged
+    const isHovered = hoveredGuideId === guide.id;
+    const isBeingDragged = draggingGuide?.id === guide.id;
+    
+    if (!isHovered && !isBeingDragged) return null;
     
     const controlPos = guide.orientation === 'horizontal'
       ? worldToScreen(viewBox.x + viewBox.w * 0.5, guide.position)
