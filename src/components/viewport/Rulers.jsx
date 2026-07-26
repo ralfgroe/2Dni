@@ -237,6 +237,7 @@ export default function Rulers({
   svgRef,
   geometrySnapPoints = [],
 }) {
+  console.log('Rulers props:', { width, height, viewBox });
   const [dragging, setDragging] = useState(null);
 
   // Convert screen coordinates to world coordinates using SVG's coordinate system
