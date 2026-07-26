@@ -37,6 +37,14 @@ function getTickSpacing(viewRange, availablePixels, unit) {
 
 function HorizontalRuler({ viewBox, width, unit = 'px', onStartDrag }) {
   const { step, pixelsPerUnit, unitScale } = getTickSpacing(viewBox.w, width, unit);
+  
+  // Store for debugging
+  if (typeof window !== 'undefined') {
+    window.__hrulerStep = step;
+    window.__hrulerWidth = width;
+    window.__hrulerViewBoxW = viewBox.w;
+  }
+  
   const startUnit = Math.floor(viewBox.x / unitScale / step) * step;
   const endUnit = Math.ceil((viewBox.x + viewBox.w) / unitScale / step) * step;
   
@@ -119,6 +127,7 @@ function VerticalRuler({ viewBox, height, unit = 'px', onStartDrag }) {
   if (typeof window !== 'undefined') {
     window.__vrulerStep = step;
     window.__vrulerHeight = height;
+    window.__vrulerViewBoxH = viewBox.h;
   }
   
   const startUnit = Math.floor(viewBox.y / unitScale / step) * step;
@@ -316,6 +325,8 @@ export default function Rulers({
       if (typeof window !== 'undefined') {
         window.__snapStep = step;
         window.__snapRulerPixelSize = rulerPixelSize;
+        window.__snapViewRange = viewRange;
+        window.__snapOrientation = dragging.orientation;
       }
       
       // The ruler displays ticks at: ..., -2*step, -step, 0, step, 2*step, ... (in units)
