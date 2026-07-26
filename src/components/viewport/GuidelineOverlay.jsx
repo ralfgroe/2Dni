@@ -91,7 +91,7 @@ export default function GuidelineOverlay({
       const world = screenToWorld(e.clientX, e.clientY);
       let newPosition = draggingGuide.orientation === 'horizontal' ? world.y : world.x;
       
-      // For magnetic guidelines, snap to ruler ticks
+      // Only apply snapping if the guideline is magnetic
       if (isMagnetic) {
         // FIRST PRINCIPLES:
         // For HORIZONTAL guideline: position is Y, snap to VerticalRuler ticks
@@ -118,13 +118,14 @@ export default function GuidelineOverlay({
         if (Math.abs(newPosition - snapTargetWorld) < snapThreshold) {
           newPosition = snapTargetWorld;
         }
+        
+        // Also try to snap to geometry points (takes priority if closer) - only when magnetic
+        const snapPos = findSnapPoint(newPosition, draggingGuide.orientation);
+        if (snapPos !== null) {
+          newPosition = snapPos;
+        }
       }
-      
-      // Also try to snap to geometry points (takes priority if closer)
-      const snapPos = findSnapPoint(newPosition, draggingGuide.orientation);
-      if (snapPos !== null) {
-        newPosition = snapPos;
-      }
+      // When NOT magnetic, no snapping at all - guideline moves freely
       
       onUpdateGuide(draggingGuide.id, newPosition);
       setMousePos({ x: e.clientX, y: e.clientY });
