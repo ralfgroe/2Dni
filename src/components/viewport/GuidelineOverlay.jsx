@@ -368,22 +368,12 @@ export default function GuidelineOverlay({
           }}
           title={isMagnetic ? "Magnetic ON - click to disable" : "Magnetic OFF - click to enable"}
         >
-          {/* Horseshoe magnet icon - flipped so opening faces down */}
+          {/* Simple orange horseshoe magnet icon */}
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ marginTop: -1 }}>
-            {/* Left side (red) */}
+            {/* Outer horseshoe shape - orange when magnetic, gray when not */}
             <path 
-              d="M4 20L4 10C4 7.8 5.3 5.8 7.2 4.6C8.1 4 9 3.6 10 3.3C10.6 3.1 11.3 3 12 3L12 10L12 20L4 20Z" 
-              fill={isMagnetic ? '#ef4444' : '#9ca3af'}
-            />
-            {/* Right side (green) */}
-            <path 
-              d="M20 20L20 10C20 7.8 18.7 5.8 16.8 4.6C15.9 4 15 3.6 14 3.3C13.4 3.1 12.7 3 12 3L12 10L12 20L20 20Z" 
-              fill={isMagnetic ? '#22c55e' : '#9ca3af'}
-            />
-            {/* Inner white curve to create horseshoe shape */}
-            <path 
-              d="M8 20L8 10C8 7.8 9.8 6 12 6C14.2 6 16 7.8 16 10L16 20" 
-              fill="white"
+              d="M4 20L4 10C4 5.6 7.6 2 12 2C16.4 2 20 5.6 20 10L20 20L16 20L16 10C16 7.8 14.2 6 12 6C9.8 6 8 7.8 8 10L8 20L4 20Z" 
+              fill={isMagnetic ? '#f7931e' : '#9ca3af'}
             />
           </svg>
         </button>
