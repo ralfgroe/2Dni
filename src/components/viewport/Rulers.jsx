@@ -114,6 +114,7 @@ function HorizontalRuler({ viewBox, width, unit = 'px', onStartDrag }) {
 
 function VerticalRuler({ viewBox, height, unit = 'px', onStartDrag }) {
   const { step, pixelsPerUnit, unitScale } = getTickSpacing(viewBox.h, height, unit);
+  console.log('VRuler render:', { viewBoxH: viewBox.h, height, step });
   const startUnit = Math.floor(viewBox.y / unitScale / step) * step;
   const endUnit = Math.ceil((viewBox.y + viewBox.h) / unitScale / step) * step;
   
@@ -304,6 +305,16 @@ export default function Rulers({
         : (width - RULER_SIZE);
       
       const { step, unitScale } = getTickSpacing(viewRange, rulerPixelSize, unit);
+      
+      console.log('SNAP calc:', { 
+        orientation: dragging.orientation,
+        viewRange, 
+        rulerPixelSize, 
+        step,
+        position,
+        positionInUnits: position / unitScale,
+        nearestTickUnit: Math.round((position / unitScale) / step) * step
+      });
       
       // The ruler displays ticks at: ..., -2*step, -step, 0, step, 2*step, ... (in units)
       // World position of each tick is: tickUnit * unitScale
