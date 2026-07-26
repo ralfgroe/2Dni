@@ -114,11 +114,6 @@ function HorizontalRuler({ viewBox, width, unit = 'px', onStartDrag }) {
 
 function VerticalRuler({ viewBox, height, unit = 'px', onStartDrag }) {
   const { step, pixelsPerUnit, unitScale } = getTickSpacing(viewBox.h, height, unit);
-  // Log every render with all inputs
-  console.log('VRuler RENDER:', { 
-    inputs: { viewBoxH: viewBox.h, height, unit },
-    outputs: { step, pixelsPerUnit, unitScale }
-  });
   const startUnit = Math.floor(viewBox.y / unitScale / step) * step;
   const endUnit = Math.ceil((viewBox.y + viewBox.h) / unitScale / step) * step;
   
@@ -310,13 +305,6 @@ export default function Rulers({
       
       const { step, unitScale } = getTickSpacing(viewRange, rulerPixelSize, unit);
       
-      // Log the exact values being used - MUST match VRuler RENDER log
-      console.log('SNAP CALC:', { 
-        inputs: { viewRange, rulerPixelSize, unit },
-        outputs: { step, unitScale },
-        position: { raw: position, inUnits: position / unitScale, nearestTick: Math.round((position / unitScale) / step) * step }
-      });
-      
       // The ruler displays ticks at: ..., -2*step, -step, 0, step, 2*step, ... (in units)
       // World position of each tick is: tickUnit * unitScale
       // So we need to snap `position` to the nearest (N * step * unitScale)
@@ -325,28 +313,12 @@ export default function Rulers({
       const nearestTickUnit = Math.round(positionInUnits / step) * step;
       const snapTargetWorld = nearestTickUnit * unitScale;
       
-      // ALWAYS snap - no threshold
+      // ALWAYS snap to ruler tick - this is the primary snap behavior
       position = snapTargetWorld;
       
-      // Also try to snap to geometry control points (takes priority if closer)
-      if (geometrySnapPoints && geometrySnapPoints.length > 0) {
-        const geoSnapDistance = viewRange * 0.05;
-        let nearestGeo = null;
-        let minGeoDist = geoSnapDistance;
-        
-        for (const pt of geometrySnapPoints) {
-          const coord = dragging.orientation === 'horizontal' ? pt.y : pt.x;
-          const dist = Math.abs(coord - position);
-          if (dist < minGeoDist) {
-            minGeoDist = dist;
-            nearestGeo = coord;
-          }
-        }
-        
-        if (nearestGeo !== null) {
-          position = nearestGeo;
-        }
-      }
+      // NOTE: We intentionally do NOT snap to geometry points when dragging from rulers.
+      // The ruler tick snap is the expected behavior. Geometry snapping is only for
+      // when the user drags an existing guideline via its controls (handled in GuidelineOverlay).
       
       onUpdateGuide?.(dragging.id, position);
     };
