@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { RULER_SIZE, UNITS, getTickSpacing } from './Rulers';
 
@@ -20,6 +20,12 @@ export default function GuidelineOverlay({
 }) {
   const [hoveredGuideId, setHoveredGuideId] = useState(null);
   const [draggingGuide, setDraggingGuide] = useState(null);
+  const hoveredGuideIdRef = useRef(null);
+  
+  // Keep ref in sync with state
+  useEffect(() => {
+    hoveredGuideIdRef.current = hoveredGuideId;
+  }, [hoveredGuideId]);
 
   // Convert screen coordinates to world coordinates
   const screenToWorld = useCallback((clientX, clientY) => {
@@ -145,7 +151,10 @@ export default function GuidelineOverlay({
       // If we currently have a hovered guide, use a MUCH larger threshold
       // to include the area where the controls are displayed
       // This prevents the controls from disappearing when moving toward them
-      const controlsThreshold = (viewBox.h / svgRect.height) * 60; // ~60 pixels to cover controls
+      const controlsThreshold = (viewBox.h / svgRect.height) * 80; // ~80 pixels to cover controls
+      
+      // Use ref to get current hovered guide ID (avoids stale closure)
+      const currentHoveredId = hoveredGuideIdRef.current;
       
       let foundId = null;
       for (const guide of guides) {
@@ -154,7 +163,7 @@ export default function GuidelineOverlay({
           : Math.abs(world.x - guide.position);
         
         // Use larger threshold if this guide is currently hovered
-        const threshold = (hoveredGuideId === guide.id) ? controlsThreshold : hoverThreshold;
+        const threshold = (currentHoveredId === guide.id) ? controlsThreshold : hoverThreshold;
         
         if (dist < threshold) {
           foundId = guide.id;
@@ -167,7 +176,7 @@ export default function GuidelineOverlay({
     
     window.addEventListener('mousemove', handleMouseMove);
     return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, [guides, draggingGuide, hoveredGuideId, screenToWorld, svgRef, viewBox]);
+  }, [guides, draggingGuide, screenToWorld, svgRef, viewBox]);
 
   const startDrag = useCallback((guide, e) => {
     e.stopPropagation();
