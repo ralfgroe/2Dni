@@ -114,7 +114,11 @@ function HorizontalRuler({ viewBox, width, unit = 'px', onStartDrag }) {
 
 function VerticalRuler({ viewBox, height, unit = 'px', onStartDrag }) {
   const { step, pixelsPerUnit, unitScale } = getTickSpacing(viewBox.h, height, unit);
-  console.log('VRuler render:', { viewBoxH: viewBox.h, height, step });
+  // Log every render with all inputs
+  console.log('VRuler RENDER:', { 
+    inputs: { viewBoxH: viewBox.h, height, unit },
+    outputs: { step, pixelsPerUnit, unitScale }
+  });
   const startUnit = Math.floor(viewBox.y / unitScale / step) * step;
   const endUnit = Math.ceil((viewBox.y + viewBox.h) / unitScale / step) * step;
   
@@ -306,13 +310,11 @@ export default function Rulers({
       
       const { step, unitScale } = getTickSpacing(viewRange, rulerPixelSize, unit);
       
-      // Log the exact values being used
-      console.log('SNAP:', { 
-        orientation: dragging.orientation,
-        viewRange, 
-        rulerPixelSize,
-        parentHeight: height,
-        step
+      // Log the exact values being used - MUST match VRuler RENDER log
+      console.log('SNAP CALC:', { 
+        inputs: { viewRange, rulerPixelSize, unit },
+        outputs: { step, unitScale },
+        position: { raw: position, inUnits: position / unitScale, nearestTick: Math.round((position / unitScale) / step) * step }
       });
       
       // The ruler displays ticks at: ..., -2*step, -step, 0, step, 2*step, ... (in units)
@@ -389,7 +391,6 @@ export default function Rulers({
         unit={unit} 
         onStartDrag={handleStartDrag}
       />
-      {console.log('Rulers passing to VRuler:', { heightMinusRuler: height - RULER_SIZE })}
       <VerticalRuler 
         viewBox={viewBox} 
         height={height - RULER_SIZE} 
