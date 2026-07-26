@@ -355,7 +355,7 @@ export default function GuidelineOverlay({
           style={{
             width: HANDLE_SIZE,
             height: HANDLE_SIZE,
-            border: '1px solid #6b7280',
+            border: '1px solid #f7931e',
             borderRadius: 3,
             backgroundColor: 'white',
             cursor: 'pointer',
