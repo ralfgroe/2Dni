@@ -77,7 +77,19 @@ export default function QuickStartGuide({ onClose }) {
           <LayersDiagram />
         </Section>
 
-        <Section number="8" title="Parametric Dimensions (CAD)">
+        <Section number="8" title="Rulers & Guidelines">
+          <P>Click the <B>ruler button</B> (next to the grid toggle) to show rulers along the top and left edges of the viewport. Drag from a ruler to pull out a <B>guideline</B> — a dashed line that helps you align elements precisely.</P>
+          <Steps>
+            <Step>Click the ruler button to show rulers</Step>
+            <Step>Drag from the top ruler to create a <B>horizontal guideline</B></Step>
+            <Step>Drag from the left ruler to create a <B>vertical guideline</B></Step>
+            <Step>Guidelines snap to ruler tick marks as you drag</Step>
+          </Steps>
+          <Tip>Hover over a guideline to reveal controls: <B>move</B> (blue), <B>delete</B> (red), and <B>magnetic toggle</B> (orange). When magnetic is on, shapes snap to the guideline.</Tip>
+          <Tip>Double-click the corner box (where rulers meet) to <B>clear all guidelines</B> at once. Click it to cycle through units (px, mm, cm, in).</Tip>
+        </Section>
+
+        <Section number="9" title="Parametric Dimensions (CAD)">
           <P>The <B>Dimension</B> node lets you drive a shape by its measurements, SolidWorks-style. It runs a real geometric constraint solver: every vertex is a variable, and your dimensions plus auto-inferred Horizontal/Vertical/fixed-angle relations are equations solved together — so changing one dimension moves <B>only what it must</B>.</P>
           <ChainDiagram nodes={['Polyline','Dimension']} />
           <Steps>
@@ -95,7 +107,7 @@ export default function QuickStartGuide({ onClose }) {
           <Tip>Every element gets a <B>locating dimension</B> from the nearest wall corner to the opening's near edge (so you read how much wall is left). Double-click it to type an exact position, or drag the label <B>in/out</B> to tidy the layout. Tip: parameter panels with lots of settings (like Floorplan) now have <B>collapsible sections</B> — click a heading to fold it away.</Tip>
         </Section>
 
-        <Section number="9" title="Exporting Your Work">
+        <Section number="10" title="Exporting Your Work">
           <P>Add an <B>Export</B> node at the end of your chain and choose a format:</P>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 12 }}>
             <FormatCard label="SVG" desc="Vector graphics for web & print" />
@@ -105,7 +117,7 @@ export default function QuickStartGuide({ onClose }) {
           </div>
         </Section>
 
-        <Section number="10" title="Animating Your Design">
+        <Section number="11" title="Animating Your Design">
           <P>2Dni includes a built-in animation system. Click the <B>Animate</B> button in the toolbar (next to AI) to reveal the timeline playbar at the bottom of the Viewport.</P>
           <AnimationDiagram />
           <Steps>
@@ -120,7 +132,7 @@ export default function QuickStartGuide({ onClose }) {
           <Tip>Use the <B>camera icon</B> to toggle a red frame overlay that previews exactly what area will be exported.</Tip>
         </Section>
 
-        <Section number="11" title="Keyboard & Mouse Shortcuts">
+        <Section number="12" title="Keyboard & Mouse Shortcuts">
           <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '6px 16px', marginTop: 8, fontSize: 12, color: '#495057' }}>
             <Kbd>Right-click</Kbd><span>Open toolbox (Node Graph)</span>
             <Kbd>Ctrl + Z</Kbd><span>Undo</span>
@@ -136,7 +148,7 @@ export default function QuickStartGuide({ onClose }) {
           </div>
         </Section>
 
-        <Section number="12" title="Tips & Tricks">
+        <Section number="13" title="Tips & Tricks">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
             <Tip>Hover over any node in the toolbox to see a description of what it does.</Tip>
             <Tip>Use <B>arrow keys</B> to navigate the toolbox, press <B>Enter</B> to add.</Tip>

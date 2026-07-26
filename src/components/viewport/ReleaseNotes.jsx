@@ -1,6 +1,6 @@
 // Release notes for 2Dni. Add a new <Release> block at the top each time we
 // ship new nodes or notable changes, and bump LATEST_RELEASE_DATE below.
-export const LATEST_RELEASE_DATE = 'July 21, 2026';
+export const LATEST_RELEASE_DATE = 'July 25, 2026';
 
 export default function ReleaseNotes({ onClose }) {
   return (
@@ -23,6 +23,38 @@ export default function ReleaseNotes({ onClose }) {
           <h1 style={{ fontSize: 28, fontWeight: 700, color: '#1a1a2e', margin: 0 }}>Release Notes</h1>
           <p style={{ fontSize: 13, color: '#6c757d', marginTop: 8 }}>What's new in 2Dni</p>
         </div>
+
+        <Release version="July 25, 2026" title="Rulers & Guidelines — Illustrator-style alignment tools">
+          <Item name="Rulers" tag="new">
+            Click the <b>ruler button</b> next to the grid toggle to show rulers along
+            the top and left edges of the viewport. Rulers display tick marks in your
+            chosen unit (px, mm, cm, or in) — click the corner box to cycle through units.
+          </Item>
+          <Item name="Guidelines" tag="new">
+            Drag from a ruler to pull out a <b>guideline</b> — a dashed cyan line that
+            helps you align elements precisely. Guidelines <b>snap to ruler tick marks</b>
+            as you drag, so they land exactly on round numbers.
+          </Item>
+          <Item name="Guideline controls" tag="new">
+            Hover over any guideline to reveal three control buttons: <b>move</b> (blue)
+            to reposition, <b>delete</b> (red) to remove, and <b>magnetic toggle</b>
+            (orange) to control whether shapes snap to that guideline.
+          </Item>
+          <Item name="Magnetic guidelines" tag="new">
+            When a guideline's magnet is <b>on</b> (orange), shapes snap to it as you
+            drag — perfect for aligning multiple elements to a common edge. Guidelines
+            are magnetic by default.
+          </Item>
+          <Item name="Pane swap button" tag="new">
+            A small <b>swap button</b> appears when you hover over the resize handle
+            between panels. Click it to instantly swap the contents of the two adjacent
+            panes — Houdini-style layout flexibility.
+          </Item>
+          <Item name="Clear all guidelines" tag="new">
+            Double-click the corner box (where rulers meet) to <b>clear all guidelines</b>
+            at once.
+          </Item>
+        </Release>
 
         <Release version="July 21, 2026" title="Snap to points — latch shapes onto existing geometry">
           <Item name="Snap to points" tag="new">
