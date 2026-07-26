@@ -36,9 +36,7 @@ function getTickSpacing(viewRange, availablePixels, unit) {
 }
 
 function HorizontalRuler({ viewBox, width, unit = 'px', onStartDrag }) {
-  // Calculate ticks directly without useMemo to ensure fresh values
   const { step, pixelsPerUnit, unitScale } = getTickSpacing(viewBox.w, width, unit);
-  console.log('HRuler calc:', { viewBoxW: viewBox.w, width, step });
   const startUnit = Math.floor(viewBox.x / unitScale / step) * step;
   const endUnit = Math.ceil((viewBox.x + viewBox.w) / unitScale / step) * step;
   
@@ -115,9 +113,7 @@ function HorizontalRuler({ viewBox, width, unit = 'px', onStartDrag }) {
 }
 
 function VerticalRuler({ viewBox, height, unit = 'px', onStartDrag }) {
-  // Calculate ticks directly without useMemo to ensure fresh values
   const { step, pixelsPerUnit, unitScale } = getTickSpacing(viewBox.h, height, unit);
-  console.log('VRuler calc:', { viewBoxH: viewBox.h, height, step });
   const startUnit = Math.floor(viewBox.y / unitScale / step) * step;
   const endUnit = Math.ceil((viewBox.y + viewBox.h) / unitScale / step) * step;
   
@@ -237,7 +233,6 @@ export default function Rulers({
   svgRef,
   geometrySnapPoints = [],
 }) {
-  console.log('Rulers props:', { width, height, viewBox });
   const [dragging, setDragging] = useState(null);
 
   // Convert screen coordinates to world coordinates using SVG's coordinate system
@@ -305,14 +300,10 @@ export default function Rulers({
       
       const viewRange = dragging.orientation === 'horizontal' ? viewBox.h : viewBox.w;
       const rulerPixelSize = dragging.orientation === 'horizontal' 
-        ? (height - RULER_SIZE)   // What VerticalRuler receives as its height prop
-        : (width - RULER_SIZE);   // What HorizontalRuler receives as its width prop
+        ? (height - RULER_SIZE)
+        : (width - RULER_SIZE);
       
-      // Get tick spacing using EXACTLY the same inputs as the ruler
       const { step, unitScale } = getTickSpacing(viewRange, rulerPixelSize, unit);
-      
-      const rulerType = dragging.orientation === 'horizontal' ? 'VRuler' : 'HRuler';
-      console.log(`SNAP (should match ${rulerType}):`, { viewRange, rulerPixelSize, step });
       
       // The ruler displays ticks at: ..., -2*step, -step, 0, step, 2*step, ... (in units)
       // World position of each tick is: tickUnit * unitScale
