@@ -116,32 +116,30 @@ function HorizontalRuler({ viewBox, width, unit = 'px', onStartDrag }) {
 }
 
 function VerticalRuler({ viewBox, height, unit = 'px', onStartDrag }) {
-  const ticks = useMemo(() => {
-    const { step, pixelsPerUnit, unitScale } = getTickSpacing(viewBox.h, height, unit);
-    console.log('VRuler ticks:', { viewBoxH: viewBox.h, height, step });
-    const startUnit = Math.floor(viewBox.y / unitScale / step) * step;
-    const endUnit = Math.ceil((viewBox.y + viewBox.h) / unitScale / step) * step;
+  // Calculate ticks directly without useMemo to ensure fresh values
+  const { step, pixelsPerUnit, unitScale } = getTickSpacing(viewBox.h, height, unit);
+  console.log('VRuler calc:', { viewBoxH: viewBox.h, height, step });
+  const startUnit = Math.floor(viewBox.y / unitScale / step) * step;
+  const endUnit = Math.ceil((viewBox.y + viewBox.h) / unitScale / step) * step;
+  
+  const ticks = [];
+  for (let u = startUnit; u <= endUnit; u += step) {
+    const worldY = u * unitScale;
+    const screenY = ((worldY - viewBox.y) / viewBox.h) * height;
+    if (screenY >= 0 && screenY <= height) {
+      ticks.push({ y: screenY, label: u, major: true });
+    }
     
-    const result = [];
-    for (let u = startUnit; u <= endUnit; u += step) {
-      const worldY = u * unitScale;
-      const screenY = ((worldY - viewBox.y) / viewBox.h) * height;
-      if (screenY >= 0 && screenY <= height) {
-        result.push({ y: screenY, label: u, major: true });
-      }
-      
-      const minorStep = step / 5;
-      for (let m = 1; m < 5; m++) {
-        const minorU = u + m * minorStep;
-        const minorWorldY = minorU * unitScale;
-        const minorScreenY = ((minorWorldY - viewBox.y) / viewBox.h) * height;
-        if (minorScreenY >= 0 && minorScreenY <= height && minorScreenY < screenY + (step * pixelsPerUnit) - 5) {
-          result.push({ y: minorScreenY, label: null, major: false });
-        }
+    const minorStep = step / 5;
+    for (let m = 1; m < 5; m++) {
+      const minorU = u + m * minorStep;
+      const minorWorldY = minorU * unitScale;
+      const minorScreenY = ((minorWorldY - viewBox.y) / viewBox.h) * height;
+      if (minorScreenY >= 0 && minorScreenY <= height && minorScreenY < screenY + (step * pixelsPerUnit) - 5) {
+        ticks.push({ y: minorScreenY, label: null, major: false });
       }
     }
-    return result;
-  }, [viewBox.x, viewBox.y, viewBox.w, viewBox.h, height, unit]);
+  }
 
   const handleMouseDown = useCallback((e) => {
     const rect = e.currentTarget.getBoundingClientRect();
