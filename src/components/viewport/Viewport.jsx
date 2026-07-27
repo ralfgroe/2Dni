@@ -852,23 +852,6 @@ export default function Viewport() {
           />
         )}
 
-        {/* Guidelines with interactive controls */}
-        {showRulers && (
-          <GuidelineOverlay
-            guides={guides}
-            viewBox={viewBox}
-            svgRef={svgRef}
-            onUpdateGuide={updateGuide}
-            onRemoveGuide={removeGuide}
-            onToggleMagnetic={toggleGuideMagnetic}
-            snapPoints={guidelineSnapPoints}
-            snapThreshold={15}
-            rulerUnit={rulerUnit}
-            viewportWidth={viewportSize.width}
-            viewportHeight={viewportSize.height}
-          />
-        )}
-
         <line x1="-20" y1="0" x2="20" y2="0" stroke="var(--text-muted)" strokeWidth="0.5" opacity="0.4" />
         <line x1="0" y1="-20" x2="0" y2="20" stroke="var(--text-muted)" strokeWidth="0.5" opacity="0.4" />
 
@@ -1081,6 +1064,23 @@ export default function Viewport() {
             edges={edges}
             results={results}
             viewBox={viewBox}
+          />
+        )}
+
+        {/* Guidelines with interactive controls - rendered on top of all geometry overlays */}
+        {showRulers && (
+          <GuidelineOverlay
+            guides={guides}
+            viewBox={viewBox}
+            svgRef={svgRef}
+            onUpdateGuide={updateGuide}
+            onRemoveGuide={removeGuide}
+            onToggleMagnetic={toggleGuideMagnetic}
+            snapPoints={guidelineSnapPoints}
+            snapThreshold={15}
+            rulerUnit={rulerUnit}
+            viewportWidth={viewportSize.width}
+            viewportHeight={viewportSize.height}
           />
         )}
 
