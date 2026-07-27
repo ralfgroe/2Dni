@@ -149,6 +149,8 @@ export default function GuidelineOverlay({
       const svg = svgRef?.current;
       if (!svg) return;
       
+      const svgRect = svg.getBoundingClientRect();
+      
       // Mouse position in screen coordinates
       const mouseX = e.clientX;
       const mouseY = e.clientY;
@@ -172,13 +174,21 @@ export default function GuidelineOverlay({
           ? worldToScreen(viewBox.x, guide.position)
           : worldToScreen(guide.position, viewBox.y);
         
-        // Calculate where the controls would be positioned (center of viewport along the guide)
-        const controlsCenter = guide.orientation === 'horizontal'
-          ? worldToScreen(viewBox.x + viewBox.w * 0.5, guide.position)
-          : worldToScreen(guide.position, viewBox.y + viewBox.h * 0.5);
+        const isHorizontal = guide.orientation === 'horizontal';
+        
+        // Calculate where the controls are positioned (at the edges)
+        let controlsCenterX, controlsCenterY;
+        if (isHorizontal) {
+          // Left edge
+          controlsCenterX = svgRect.left + RULER_SIZE + 8 + (HANDLE_SIZE * 3 + 4) / 2;
+          controlsCenterY = guideScreenPos.y;
+        } else {
+          // Top edge
+          controlsCenterX = guideScreenPos.x;
+          controlsCenterY = svgRect.top + RULER_SIZE + 8 + (HANDLE_SIZE * 3 + 4) / 2;
+        }
         
         // Controls dimensions
-        const isHorizontal = guide.orientation === 'horizontal';
         const controlsWidth = isHorizontal ? (HANDLE_SIZE * 3 + 8) : HANDLE_SIZE;
         const controlsHeight = isHorizontal ? HANDLE_SIZE : (HANDLE_SIZE * 3 + 8);
         
@@ -188,11 +198,11 @@ export default function GuidelineOverlay({
           : Math.abs(mouseX - guideScreenPos.x);
         
         // Check if mouse is within the controls bounding box (with padding)
-        const controlsPadding = 20;
-        const inControlsX = mouseX >= controlsCenter.x - controlsWidth/2 - controlsPadding && 
-                           mouseX <= controlsCenter.x + controlsWidth/2 + controlsPadding;
-        const inControlsY = mouseY >= controlsCenter.y - controlsHeight/2 - controlsPadding && 
-                           mouseY <= controlsCenter.y + controlsHeight/2 + controlsPadding;
+        const controlsPadding = 24;
+        const inControlsX = mouseX >= controlsCenterX - controlsWidth/2 - controlsPadding && 
+                           mouseX <= controlsCenterX + controlsWidth/2 + controlsPadding;
+        const inControlsY = mouseY >= controlsCenterY - controlsHeight/2 - controlsPadding && 
+                           mouseY <= controlsCenterY + controlsHeight/2 + controlsPadding;
         const inControlsArea = inControlsX && inControlsY;
         
         // Thresholds in screen pixels
@@ -247,18 +257,38 @@ export default function GuidelineOverlay({
     
     if (!isHovered && !isBeingDragged) return null;
     
-    const controlPos = guide.orientation === 'horizontal'
-      ? worldToScreen(viewBox.x + viewBox.w * 0.5, guide.position)
-      : worldToScreen(guide.position, viewBox.y + viewBox.h * 0.5);
-    
     const isHorizontal = guide.orientation === 'horizontal';
     const isMagnetic = guide.magnetic !== false;
+    
+    // Get the screen position of the guideline
+    const guideScreenPos = isHorizontal
+      ? worldToScreen(viewBox.x, guide.position)
+      : worldToScreen(guide.position, viewBox.y);
+    
+    // Position controls at the edge:
+    // - Horizontal guidelines: controls on the LEFT edge (just after the ruler)
+    // - Vertical guidelines: controls at the TOP edge (just below the ruler)
+    const svg = svgRef?.current;
+    const svgRect = svg?.getBoundingClientRect();
+    
+    let controlX, controlY;
+    
+    if (isHorizontal) {
+      // Left edge, vertically centered on the guideline
+      controlX = (svgRect?.left || 0) + RULER_SIZE + 8;
+      controlY = guideScreenPos.y;
+    } else {
+      // Top edge, horizontally centered on the guideline
+      controlX = guideScreenPos.x;
+      controlY = (svgRect?.top || 0) + RULER_SIZE + 8;
+    }
     
     const totalControlsWidth = isHorizontal ? (HANDLE_SIZE * 3 + 4) : HANDLE_SIZE;
     const totalControlsHeight = isHorizontal ? HANDLE_SIZE : (HANDLE_SIZE * 3 + 4);
     
-    const offsetX = -totalControlsWidth / 2;
-    const offsetY = -totalControlsHeight / 2;
+    // Center the controls on the guideline position
+    const offsetX = isHorizontal ? 0 : -totalControlsWidth / 2;
+    const offsetY = isHorizontal ? -totalControlsHeight / 2 : 0;
     
     return createPortal(
       <div
@@ -271,8 +301,8 @@ export default function GuidelineOverlay({
         }}
         style={{
           position: 'fixed',
-          left: controlPos.x + offsetX - 20,
-          top: controlPos.y + offsetY - 20,
+          left: controlX + offsetX - 20,
+          top: controlY + offsetY - 20,
           display: 'flex',
           flexDirection: isHorizontal ? 'row' : 'column',
           gap: 2,
