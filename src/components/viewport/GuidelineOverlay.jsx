@@ -94,7 +94,7 @@ export default function GuidelineOverlay({
       const world = screenToWorld(e.clientX, e.clientY);
       let newPosition = draggingGuide.orientation === 'horizontal' ? world.y : world.x;
       
-      // Only snap if BOTH the global ruler snap is enabled AND the guideline is magnetic
+      // Snap to ruler ticks if BOTH global ruler snap is enabled AND guideline is magnetic
       if (isMagnetic && rulerSnapEnabled) {
         const viewRange = draggingGuide.orientation === 'horizontal' ? viewBox.h : viewBox.w;
         const rulerPixelSize = draggingGuide.orientation === 'horizontal' 
@@ -113,8 +113,10 @@ export default function GuidelineOverlay({
         if (Math.abs(newPosition - snapTargetWorld) < threshold) {
           newPosition = snapTargetWorld;
         }
-        
-        // Also snap to geometry points if magnetic
+      }
+      
+      // Snap to geometry points if the guideline is magnetic (independent of ruler snap)
+      if (isMagnetic) {
         const snapPos = findSnapPoint(newPosition, draggingGuide.orientation);
         if (snapPos !== null) {
           newPosition = snapPos;
