@@ -253,7 +253,7 @@ function ToolboxDiagram() {
       <text x={200} y={86} fontSize="10" fill="#495057" fontFamily="system-ui">Circle</text>
       <text x={200} y={102} fontSize="10" fill="#495057" fontFamily="system-ui">Polygon</text>
 
-      <text x={190} y={122} fontSize="8" fontWeight="700" fill="#adb5bd" fontFamily="system-ui">TRANSFORM</text>
+      <text x={190} y={122} fontSize="8" fontWeight="700" fill="#adb5bd" fontFamily="system-ui">XFORM</text>
       <text x={200} y={138} fontSize="10" fill="#495057" fontFamily="system-ui">Boolean</text>
 
       <g transform="translate(100, 80)">

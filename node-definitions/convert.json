@@ -1,7 +1,7 @@
 {
   "id": "convert",
   "label": "Convert",
-  "category": "Transform",
+  "category": "Xform",
   "description": "Converts any geometry into a clean polygon path with explicit corner points. Useful as preparation for the Radius node.",
   "inputs": [
     { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }

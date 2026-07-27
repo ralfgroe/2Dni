@@ -1,7 +1,7 @@
 {
   "id": "transform",
   "label": "Transform",
-  "category": "Transform",
+  "category": "Xform",
   "description": "Applies translate, rotate, and scale transformations to incoming geometry.",
   "inputs": [
     { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }

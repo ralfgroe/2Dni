@@ -1,7 +1,7 @@
 {
   "id": "noisedeform",
   "label": "Noise Deform",
-  "category": "Transform",
+  "category": "Xform",
   "description": "Distorts geometry using noise. Choose between several noise algorithms (Perlin, Simplex, Worley/cellular, Value, Ridged, Curl), each giving a different character, to turn clean geometric shapes into organic, flowing, or hand-drawn forms.",
   "inputs": [
     { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }

@@ -1,7 +1,7 @@
 {
   "id": "symmetry",
   "label": "Symmetry",
-  "category": "Transform",
+  "category": "Xform",
   "description": "Applies wallpaper symmetry group transformations to tile geometry using one of several 2D symmetry patterns (p1, p2, p4m, p6m, etc.).",
   "inputs": [
     { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }

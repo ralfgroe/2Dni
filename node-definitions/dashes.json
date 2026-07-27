@@ -1,7 +1,7 @@
 {
   "id": "dashes",
   "label": "Dashes",
-  "category": "Transform",
+  "category": "Xform",
   "description": "Converts a path into real, separate dash or dot pieces of geometry along its length. Unlike the dotted-line style on the Color node, every dash/dot is an actual independent shape, so you can feed the result into Split Select or Select and pick individual pieces to keep, delete, or recolor.",
   "inputs": [
     { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }

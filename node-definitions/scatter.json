@@ -1,7 +1,7 @@
 {
   "id": "scatter",
   "label": "Scatter",
-  "category": "Transform",
+  "category": "Xform",
   "description": "Distributes copies of input geometry in various patterns. Optionally accepts a shape as a scatter field to constrain where copies are placed.",
   "inputs": [
     { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true },

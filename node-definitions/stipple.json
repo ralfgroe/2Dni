@@ -1,7 +1,7 @@
 {
   "id": "stipple",
   "label": "Stipple",
-  "category": "Transform",
+  "category": "Xform",
   "description": "Converts filled geometry into halftone-style patterns of dots, lines, or crosshatch. Creates printmaking and engraving effects.",
   "inputs": [
     { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }

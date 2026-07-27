@@ -1,7 +1,7 @@
 {
   "id": "copymove",
   "label": "Copy Move",
-  "category": "Transform",
+  "category": "Xform",
   "description": "Creates multiple copies of the input geometry along one or two directions. Direction 1 offsets each copy by an X/Y distance; enable Direction 2 to replicate that row along a second X/Y direction, producing a full grid in a single node.",
   "inputs": [
     { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }

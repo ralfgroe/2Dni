@@ -1,7 +1,7 @@
 {
   "id": "copyrotate",
   "label": "Copy Rotate",
-  "category": "Transform",
+  "category": "Xform",
   "description": "Creates rotated copies of the input geometry evenly distributed around a pivot point.",
   "inputs": [
     { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }

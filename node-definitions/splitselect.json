@@ -1,7 +1,7 @@
 {
   "id": "splitselect",
   "label": "Split Select",
-  "category": "Transform",
+  "category": "Xform",
   "description": "Interactively splits geometry into two streams. Click components in the viewport (like Illustrator's white-arrow selection) to mark them: selected components come out of the second output, everything else comes out of the first. Great for separating regions of a traced image or pieces of a composition into two branches.",
   "inputs": [
     { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }

@@ -1,7 +1,7 @@
 {
   "id": "trace",
   "label": "Trace",
-  "category": "Transform",
+  "category": "Xform",
   "description": "Traces an imported PNG/JPEG/raster image into editable vector geometry, like Illustrator's Image Trace. Use the sliders to control how many colors are used, how detailed (how many control points) the paths are, remove small stray pieces, and round sharp corners.",
   "inputs": [
     { "id": "geometry_in", "label": "Image In", "type": "geometry", "required": true }

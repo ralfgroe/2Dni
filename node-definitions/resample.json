@@ -1,7 +1,7 @@
 {
   "id": "resample",
   "label": "Resample",
-  "category": "Transform",
+  "category": "Xform",
   "description": "Redistributes control points evenly along the input geometry, adding more points based on a target segment length \u2014 like Houdini's Resample SOP. Useful for giving downstream Noise Deform more points to displace.",
   "inputs": [
     { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }

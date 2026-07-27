@@ -1,7 +1,7 @@
 {
   "id": "mirror",
   "label": "Mirror",
-  "category": "Transform",
+  "category": "Xform",
   "description": "Mirrors geometry across an X or Y axis at a specified position.",
   "inputs": [
     { "id": "geometry_in", "label": "Geometry", "type": "geometry" }

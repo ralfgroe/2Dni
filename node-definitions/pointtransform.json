@@ -1,7 +1,7 @@
 {
   "id": "pointtransform",
   "label": "Point Transform",
-  "category": "Transform",
+  "category": "Xform",
   "description": "Select individual points of the input geometry and move them via sliders or by dragging in the viewport. Scale selected points from their geometric center.",
   "inputs": [
     { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }

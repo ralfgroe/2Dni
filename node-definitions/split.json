@@ -1,7 +1,7 @@
 {
   "id": "split",
   "label": "Split",
-  "category": "Transform",
+  "category": "Xform",
   "description": "Separates compound geometry into individual pieces. Outputs up to 3 separate geometry streams from grouped or compound path geometry.",
   "inputs": [
     { "id": "geometry_in", "label": "Geometry In", "type": "geometry" }

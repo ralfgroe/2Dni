@@ -1,7 +1,7 @@
 {
   "id": "interpolate",
   "label": "Interpolate",
-  "category": "Transform",
+  "category": "Xform",
   "description": "Morphs between two input geometries by interpolating their path points. Creates smooth transitions between shapes.",
   "inputs": [
     { "id": "geometry_a", "label": "Shape A", "type": "geometry", "required": true },

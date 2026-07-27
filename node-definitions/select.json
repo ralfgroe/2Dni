@@ -1,7 +1,7 @@
 {
   "id": "select",
   "label": "Select",
-  "category": "Transform",
+  "category": "Xform",
   "description": "Select individual parts of a composition (e.g. the color regions of a traced image) in the viewport, then delete them or move them. Click parts to select; drag a selected part to move all selected parts.",
   "inputs": [
     { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }

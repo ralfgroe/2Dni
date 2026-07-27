@@ -79,7 +79,7 @@ export default function NodeSearchPalette({ position, onSelect, onClose }) {
     return groups;
   }, [filtered]);
 
-  const categoryOrder = ['Geometry', 'Transform', 'Appearance', 'I/O'];
+  const categoryOrder = ['Geometry', 'Xform', 'Appearance', 'I/O'];
   const orderedCategories = useMemo(() => {
     const present = Object.keys(groupedFiltered);
     const ordered = categoryOrder.filter((c) => present.includes(c));
