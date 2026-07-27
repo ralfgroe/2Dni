@@ -387,7 +387,7 @@ export default function Rulers({
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [dragging, screenToWorld, svgRef, onUpdateGuide, onRemoveGuide, unit, viewBox, width, height, geometrySnapPoints]);
+  }, [dragging, screenToWorld, svgRef, onUpdateGuide, onRemoveGuide, unit, viewBox, width, height, geometrySnapPoints, rulerSnapEnabled]);
 
   return (
     <>

@@ -17,6 +17,7 @@ export default function GuidelineOverlay({
   rulerUnit = 'px',
   viewportWidth = 800,
   viewportHeight = 600,
+  rulerSnapEnabled = true,
 }) {
   const [hoveredGuideId, setHoveredGuideIdState] = useState(null);
   const [draggingGuide, setDraggingGuide] = useState(null);
@@ -93,7 +94,8 @@ export default function GuidelineOverlay({
       const world = screenToWorld(e.clientX, e.clientY);
       let newPosition = draggingGuide.orientation === 'horizontal' ? world.y : world.x;
       
-      if (isMagnetic) {
+      // Only snap if BOTH the global ruler snap is enabled AND the guideline is magnetic
+      if (isMagnetic && rulerSnapEnabled) {
         const viewRange = draggingGuide.orientation === 'horizontal' ? viewBox.h : viewBox.w;
         const rulerPixelSize = draggingGuide.orientation === 'horizontal' 
           ? (viewportHeight - RULER_SIZE)
@@ -112,6 +114,7 @@ export default function GuidelineOverlay({
           newPosition = snapTargetWorld;
         }
         
+        // Also snap to geometry points if magnetic
         const snapPos = findSnapPoint(newPosition, draggingGuide.orientation);
         if (snapPos !== null) {
           newPosition = snapPos;
@@ -132,7 +135,7 @@ export default function GuidelineOverlay({
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [draggingGuide, guides, screenToWorld, findSnapPoint, rulerUnit, viewBox, onUpdateGuide, viewportWidth, viewportHeight]);
+  }, [draggingGuide, guides, screenToWorld, findSnapPoint, rulerUnit, viewBox, onUpdateGuide, viewportWidth, viewportHeight, rulerSnapEnabled]);
 
   // Store guides in a ref so the event handler always has access to current guides
   const guidesRef = useRef(guides);

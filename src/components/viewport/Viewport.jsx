@@ -1112,6 +1112,7 @@ export default function Viewport() {
             rulerUnit={rulerUnit}
             viewportWidth={viewportSize.width}
             viewportHeight={viewportSize.height}
+            rulerSnapEnabled={rulerSnapEnabled}
           />
         )}
 
