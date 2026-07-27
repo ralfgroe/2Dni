@@ -33,6 +33,7 @@ export default function Viewport() {
   const clickStartRef = useRef({ x: 0, y: 0 }); // Track click start position to detect drags
   const [showGrid, setShowGrid] = useState(false);
   const [showRulers, setShowRulers] = useState(false);
+  const [rulerSnapEnabled, setRulerSnapEnabled] = useState(true); // Snap guidelines to ruler ticks
   const [rulerUnit, setRulerUnit] = useState('px');
   const [guides, setGuides] = useState([]);
   const [snapPoints, setSnapPoints] = useState(false);
@@ -730,6 +731,7 @@ export default function Viewport() {
           onClearGuides={clearGuides}
           svgRef={svgRef}
           geometrySnapPoints={guidelineSnapPoints}
+          rulerSnapEnabled={rulerSnapEnabled}
         />
       )}
       
@@ -754,6 +756,23 @@ export default function Viewport() {
           <path d="M0 0v10M0 0h10M2 0v3M4 0v2M6 0v3M8 0v2"/>
         </svg>
       </button>
+
+      {/* Ruler snap toggle - only visible when rulers are shown */}
+      {showRulers && (
+        <button
+          onClick={() => setRulerSnapEnabled((v) => !v)}
+          className="absolute z-20 flex items-center gap-1 rounded border border-border-primary bg-bg-secondary text-[10px] hover:bg-bg-tertiary"
+          style={{ padding: '2px 8px', height: 22, top: 54, left: 66 }}
+          title={rulerSnapEnabled ? "Ruler snap ON - guidelines snap to ruler ticks" : "Ruler snap OFF - guidelines move freely"}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+            <path 
+              d="M4 20L4 10C4 5.6 7.6 2 12 2C16.4 2 20 5.6 20 10L20 20L16 20L16 10C16 7.8 14.2 6 12 6C9.8 6 8 7.8 8 10L8 20L4 20Z" 
+              fill={rulerSnapEnabled ? '#f7931e' : '#9ca3af'}
+            />
+          </svg>
+        </button>
+      )}
 
       <button
         onClick={() => setSnapPoints((v) => !v)}

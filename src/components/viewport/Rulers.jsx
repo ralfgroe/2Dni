@@ -250,6 +250,7 @@ export default function Rulers({
   onClearGuides,
   svgRef,
   geometrySnapPoints = [],
+  rulerSnapEnabled = true,
 }) {
   const [dragging, setDragging] = useState(null);
 
@@ -300,51 +301,64 @@ export default function Rulers({
       const { worldX, worldY } = screenToWorld(e.clientX, e.clientY);
       let position = dragging.orientation === 'horizontal' ? worldY : worldX;
       
-      // FIRST PRINCIPLES REDESIGN:
-      // 
-      // For a HORIZONTAL guideline (line goes left-right, dragged from TOP ruler):
-      //   - The guideline's position is a Y coordinate (world units)
-      //   - It should snap to the VERTICAL ruler's tick marks
-      //   - VerticalRuler receives (height - RULER_SIZE) as its height prop
-      //   - VerticalRuler uses: getTickSpacing(viewBox.h, height, unit) where height = parent's (height - RULER_SIZE)
-      //
-      // For a VERTICAL guideline (line goes up-down, dragged from LEFT ruler):
-      //   - The guideline's position is an X coordinate (world units)  
-      //   - It should snap to the HORIZONTAL ruler's tick marks
-      //   - HorizontalRuler receives (width - RULER_SIZE) as its width prop
-      //   - HorizontalRuler uses: getTickSpacing(viewBox.w, width, unit) where width = parent's (width - RULER_SIZE)
-      //
-      // So we need to use (height - RULER_SIZE) and (width - RULER_SIZE) to match what the rulers receive
-      
-      const viewRange = dragging.orientation === 'horizontal' ? viewBox.h : viewBox.w;
-      const rulerPixelSize = dragging.orientation === 'horizontal' 
-        ? (height - RULER_SIZE)
-        : (width - RULER_SIZE);
-      
-      const { step, unitScale } = getTickSpacing(viewRange, rulerPixelSize, unit);
-      
-      // Store snap step for debugging
-      if (typeof window !== 'undefined') {
-        window.__snapStep = step;
-        window.__snapRulerPixelSize = rulerPixelSize;
-        window.__snapViewRange = viewRange;
-        window.__snapOrientation = dragging.orientation;
+      // Snap to ruler ticks if enabled
+      if (rulerSnapEnabled) {
+        // FIRST PRINCIPLES REDESIGN:
+        // 
+        // For a HORIZONTAL guideline (line goes left-right, dragged from TOP ruler):
+        //   - The guideline's position is a Y coordinate (world units)
+        //   - It should snap to the VERTICAL ruler's tick marks
+        //   - VerticalRuler receives (height - RULER_SIZE) as its height prop
+        //   - VerticalRuler uses: getTickSpacing(viewBox.h, height, unit) where height = parent's (height - RULER_SIZE)
+        //
+        // For a VERTICAL guideline (line goes up-down, dragged from LEFT ruler):
+        //   - The guideline's position is an X coordinate (world units)  
+        //   - It should snap to the HORIZONTAL ruler's tick marks
+        //   - HorizontalRuler receives (width - RULER_SIZE) as its width prop
+        //   - HorizontalRuler uses: getTickSpacing(viewBox.w, width, unit) where width = parent's (width - RULER_SIZE)
+        //
+        // So we need to use (height - RULER_SIZE) and (width - RULER_SIZE) to match what the rulers receive
+        
+        const viewRange = dragging.orientation === 'horizontal' ? viewBox.h : viewBox.w;
+        const rulerPixelSize = dragging.orientation === 'horizontal' 
+          ? (height - RULER_SIZE)
+          : (width - RULER_SIZE);
+        
+        const { step, unitScale } = getTickSpacing(viewRange, rulerPixelSize, unit);
+        
+        // The ruler displays ticks at: ..., -2*step, -step, 0, step, 2*step, ... (in units)
+        // World position of each tick is: tickUnit * unitScale
+        // So we need to snap `position` to the nearest (N * step * unitScale)
+        
+        const positionInUnits = position / unitScale;
+        const nearestTickUnit = Math.round(positionInUnits / step) * step;
+        const snapTargetWorld = nearestTickUnit * unitScale;
+        
+        // Snap to ruler tick
+        position = snapTargetWorld;
       }
       
-      // The ruler displays ticks at: ..., -2*step, -step, 0, step, 2*step, ... (in units)
-      // World position of each tick is: tickUnit * unitScale
-      // So we need to snap `position` to the nearest (N * step * unitScale)
-      
-      const positionInUnits = position / unitScale;
-      const nearestTickUnit = Math.round(positionInUnits / step) * step;
-      const snapTargetWorld = nearestTickUnit * unitScale;
-      
-      // ALWAYS snap to ruler tick - this is the primary snap behavior
-      position = snapTargetWorld;
-      
-      // NOTE: We intentionally do NOT snap to geometry points when dragging from rulers.
-      // The ruler tick snap is the expected behavior. Geometry snapping is only for
-      // when the user drags an existing guideline via its controls (handled in GuidelineOverlay).
+      // Also snap to geometry points (including center points) if close enough
+      if (geometrySnapPoints && geometrySnapPoints.length > 0) {
+        const viewSize = dragging.orientation === 'horizontal' ? viewBox.h : viewBox.w;
+        const snapThreshold = viewSize * 0.02; // 2% of view range
+        
+        let nearestGeomPos = null;
+        let nearestDist = snapThreshold;
+        
+        for (const pt of geometrySnapPoints) {
+          const coord = dragging.orientation === 'horizontal' ? pt.y : pt.x;
+          const dist = Math.abs(coord - position);
+          if (dist < nearestDist) {
+            nearestDist = dist;
+            nearestGeomPos = coord;
+          }
+        }
+        
+        if (nearestGeomPos !== null) {
+          position = nearestGeomPos;
+        }
+      }
       
       onUpdateGuide?.(dragging.id, position);
     };
