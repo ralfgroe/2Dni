@@ -30,6 +30,7 @@ export default function Viewport() {
   const [viewBox, setViewBox] = useState({ x: -400, y: -300, w: 800, h: 600 });
   const [isPanning, setIsPanning] = useState(false);
   const panRef = useRef({ active: false, x: 0, y: 0 });
+  const clickStartRef = useRef({ x: 0, y: 0 }); // Track click start position to detect drags
   const [showGrid, setShowGrid] = useState(false);
   const [showRulers, setShowRulers] = useState(false);
   const [rulerUnit, setRulerUnit] = useState('px');
@@ -462,6 +463,9 @@ export default function Viewport() {
 
   const handleMouseDown = useCallback(
     (e) => {
+      // Track click start position for detecting drags vs clicks
+      clickStartRef.current = { x: e.clientX, y: e.clientY };
+      
       if (e.button === 1 || e.button === 2 || (e.button === 0 && e.altKey)) {
         e.preventDefault();
         e.stopPropagation();
@@ -586,7 +590,15 @@ export default function Viewport() {
   }, [handleMouseDown, handleMouseMove, handleMouseUp]);
 
   const handlePaneClick = useCallback((e) => {
-    selectNode(null);
+    // Only deselect if this was a clean click (not a drag)
+    // Check if mouse moved significantly from where it started
+    const dx = Math.abs(e.clientX - clickStartRef.current.x);
+    const dy = Math.abs(e.clientY - clickStartRef.current.y);
+    const wasDrag = dx > 5 || dy > 5;
+    
+    if (!wasDrag) {
+      selectNode(null);
+    }
   }, [selectNode]);
 
   const zoomIn = useCallback(() => {
