@@ -626,7 +626,8 @@ function renderLineHandles(geo, startDrag) {
 // per-handle trig. Just OUTSIDE each corner sits an invisible "rotate zone":
 // hovering it shows a rotate cursor and dragging spins the shape about `center`
 // (Illustrator's hover-just-past-a-corner-to-rotate affordance).
-function renderBoxHandles(box, startDrag, viewBox, rotDeg = 0, center = null) {
+// The center handle allows grabbing and moving the shape by its center point.
+function renderBoxHandles(box, startDrag, viewBox, rotDeg = 0, center = null, showCenterHandle = true) {
   if (!box) return null;
   const { x, y, width, height } = box;
   const scale = viewBox ? viewBox.w / 800 : 1;
@@ -709,6 +710,41 @@ function renderBoxHandles(box, startDrag, viewBox, rotDeg = 0, center = null) {
           onMouseDown={(e) => startDrag(h.type, e)}
         />
       ))}
+      {/* Center handle for moving by center point */}
+      {showCenterHandle && (
+        <g>
+          {/* Crosshair lines */}
+          <line
+            x1={cx - size * 0.8}
+            y1={cy}
+            x2={cx + size * 0.8}
+            y2={cy}
+            stroke={HANDLE_COLOR}
+            strokeWidth={sw}
+            pointerEvents="none"
+          />
+          <line
+            x1={cx}
+            y1={cy - size * 0.8}
+            x2={cx}
+            y2={cy + size * 0.8}
+            stroke={HANDLE_COLOR}
+            strokeWidth={sw}
+            pointerEvents="none"
+          />
+          {/* Center circle handle */}
+          <circle
+            cx={cx}
+            cy={cy}
+            r={size * 0.5}
+            fill={HANDLE_FILL}
+            stroke={HANDLE_COLOR}
+            strokeWidth={sw * 1.5}
+            cursor="move"
+            onMouseDown={(e) => startDrag('move', e)}
+          />
+        </g>
+      )}
     </g>
   );
 }

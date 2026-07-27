@@ -100,21 +100,37 @@ export function extractPoints(geo) {
   }
 
   switch (geo.type) {
-    case 'rect':
+    case 'rect': {
+      const x = geo.x || 0;
+      const y = geo.y || 0;
+      const w = geo.width || 0;
+      const h = geo.height || 0;
+      const cx = x + w / 2;
+      const cy = y + h / 2;
       return [
-        { x: geo.x || 0, y: geo.y || 0, sharp: true, idx: 0 },
-        { x: (geo.x || 0) + geo.width, y: geo.y || 0, sharp: true, idx: 1 },
-        { x: (geo.x || 0) + geo.width, y: (geo.y || 0) + geo.height, sharp: true, idx: 2 },
-        { x: geo.x || 0, y: (geo.y || 0) + geo.height, sharp: true, idx: 3 },
+        { x: x, y: y, sharp: true, idx: 0 },
+        { x: x + w, y: y, sharp: true, idx: 1 },
+        { x: x + w, y: y + h, sharp: true, idx: 2 },
+        { x: x, y: y + h, sharp: true, idx: 3 },
+        { x: cx, y: cy, sharp: false, idx: 4, isCenter: true },
       ];
+    }
 
-    case 'roundedRect':
+    case 'roundedRect': {
+      const x = geo.x || 0;
+      const y = geo.y || 0;
+      const w = geo.width || 0;
+      const h = geo.height || 0;
+      const cx = x + w / 2;
+      const cy = y + h / 2;
       return [
-        { x: geo.x || 0, y: geo.y || 0, sharp: true, idx: 0 },
-        { x: (geo.x || 0) + geo.width, y: geo.y || 0, sharp: true, idx: 1 },
-        { x: (geo.x || 0) + geo.width, y: (geo.y || 0) + geo.height, sharp: true, idx: 2 },
-        { x: geo.x || 0, y: (geo.y || 0) + geo.height, sharp: true, idx: 3 },
+        { x: x, y: y, sharp: true, idx: 0 },
+        { x: x + w, y: y, sharp: true, idx: 1 },
+        { x: x + w, y: y + h, sharp: true, idx: 2 },
+        { x: x, y: y + h, sharp: true, idx: 3 },
+        { x: cx, y: cy, sharp: false, idx: 4, isCenter: true },
       ];
+    }
 
     case 'booleanResult': {
       if (!geo.pathData) return [];
@@ -139,7 +155,7 @@ export function extractPoints(geo) {
         { x: cx + rx, y: cy },
         { x: cx, y: cy + ry },
         { x: cx - rx, y: cy },
-        { x: cx, y: cy },
+        { x: cx, y: cy, isCenter: true },
       ];
       return rotatePoints(raw, geo.rotation, geo.rotateCenter || { x: cx, y: cy })
         .map((p, i) => ({ ...p, sharp: true, idx: i }));
