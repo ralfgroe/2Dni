@@ -62,14 +62,27 @@ export default function GimbalHandles({ geometry, node, definition, screenToSvg,
       let dy = svgCurrent.y - svgStart.y;
       const mods = { shift: me.shiftKey, alt: me.altKey };
 
+      // Shift-constrain a MOVE to a single axis (Illustrator-style): lock motion
+      // to whichever of horizontal/vertical the drag is dominant along, zeroing
+      // the other. Only for whole-shape moves — resize keeps Shift for aspect
+      // lock. Applied before snapping so the snap still respects the constraint.
+      if (me.shiftKey && (type === 'move' || type === 'translate')) {
+        if (Math.abs(dx) >= Math.abs(dy)) dy = 0;
+        else dx = 0;
+      }
+
       // Snap-to-points on a plain move (Alt temporarily disables snapping — the
       // usual "free move" escape hatch). Find the shape point closest to any
       // candidate and offset the whole drag so it lands exactly on it.
       if (snapEnabled && type === 'move' && !me.altKey && ownPoints.length && snapCandidates.length) {
         const snap = findSnap(ownPoints, dx, dy, snapCandidates, snapDist);
         if (snap) {
-          dx += snap.ox;
-          dy += snap.oy;
+          // Respect an active Shift axis-lock: only apply the snap offset on the
+          // axis that's still free, so the constrained axis stays exactly locked.
+          const ox = me.shiftKey && dx === 0 ? 0 : snap.ox;
+          const oy = me.shiftKey && dy === 0 ? 0 : snap.oy;
+          dx += ox;
+          dy += oy;
           setSnapMark({ x: snap.tx, y: snap.ty });
         } else {
           setSnapMark(null);
