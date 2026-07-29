@@ -224,7 +224,12 @@ function buildPaperPath(geo) {
         });
         return null;
       }
-      const outlined = textToPathData(font, geo.content, geo.fontSize, geo.letterSpacing || 0);
+      // Bake the text's (x, y) position into the outlined path so downstream
+      // nodes (Boolean, etc.) see the text where it actually sits — otherwise
+      // moving a Text node wouldn't update anything that consumes it.
+      const outlined = textToPathData(
+        font, geo.content, geo.fontSize, geo.letterSpacing || 0, geo.x || 0, geo.y || 0
+      );
       if (!outlined || !outlined.pathData) return null;
       return new paper.CompoundPath(outlined.pathData);
     }
