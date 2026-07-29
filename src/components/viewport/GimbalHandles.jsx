@@ -134,10 +134,6 @@ export default function GimbalHandles({ geometry, node, definition, screenToSvg,
     // handle to scale the font size uniformly. No rotation param on text.
     handles = renderBoxHandles(geometry.bounds, startDrag, viewBox, 0, null);
   } else if (defId === 'transform') handles = renderTransformHandles(geometry, node, startDrag, viewBox);
-  else if (defId === 'text') {
-    // Text uses box handles for move (no resize/rotate for now)
-    handles = renderBoxHandles(geometry.bounds, startDrag, viewBox, 0, { x: node.data.params.x || 0, y: node.data.params.y || 0 });
-  }
   else handles = renderBoundsHandles(geometry, startDrag);
 
   return (
@@ -337,13 +333,6 @@ function applyDrag(type, dx, dy, startParams, nodeId, defId, updateNodeParams, m
       applyParam({
         pivot_x: (startParams.pivot_x || 0) + dx,
         pivot_y: (startParams.pivot_y || 0) + dy,
-      });
-    }
-  } else if (defId === 'text') {
-    if (type === 'move') {
-      applyParam({
-        x: (startParams.x || 0) + dx,
-        y: (startParams.y || 0) + dy,
       });
     }
   } else {

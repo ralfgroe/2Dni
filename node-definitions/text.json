@@ -36,8 +36,6 @@
       "Candara"
     ]},
     { "id": "font_size", "label": "Font Size", "type": "number", "default": 48, "min": 1, "max": 500 },
-    { "id": "x", "label": "X Position", "type": "number", "default": 0, "min": -2000, "max": 2000 },
-    { "id": "y", "label": "Y Position", "type": "number", "default": 0, "min": -2000, "max": 2000 },
     { "id": "font_weight", "label": "Weight", "type": "select", "default": "400", "options": ["100", "200", "300", "400", "500", "600", "700", "800", "900"] },
     { "id": "font_style", "label": "Style", "type": "select", "default": "normal", "options": ["normal", "italic"] },
     { "id": "letter_spacing", "label": "Letter Spacing", "type": "number", "default": 0, "min": -20, "max": 50 },
