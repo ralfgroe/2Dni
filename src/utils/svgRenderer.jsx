@@ -120,11 +120,13 @@ export function renderGeometry(geo, nodeId, selectedNodeId, onSelect) {
     case 'text': {
       const anchor = geo.textAlign === 'center' ? 'middle'
         : geo.textAlign === 'right' ? 'end' : 'start';
+      const tx = geo.x || 0;
+      const ty = geo.y || 0;
       return (
         <text
           key={nodeId}
-          x={geo.x || 0}
-          y={(geo.y || 0) + geo.fontSize}
+          x={tx}
+          y={ty + geo.fontSize}
           fontFamily={geo.fontFamily}
           fontSize={geo.fontSize}
           fontWeight={geo.fontWeight}

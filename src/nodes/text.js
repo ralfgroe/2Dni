@@ -1,4 +1,6 @@
 import { loadFont, textToPathData, getFontSync } from '../utils/fontLoader';
+import paper from 'paper';
+import { ensurePaper } from '../utils/geoPathUtils';
 
 let pendingLoads = new Set();
 
@@ -24,6 +26,8 @@ export function textRuntime(params) {
     stroke_color = '#000000',
     stroke_width = 0,
     to_outlines = false,
+    x = 0,
+    y = 0,
   } = params;
 
   const estWidth = content.length * font_size * 0.6;
@@ -31,6 +35,8 @@ export function textRuntime(params) {
   const baseGeo = {
     type: 'text',
     content,
+    x,
+    y,
     fontFamily: font_family,
     fontSize: font_size,
     fontWeight: font_weight,
@@ -64,12 +70,27 @@ export function textRuntime(params) {
   const outlined = textToPathData(cachedFont, content, font_size, letter_spacing, x, y);
   if (!outlined) return baseGeo;
 
+  // Position the outlined glyphs at (x, y). The outline is authored at the
+  // origin, so translate it (via Paper) and report matching bounds so the
+  // selection gizmo lands on the visible text.
+  let pathData = outlined.pathData;
+  let ob = outlined.bounds;
+  if (x !== 0 || y !== 0) {
+    ensurePaper();
+    const p = new paper.CompoundPath(outlined.pathData);
+    p.translate(new paper.Point(x, y));
+    pathData = p.pathData;
+    const b = p.bounds;
+    ob = { x: b.x, y: b.y, width: b.width, height: b.height };
+    p.remove();
+  }
+
   return {
     type: 'booleanResult',
-    pathData: outlined.pathData,
+    pathData,
     fill: fill_color,
     stroke: stroke_width > 0 ? stroke_color : 'none',
     strokeWidth: stroke_width,
-    bounds: outlined.bounds,
+    bounds: ob,
   };
 }

@@ -62,7 +62,7 @@ function geoToSvgString(geo) {
     case 'line':
       return `<line x1="${geo.x1}" y1="${geo.y1}" x2="${geo.x2}" y2="${geo.y2}" stroke="${geo.stroke || '#000'}" stroke-width="${geo.strokeWidth ?? 1}" opacity="${geo.opacity ?? 1}" />`;
     case 'text':
-      return `<text x="${geo.x || 0}" y="${geo.y || 0}" font-family="${geo.fontFamily || 'sans-serif'}" font-size="${geo.fontSize || 24}" fill="${geo.fill || '#000'}" opacity="${geo.opacity ?? 1}">${geo.content || ''}</text>`;
+      return `<text x="${geo.x || 0}" y="${(geo.y || 0) + (geo.fontSize || 24)}" font-family="${geo.fontFamily || 'sans-serif'}" font-size="${geo.fontSize || 24}" fill="${geo.fill || '#000'}" opacity="${geo.opacity ?? 1}">${geo.content || ''}</text>`;
     default:
       return '';
   }

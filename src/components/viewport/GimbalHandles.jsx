@@ -45,6 +45,7 @@ export default function GimbalHandles({ geometry, node, definition, screenToSvg,
     // tracks the exact handle the user grabbed.
     const resizeAnchor = snapEnabled ? resizeHandleWorldPoint(type, node.data.params, defId, geometry) : null;
     const startParams = { ...node.data.params };
+    const startBounds = geometry && geometry.bounds ? { ...geometry.bounds } : null;
     const startX = e.clientX;
     const startY = e.clientY;
     setDragging({ type });
@@ -89,6 +90,7 @@ export default function GimbalHandles({ geometry, node, definition, screenToSvg,
 
       applyDrag(type, dx, dy, startParams, node.id, defId, updateNodeParams, mods, {
         startX: svgStart.x, startY: svgStart.y, curX: svgCurrent.x, curY: svgCurrent.y,
+        startBounds,
       });
     };
 
@@ -127,6 +129,10 @@ export default function GimbalHandles({ geometry, node, definition, screenToSvg,
     // box is axis-aligned in world space — the box gizmo must NOT re-rotate. The
     // rotate handle still edits the `rotation` param.
     handles = renderBoxHandles(geometry.bounds, startDrag, viewBox, 0, rotCenter(node));
+  } else if (defId === 'text') {
+    // Text: box gizmo over its bounds. Drag the body to move (x/y); drag a
+    // handle to scale the font size uniformly. No rotation param on text.
+    handles = renderBoxHandles(geometry.bounds, startDrag, viewBox, 0, null);
   } else if (defId === 'transform') handles = renderTransformHandles(geometry, node, startDrag, viewBox);
   else if (defId === 'text') {
     // Text uses box handles for move (no resize/rotate for now)
@@ -227,6 +233,10 @@ function resizeHandleWorldPoint(type, params, defId, geometry) {
     const b = geometry.bounds;
     cx = b.x + b.width / 2; cy = b.y + b.height / 2;
     hw = b.width / 2; hh = b.height / 2;
+  } else if (defId === 'text' && geometry && geometry.bounds) {
+    const b = geometry.bounds;
+    cx = b.x + b.width / 2; cy = b.y + b.height / 2;
+    hw = b.width / 2; hh = b.height / 2;
   } else {
     return null;
   }
@@ -306,6 +316,15 @@ function applyDrag(type, dx, dy, startParams, nodeId, defId, updateNodeParams, m
       applyParam({ x: startParams.x + dx, y: startParams.y + dy });
     } else {
       applyPolygonResize(type, dx, dy, startParams, applyParam);
+    }
+  } else if (defId === 'text') {
+    if (type === 'move') {
+      applyParam({
+        x: Math.round((startParams.x || 0) + dx),
+        y: Math.round((startParams.y || 0) + dy),
+      });
+    } else {
+      applyTextResize(type, dx, dy, startParams, applyParam, pts);
     }
   } else if (defId === 'transform') {
     if (type === 'translate') {
@@ -575,6 +594,48 @@ function applyPolygonResize(type, dx, dy, startParams, applyParam) {
     x: cx,
     y: cy,
   });
+}
+
+// Text resize: text has a single `font_size` (uniform), so every handle scales
+// the whole thing proportionally, Illustrator-style, pinning the opposite
+// corner/edge of the bounding box. The box at drag start comes from the live
+// geometry bounds (text width depends on the font/content, not a param), so we
+// scale font_size by how much the dragged box grows and shift x/y to keep the
+// pinned corner fixed. `x`/`y` are the bounds' TOP-LEFT for text.
+function applyTextResize(type, dx, dy, startParams, applyParam, pts) {
+  const b = pts && pts.startBounds;
+  if (!b || !b.width || !b.height) return;
+  const startFont = startParams.font_size || 48;
+  const startX = startParams.x || 0;
+  const startY = startParams.y || 0;
+
+  const H = { tl: [-1, -1], tr: [1, -1], bl: [-1, 1], br: [1, 1],
+    t: [0, -1], b: [0, 1], l: [-1, 0], r: [1, 0] };
+  const key = type.replace('resize-', '');
+  const [ex, ey] = H[key] || [1, 1];
+
+  // Bounding-box corners at start: grabbed point vs pinned opposite point.
+  const grabX0 = b.x + (ex > 0 ? b.width : ex < 0 ? 0 : b.width / 2);
+  const grabY0 = b.y + (ey > 0 ? b.height : ey < 0 ? 0 : b.height / 2);
+  const anchorX = b.x + (ex > 0 ? 0 : ex < 0 ? b.width : b.width / 2);
+  const anchorY = b.y + (ey > 0 ? 0 : ey < 0 ? b.height : b.height / 2);
+
+  // Growth factor from the moved span along whichever axes this handle drives.
+  const oldSpanX = ex !== 0 ? Math.abs(grabX0 - anchorX) : 0;
+  const oldSpanY = ey !== 0 ? Math.abs(grabY0 - anchorY) : 0;
+  const newSpanX = ex !== 0 ? Math.abs((grabX0 + dx) - anchorX) : 0;
+  const newSpanY = ey !== 0 ? Math.abs((grabY0 + dy) - anchorY) : 0;
+  const oldSpan = Math.hypot(oldSpanX, oldSpanY) || 1;
+  const newSpan = Math.hypot(newSpanX, newSpanY);
+  const f = Math.max(0.02, newSpan / oldSpan);
+
+  const newFont = Math.max(1, Math.round(startFont * f));
+  // Keep the anchor (pinned corner) fixed: the box scales about it, so the new
+  // top-left = anchor - (anchor-topLeft)*f.
+  const newX = Math.round(anchorX - (anchorX - b.x) * f);
+  const newY = Math.round(anchorY - (anchorY - b.y) * f);
+
+  applyParam({ font_size: newFont, x: newX, y: newY });
 }
 
 function Handle({ x, y, cursor, onMouseDown, size = HANDLE_SIZE }) {
