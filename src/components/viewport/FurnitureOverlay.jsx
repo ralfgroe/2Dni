@@ -272,7 +272,7 @@ export default function FurnitureOverlay({ nodeId, screenToSvg, gridSize = 50, v
   const toolbar = (
     <div
       className="absolute top-2 z-10"
-      style={{ left: 44, display: 'flex', flexDirection: 'column', gap: 5, fontFamily: 'system-ui, sans-serif', pointerEvents: 'auto' }}
+      style={{ left: 140, display: 'flex', flexDirection: 'column', gap: 5, fontFamily: 'system-ui, sans-serif', pointerEvents: 'auto' }}
       onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
