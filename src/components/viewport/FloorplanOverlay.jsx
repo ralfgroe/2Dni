@@ -1058,7 +1058,8 @@ export default function FloorplanOverlay({ nodeId, screenToSvg, results, gridSiz
     );
   }, [tool, elemHover, elemKind, params.door_width, params.window_width, params.opening_width, worldPerMeter, elementChains]);
 
-  // Screen-fixed compact toolbar mounted next to the # grid button.
+  // Screen-fixed compact toolbar mounted after the viewport's grid/ruler/snap buttons.
+  // Position it far enough right to avoid overlapping those controls.
   const canvasEl = typeof document !== 'undefined'
     ? document.querySelector('[data-viewport-canvas]')
     : null;
@@ -1081,7 +1082,7 @@ export default function FloorplanOverlay({ nodeId, screenToSvg, results, gridSiz
   const toolbar = (
     <div
       className="absolute top-2 z-10"
-      style={{ left: 44, display: 'flex', flexDirection: 'column', gap: 5, fontFamily: 'system-ui, sans-serif', pointerEvents: 'auto' }}
+      style={{ left: 140, display: 'flex', flexDirection: 'column', gap: 5, fontFamily: 'system-ui, sans-serif', pointerEvents: 'auto' }}
       onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >

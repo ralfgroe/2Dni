@@ -2,7 +2,7 @@
   "id": "resample",
   "label": "Resample",
   "category": "Xform",
-  "description": "Redistributes control points evenly along the input geometry, adding more points based on a target segment length \u2014 like Houdini's Resample SOP. Useful for giving downstream Noise Deform more points to displace.",
+  "description": "Redistributes control points evenly along the input geometry, adding more points based on a target segment length — like Houdini's Resample SOP. Choose Linear for straight segments or Smooth for curved interpolation through the resampled points.",
   "inputs": [
     { "id": "geometry_in", "label": "Geometry In", "type": "geometry", "required": true }
   ],
@@ -11,6 +11,7 @@
   ],
   "parameters": [
     { "id": "segment_length", "label": "Segment Length", "type": "number", "default": 20, "min": 1, "max": 200, "step": 0.5 },
+    { "id": "segment_type", "label": "Segment Type", "type": "select", "default": "Linear", "options": ["Linear", "Smooth"] },
     { "id": "keep_corners", "label": "Keep Original Points", "type": "boolean", "default": true },
     { "id": "max_points", "label": "Max Points", "type": "number", "default": 2000, "min": 10, "max": 10000, "step": 10 }
   ],

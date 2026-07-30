@@ -116,6 +116,7 @@ export function resampleRuntime(params, inputs) {
   const geo = inputs?.geometry_in;
   if (!geo) return null;
 
+  const segmentType = params?.segment_type ?? 'Linear';
   const subpaths = computeResampledSubpaths(geo, params);
   if (subpaths.length === 0) return geo;
 
@@ -124,6 +125,14 @@ export function resampleRuntime(params, inputs) {
     const p = new paper.Path();
     sp.points.forEach((pt) => p.add(new paper.Point(pt.x, pt.y)));
     if (sp.closed) p.closePath();
+
+    // Smooth creates curved Bézier segments through the resampled points,
+    // like Houdini's "Smooth" segment type. The 'continuous' type ensures
+    // tangent continuity for a flowing curve.
+    if (segmentType === 'Smooth') {
+      p.smooth({ type: 'continuous' });
+    }
+
     compound.addChild(p);
   }
 

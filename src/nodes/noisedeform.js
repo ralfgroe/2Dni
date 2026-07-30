@@ -188,30 +188,54 @@ function curlNoise(type, x, y, octaves, perm, perm2) {
 
 // Resamples a single (non-compound) paper.Path along its arc length and
 // displaces each sample by the chosen fractal noise. Returns a new paper.Path.
-function deformSinglePath(srcPath, opts) {
-  const { amplitude, frequency, octaves, samples, noiseType, perm, perm2 } = opts;
+// When computeDrift is true, also returns the average displacement (drift)
+// applied to all points — used for anchoring.
+function deformSinglePath(srcPath, opts, computeDrift = false) {
+  const { amplitude, frequency, octaves, offset, samples, noiseType, perm, perm2 } = opts;
   const totalLen = srcPath.length;
   const closed = srcPath.closed;
-  if (totalLen === 0) return srcPath.clone({ insert: true });
+  if (totalLen === 0) {
+    const clone = srcPath.clone({ insert: true });
+    return computeDrift ? { path: clone, driftX: 0, driftY: 0, count: 0 } : clone;
+  }
 
   const result = new paper.Path();
+  let sumDriftX = 0, sumDriftY = 0, count = 0;
+
   for (let i = 0; i <= samples; i++) {
-    const offset = (i / samples) * totalLen;
-    const pt = srcPath.getPointAt(Math.min(offset, totalLen));
+    const arcOffset = (i / samples) * totalLen;
+    const pt = srcPath.getPointAt(Math.min(arcOffset, totalLen));
     if (!pt) continue;
+
+    // The offset shifts the noise sampling coordinates, allowing the noise
+    // pattern to "flow" through the geometry when animated (like Houdini's
+    // noise offset). Applied uniformly to both axes for a diagonal scroll.
+    const sampleX = (pt.x + offset) * frequency;
+    const sampleY = (pt.y + offset) * frequency;
 
     let nx, ny;
     if (noiseType === 'Curl') {
-      const [vx, vy] = curlNoise(noiseType, pt.x * frequency, pt.y * frequency, octaves, perm, perm2);
+      const [vx, vy] = curlNoise(noiseType, sampleX, sampleY, octaves, perm, perm2);
       nx = vx * amplitude;
       ny = vy * amplitude;
     } else {
-      nx = fractal(noiseType, pt.x * frequency, pt.y * frequency, octaves, perm) * amplitude;
-      ny = fractal(noiseType, pt.x * frequency + 100, pt.y * frequency + 100, octaves, perm2) * amplitude;
+      nx = fractal(noiseType, sampleX, sampleY, octaves, perm) * amplitude;
+      ny = fractal(noiseType, sampleX + 100 * frequency, sampleY + 100 * frequency, octaves, perm2) * amplitude;
     }
+
     result.add(new paper.Point(pt.x + nx, pt.y + ny));
+
+    if (computeDrift) {
+      sumDriftX += nx;
+      sumDriftY += ny;
+      count++;
+    }
   }
   if (closed) result.closePath();
+
+  if (computeDrift) {
+    return { path: result, driftX: sumDriftX, driftY: sumDriftY, count };
+  }
   return result;
 }
 
@@ -224,13 +248,17 @@ export function noisedeformRuntime(params, inputs) {
   const amplitude = params.amplitude ?? 10;
   const frequency = params.frequency ?? 0.02;
   const octaves = Math.max(1, Math.min(6, Math.round(params.octaves ?? 2)));
+  const offset = params.offset ?? 0;
+  const anchor = params.anchor ?? false;
   const seed = params.seed ?? 0;
   const samples = Math.max(20, Math.min(500, Math.round(params.samples ?? 100)));
   const noiseType = params.noise_type ?? 'Perlin';
+  const offsetX = params.x ?? 0;
+  const offsetY = params.y ?? 0;
 
   const perm = permutation(seed + 1);
   const perm2 = permutation(seed + 100);
-  const noiseParams = { amplitude, frequency, octaves, samples, noiseType, perm, perm2 };
+  const noiseParams = { amplitude, frequency, octaves, offset, samples, noiseType, perm, perm2 };
 
   // A group (e.g. from Trace/Select, or multi-layer geometry) keeps its
   // structure: deform each child independently.
@@ -258,13 +286,52 @@ export function noisedeformRuntime(params, inputs) {
   // every subpath (letters, holes) independently so the shapes are preserved
   // instead of being collapsed into one tangled open polyline.
   let outPath;
+  let totalDriftX = 0, totalDriftY = 0, totalCount = 0;
+
   if (paperPath instanceof paper.CompoundPath) {
-    const deformedChildren = paperPath.children.map((child) =>
-      deformSinglePath(child, noiseParams)
-    );
+    const deformedChildren = [];
+
+    for (const child of paperPath.children) {
+      if (anchor) {
+        const { path, driftX, driftY, count } = deformSinglePath(child, noiseParams, true);
+        deformedChildren.push(path);
+        totalDriftX += driftX;
+        totalDriftY += driftY;
+        totalCount += count;
+      } else {
+        deformedChildren.push(deformSinglePath(child, noiseParams, false));
+      }
+    }
     outPath = new paper.CompoundPath({ children: deformedChildren });
   } else {
-    outPath = deformSinglePath(paperPath, noiseParams);
+    if (anchor) {
+      const { path, driftX, driftY, count } = deformSinglePath(paperPath, noiseParams, true);
+      outPath = path;
+      totalDriftX = driftX;
+      totalDriftY = driftY;
+      totalCount = count;
+    } else {
+      outPath = deformSinglePath(paperPath, noiseParams, false);
+    }
+  }
+
+  // Anchor Center: compensate for the "swimming" by subtracting the AVERAGE
+  // noise displacement. This is mathematically exact — we sum up all the (nx, ny)
+  // displacements applied to each point, divide by the count to get the mean
+  // drift, then translate the entire shape back by that amount. This perfectly
+  // cancels the systematic drift caused by the noise field.
+  if (anchor && totalCount > 0) {
+    const avgDriftX = totalDriftX / totalCount;
+    const avgDriftY = totalDriftY / totalCount;
+    if (Math.abs(avgDriftX) > 0.0001 || Math.abs(avgDriftY) > 0.0001) {
+      outPath.translate(new paper.Point(-avgDriftX, -avgDriftY));
+    }
+  }
+
+  // Apply the x/y position offset so the deformed geometry can be moved via
+  // the GimbalHandles drag (which writes to x/y params).
+  if (offsetX !== 0 || offsetY !== 0) {
+    outPath.translate(new paper.Point(offsetX, offsetY));
   }
 
   const pathData = outPath.pathData;
