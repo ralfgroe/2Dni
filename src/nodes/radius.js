@@ -44,7 +44,11 @@ export function radiusRuntime(params, inputs) {
     if (radius <= 0) return inputGeo;
 
     try {
-      const result = filletPathData(workGeo.pathData, radius, point_selection);
+      // Curve-preserving fillet (Paper-based): only rounds genuine sharp
+      // corners and leaves smooth Bézier curve runs (letter bowls, etc.)
+      // untouched. Falls back to the legacy polyline fillet only if that fails.
+      let result = filletPathDataPaper(workGeo.pathData, radius, point_selection);
+      if (!result) result = filletPathData(workGeo.pathData, radius, point_selection);
       if (!result) return inputGeo;
 
       return {
@@ -70,6 +74,166 @@ export function radiusRuntime(params, inputs) {
 }
 
 const SMOOTH_ANGLE_DEG = 20;
+
+// Curve-preserving corner fillet built on Paper.js. Unlike the legacy polyline
+// filletPathData (which discards Bézier handles and treats every anchor as a
+// polygon vertex — shattering smooth glyph curves into facets), this walks each
+// contour's SEGMENTS, rounds only the genuinely sharp corners, and leaves the
+// smooth curve runs (letter bowls, arcs) completely intact. Corners are indexed
+// with a single global counter across all contours so the indices line up with
+// extractPoints() and the Point Selection UI.
+function filletPathDataPaper(pathData, radius, pointSel) {
+  ensurePaper();
+  let compound;
+  try {
+    compound = new paper.CompoundPath(pathData);
+  } catch {
+    return null;
+  }
+  const children = (compound.children && compound.children.length)
+    ? compound.children
+    : [compound];
+  if (!children.length || !children[0].segments) { compound.remove(); return null; }
+
+  // Total segment count for '*' selection parsing (matches extractPoints).
+  let totalSegs = 0;
+  for (const ch of children) totalSegs += (ch.segments ? ch.segments.length : 0);
+  const selected = parsePointSelection(pointSel, totalSegs);
+
+  const out = new paper.CompoundPath({ insert: false });
+  let globalIdx = 0;
+
+  for (const child of children) {
+    const n = child.segments ? child.segments.length : 0;
+    if (n < 2) { globalIdx += n; continue; }
+
+    // Work on a clone so we can freely divide curves without disturbing others.
+    const work = child.clone({ insert: false });
+    const closed = work.closed;
+
+    // Decide which corners to round (by original segment index), and how far
+    // back along each adjacent curve the tangency points sit. We compute this
+    // on the ORIGINAL geometry, then apply via curve splitting so handles on the
+    // untouched parts of neighboring curves stay correct.
+    const rounds = []; // { i, off }
+    for (let i = 0; i < n; i++) {
+      const idx = globalIdx + i;
+      const cornerAngle = paperCornerAngle(work, i);
+      if (!(cornerAngle > SMOOTH_ANGLE_DEG)) continue;
+      if (!selected.has(idx)) continue;
+      if (!closed && (i === 0 || i === n - 1)) continue;
+
+      const curves = work.curves;
+      const cIn = curves[(i - 1 + curves.length) % curves.length];
+      const cOut = curves[i % curves.length];
+      if (!cIn || !cOut) continue;
+
+      const tanHalf = Math.tan((cornerAngle * Math.PI / 180) / 2) || 0.001;
+      const wanted = radius / tanHalf;
+      const off = Math.min(wanted, cIn.length * 0.45, cOut.length * 0.45);
+      if (off > 0.01) rounds.push({ i, off });
+    }
+
+    if (rounds.length === 0) {
+      out.addChild(work);
+      globalIdx += n;
+      continue;
+    }
+
+    // For each rounded corner, split the incoming curve at (len - off) and the
+    // outgoing curve at (off). Track the corner segment (to remove) and its two
+    // new neighbor tangency segments (to bridge with a rounding arc). We resolve
+    // everything by segment IDENTITY (the corner's Segment object) so divides in
+    // one place don't invalidate the others.
+    const cornerSegs = rounds.map((r) => ({ seg: work.segments[r.i], off: r.off }));
+
+    for (const c of cornerSegs) {
+      const seg = c.seg;
+      const path = seg.path;
+      if (!path) continue;
+      const curves = path.curves;
+      const si = seg.index;
+      const cIn = curves[(si - 1 + curves.length) % curves.length];
+      const cOut = curves[si % curves.length];
+      if (!cIn || !cOut) continue;
+
+      // Tangency point locations (as CurveLocation) before we mutate.
+      const locA = cIn.getLocationAt(Math.max(0, cIn.length - c.off));
+      const locB = cOut.getLocationAt(Math.min(cOut.length, c.off));
+      if (!locA || !locB) continue;
+
+      // Divide creates real segments at those points with correct handles on the
+      // preserved sub-curves. Divide the later one first isn't needed since they
+      // live on different curves around the same corner.
+      const segA = cIn.divideAtTime ? divideAtLocation(cIn, locA) : null;
+      // cOut may have shifted index after the previous divide; re-fetch via seg.
+      const cOut2 = seg.path.curves[seg.index % seg.path.curves.length];
+      const locB2 = cOut2 ? cOut2.getLocationAt(Math.min(cOut2.length, c.off)) : null;
+      const segB = (cOut2 && locB2) ? divideAtLocation(cOut2, locB2) : null;
+      if (!segA || !segB) continue;
+
+      // Remove the original corner anchor and connect segA -> segB with a
+      // circular-arc-like cubic. The KEY to getting both convex AND concave
+      // corners right is to aim both bridge handles at the ORIGINAL corner apex
+      // (the point we're about to remove): the arc then always bulges toward the
+      // corner, tucking in on convex corners and out on concave ones — exactly
+      // like a real fillet. (Reading the trimmed tangents instead flips the arc
+      // the wrong way on concave junctions, which produced the pinched notch.)
+      const apex = seg.point.clone();
+      const dA = apex.subtract(segA.point);   // segA -> corner
+      const dB = apex.subtract(segB.point);    // segB -> corner
+      const lenA = dA.length, lenB = dB.length;
+      seg.remove();
+      if (lenA > 1e-6 && lenB > 1e-6) {
+        // Kappa for a quarter-circle-ish arc; scale by each side's distance to
+        // the apex so the handles stay tangent to the trimmed curves.
+        const k = 0.5522847498;
+        segA.handleOut = dA.multiply(k);
+        segB.handleIn = dB.multiply(k);
+      }
+    }
+
+    out.addChild(work);
+    globalIdx += n;
+  }
+
+  const pathDataOut = out.pathData;
+  const b = out.bounds;
+  const bounds = { x: b.x, y: b.y, width: b.width, height: b.height };
+  out.remove();
+  compound.remove();
+  if (!pathDataOut) return null;
+  return { pathData: pathDataOut, bounds };
+}
+
+// Divide a curve at a CurveLocation and return the newly created Segment (the
+// shared anchor between the two resulting curves), or the nearest existing one.
+function divideAtLocation(curve, loc) {
+  const newCurve = curve.divideAt(loc);
+  // divideAt returns the curve after the split; its segment1 is the new anchor.
+  if (newCurve && newCurve.segment1) return newCurve.segment1;
+  // If no split happened (loc at an endpoint), return the closest endpoint seg.
+  return curve.segment2 || curve.segment1;
+}
+
+
+// Angle (degrees) between the incoming and outgoing curve tangents at segment i.
+// 180 = perfectly smooth/straight-through; small = a sharp corner. Mirrors
+// geometryPoints.getCornerAngle so sharp detection is identical.
+function paperCornerAngle(childPath, segIndex) {
+  const curves = childPath.curves;
+  if (!curves) return 180;
+  const n = curves.length;
+  if (n < 2) return 180;
+  const curveIn = curves[(segIndex - 1 + n) % n];
+  const curveOut = curves[segIndex % n];
+  if (!curveIn || !curveOut) return 180;
+  const tanIn = curveIn.getTangentAtTime(1);
+  const tanOut = curveOut.getTangentAtTime(0);
+  if (tanIn.length < 1e-4 || tanOut.length < 1e-4) return 180;
+  const dot = tanIn.dot(tanOut) / (tanIn.length * tanOut.length);
+  return Math.acos(Math.max(-1, Math.min(1, dot))) * 180 / Math.PI;
+}
 
 function parsePathPoints(pathData) {
   const points = [];

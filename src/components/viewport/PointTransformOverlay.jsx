@@ -80,7 +80,14 @@ export default function PointTransformOverlay({ nodeId, screenToSvg, edges, resu
     [sourceGeo, offsets, scale, scaleIndices]
   );
 
-  const selectionRef = useRef(new Set());
+  const selectionRef = useRef(null);
+  // Initialize (and keep in sync with) the persisted selection so the sliders —
+  // which read scale_points — always know which points are selected, even after
+  // the overlay remounts. Without this the ref could hold a selection that was
+  // never written to scale_points, so the Offset sliders would silently no-op.
+  if (selectionRef.current === null) {
+    selectionRef.current = new Set(scaleIndices);
+  }
   const [selVersion, setSelVersion] = useState(0);
   const selectedPts = selectionRef.current;
 
@@ -103,6 +110,9 @@ export default function PointTransformOverlay({ nodeId, screenToSvg, edges, resu
     if (!wasSelected) {
       sel.add(idx);
       setSelVersion(v => v + 1);
+      // Persist immediately so the Offset sliders (which read scale_points) work
+      // even if the user never drags — a plain click should select the point.
+      syncScalePoints(sel);
     }
 
     const startSvg = screenToSvg(e.clientX, e.clientY);
@@ -117,10 +127,17 @@ export default function PointTransformOverlay({ nodeId, screenToSvg, edges, resu
 
     const onMove = (me) => {
       const cur = screenToSvg(me.clientX, me.clientY);
-      const dx = cur.x - startSvg.x;
-      const dy = cur.y - startSvg.y;
+      let dx = cur.x - startSvg.x;
+      let dy = cur.y - startSvg.y;
       if (!didDrag && (Math.abs(dx) > 2 || Math.abs(dy) > 2)) didDrag = true;
       if (!didDrag) return;
+
+      // Shift constrains the move to the dominant axis (horizontal OR vertical),
+      // matching the Illustrator-style shift-constrain used elsewhere.
+      if (me.shiftKey) {
+        if (Math.abs(dx) >= Math.abs(dy)) dy = 0;
+        else dx = 0;
+      }
 
       const { enabled: isAnim, currentFrame: frame, keyframes: kfs, setKeyframe: setKf } = useAnimationStore.getState();
       const nodeKfs = kfs[nodeId] || {};

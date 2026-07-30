@@ -17,26 +17,21 @@ export function pointtransformRuntime(params, inputs) {
   })();
 
   const scale = params.scale ?? 1;
-  const offsetX = params.offset_x ?? 0;
-  const offsetY = params.offset_y ?? 0;
   const selectedStr = params.scale_points || '';
   const scaleIndices = selectedStr
     .split(',')
     .map(x => parseInt(x, 10))
     .filter(x => !isNaN(x));
 
-  const selectedSet = new Set(scaleIndices.map(String));
-
+  // `point_offsets` is the single source of truth for per-point moves: both the
+  // viewport drag handler and the Offset X/Y sliders write each selected point's
+  // cumulative [dx, dy] into it. We simply apply every stored offset — no need to
+  // re-derive from the shared offset_x/offset_y scalars (which previously clobbered
+  // per-point drag data and dropped points whenever the sliders read back as 0,
+  // making the node appear to "do nothing").
   const offsets = {};
   for (const [k, v] of Object.entries(storedOffsets)) {
-    if (!selectedSet.has(k)) {
-      offsets[k] = v;
-    }
-  }
-  if (scaleIndices.length > 0 && (offsetX !== 0 || offsetY !== 0)) {
-    for (const idx of scaleIndices) {
-      offsets[String(idx)] = [offsetX, offsetY];
-    }
+    if (Array.isArray(v) && (v[0] !== 0 || v[1] !== 0)) offsets[k] = v;
   }
 
   const hasOffsets = Object.keys(offsets).length > 0;

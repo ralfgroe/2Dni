@@ -56,7 +56,18 @@ export default memo(function GraphNode({ id, data, selected }) {
   // display name and a title-bar tint to mark special points in the flow.
   const params = data.params || {};
   const customName = typeof params.node_name === 'string' ? params.node_name.trim() : '';
-  const titleLabel = customName || definition.label;
+  // For a Text node, fall back to showing its actual content on the label so the
+  // graph is self-documenting ("which node holds which word?"). Truncated to fit
+  // the fixed node width; a custom node_name still wins.
+  let contentLabel = '';
+  if (!customName && definition.id === 'text') {
+    const raw = typeof params.content === 'string' ? params.content.replace(/\s+/g, ' ').trim() : '';
+    if (raw) contentLabel = raw.length > 18 ? `${raw.slice(0, 18)}…` : raw;
+  }
+  const titleLabel = customName || contentLabel || definition.label;
+  const titleTooltip = (!customName && contentLabel && contentLabel.endsWith('…'))
+    ? params.content
+    : undefined;
   const nodeColor = typeof params.node_color === 'string' ? params.node_color.trim() : '';
   const useTint = nodeColor && nodeColor.toLowerCase() !== '#ffffff' && nodeColor !== 'none';
   const titleStyle = useTint
@@ -138,7 +149,7 @@ export default memo(function GraphNode({ id, data, selected }) {
           onClick={handleDisplayClick}
           title={isDisplay ? 'Remove display flag' : 'Set as display node'}
         />
-        <div className="graph-node-title" style={titleStyle}>
+        <div className="graph-node-title" style={titleStyle} title={titleTooltip}>
           {titleLabel}
         </div>
       </div>
